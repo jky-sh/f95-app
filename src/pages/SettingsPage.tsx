@@ -42,6 +42,15 @@ import {
 } from '../lib/overlayHotkey';
 import { LoadingState } from '../components/ui/LoadingState';
 import { useScrollSpy } from '../hooks/useScrollSpy';
+import {
+  loadAppRuntimeSettings,
+  saveAppRuntimeSettings,
+  subscribeAppRuntimeSettings,
+  type AppRuntimeSettings,
+} from '../lib/appRuntimeSettings';
+import { checkForAppUpdateInteractive } from '../lib/appUpdater';
+import { getChangelogEntries } from '../lib/changelog';
+import { syncTrayIcon } from '../lib/tray';
 
 interface AppInfo {
   name: string;
@@ -99,6 +108,10 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
     return false;
   }
   const [devDebug, setDevDebug] = useState<DevDebugSettings | null>(null);
+  const [runtime, setRuntime] = useState<AppRuntimeSettings | null>(null);
+  const [updateBusy, setUpdateBusy] = useState(false);
+  const [changelogExpanded, setChangelogExpanded] = useState(false);
+  const changelogEntries = useMemo(() => getChangelogEntries(), []);
   const [experimental, setExperimental] = useState<ExperimentalSettings | null>(null);
   const [runningCount, setRunningCount] = useState(0);
   const [overlayAnchorProbe, setOverlayAnchorProbe] = useState<string | null>(null);
@@ -208,6 +221,11 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
     if (!isDevDebugPanelAvailable()) return;
     void loadDevDebugSettings().then(setDevDebug);
     return subscribeDevDebugSettings(setDevDebug);
+  }, []);
+
+  useEffect(() => {
+    void loadAppRuntimeSettings().then(setRuntime);
+    return subscribeAppRuntimeSettings(setRuntime);
   }, []);
 
   useEffect(() => {
@@ -1738,6 +1756,60 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
           <section id="settings-system" className="settings-section">
             <SectionHeader title={t('settings.nav.system')} />
 
+            {runtime && (
+              <>
+                <div className="settings-card">
+                  <h3 className="settings-card-title">{t('settings.updates.section')}</h3>
+                  <p className="settings-card-hint">{t('settings.updates.hint')}</p>
+                  <div className="settings-checklist">
+                    <label className="settings-check-row">
+                      <input
+                        type="checkbox"
+                        checked={runtime.autoUpdateEnabled}
+                        onChange={(e) =>
+                          void saveAppRuntimeSettings({ autoUpdateEnabled: e.target.checked })
+                        }
+                      />
+                      <span>{t('settings.updates.auto')}</span>
+                    </label>
+                  </div>
+                  <div className="settings-offline-actions" style={{ marginTop: 12 }}>
+                    <button
+                      type="button"
+                      className="settings-btn"
+                      disabled={updateBusy || isOffline}
+                      onClick={() => {
+                        setUpdateBusy(true);
+                        void checkForAppUpdateInteractive(t).finally(() => setUpdateBusy(false));
+                      }}
+                    >
+                      {updateBusy ? t('settings.updates.checking') : t('settings.updates.checkNow')}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="settings-card">
+                  <h3 className="settings-card-title">{t('settings.tray.section')}</h3>
+                  <p className="settings-card-hint">{t('settings.tray.hint')}</p>
+                  <div className="settings-checklist">
+                    <label className="settings-check-row">
+                      <input
+                        type="checkbox"
+                        checked={runtime.trayIconEnabled}
+                        onChange={(e) => {
+                          const enabled = e.target.checked;
+                          void saveAppRuntimeSettings({ trayIconEnabled: enabled }).then(() =>
+                            syncTrayIcon(t),
+                          );
+                        }}
+                      />
+                      <span>{t('settings.tray.enabled')}</span>
+                    </label>
+                  </div>
+                </div>
+              </>
+            )}
+
             <div id="settings-offline" className="settings-card">
               <h3 className="settings-card-title">{t('settings.offline.section')}</h3>
               <p className="settings-card-hint">{t('settings.offline.hint')}</p>
@@ -1879,6 +1951,53 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                   <dd>{info?.tauriVersion ?? '…'}</dd>
                 </div>
               </dl>
+            </div>
+
+            <div className="settings-card">
+              <h3 className="settings-card-title">{t('settings.changelog.section')}</h3>
+              <p className="settings-card-hint">{t('settings.changelog.hint')}</p>
+              <div className="settings-changelog">
+                {(changelogExpanded ? changelogEntries : changelogEntries.slice(0, 3)).map(
+                  (entry) => (
+                    <article key={`${entry.version}-${entry.date ?? 'na'}`} className="settings-changelog-entry">
+                      <header className="settings-changelog-head">
+                        <h4 className="settings-changelog-version">
+                          {entry.version === 'Unreleased'
+                            ? t('settings.changelog.unreleased')
+                            : `v${entry.version.replace(/^v/i, '')}`}
+                        </h4>
+                        {entry.date && (
+                          <time className="settings-changelog-date" dateTime={entry.date}>
+                            {entry.date}
+                          </time>
+                        )}
+                      </header>
+                      {entry.sections.map((section) => (
+                        <div key={section.title} className="settings-changelog-section">
+                          <h5 className="settings-changelog-section-title">{section.title}</h5>
+                          <ul className="settings-changelog-list">
+                            {section.items.map((item) => (
+                              <li key={item}>{item}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </article>
+                  ),
+                )}
+              </div>
+              {changelogEntries.length > 3 && (
+                <button
+                  type="button"
+                  className="settings-toolbar-btn settings-toolbar-btn-ghost"
+                  style={{ marginTop: 12 }}
+                  onClick={() => setChangelogExpanded((v) => !v)}
+                >
+                  {changelogExpanded
+                    ? t('settings.changelog.showLess')
+                    : t('settings.changelog.showMore')}
+                </button>
+              )}
             </div>
           </section>
 

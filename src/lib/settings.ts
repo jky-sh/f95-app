@@ -30,6 +30,9 @@ export const KEY_DEV_DEBUG_COLLAPSED = 'dev_debug_collapsed';
 export const KEY_OFFLINE_MODE_MANUAL = 'offline_mode_manual';
 export const KEY_PROFILE_CACHE = 'profile_cache';
 
+export const KEY_AUTO_UPDATE_ENABLED = 'auto_update_enabled';
+export const KEY_TRAY_ICON_ENABLED = 'tray_icon_enabled';
+
 export const KEY_EXP_OVERLAY_ENABLED = 'exp_overlay_enabled';
 export const KEY_EXP_OVERLAY_HOTKEY = 'exp_overlay_hotkey';
 export const KEY_EXP_OVERLAY_DISPLAY_MODE = 'exp_overlay_display_mode';

@@ -17,6 +17,10 @@ import { GameOverlayRoot } from './components/overlay/GameOverlayRoot';
 import { OverlayHintRoot } from './components/overlay/OverlayHintRoot';
 import { loadDevDebugSettings } from './lib/devDebugSettings';
 import { startOverlayHotkeySync } from './lib/overlayHotkey';
+import { loadAppRuntimeSettings } from './lib/appRuntimeSettings';
+import { runStartupUpdateCheck } from './lib/appUpdater';
+import { startTrayIconSync } from './lib/tray';
+import { tStandalone } from './lib/i18n';
 import type { ProfileDto } from './types';
 import './App.css';
 import './styles/store-filter.css';
@@ -24,6 +28,7 @@ import './styles/offline.css';
 import './styles/context-menu.css';
 import './styles/notifications.css';
 import './styles/settings-store.css';
+import './styles/settings-changelog.css';
 import './styles/nav-accent.css';
 import './styles/custom-video-fullscreen.css';
 
@@ -114,6 +119,20 @@ function App() {
   useEffect(() => {
     if (appWindowKind === 'login' || appWindowKind === 'overlay' || appWindowKind === 'overlay-hint') return;
     void loadDevDebugSettings();
+  }, []);
+
+  useEffect(() => {
+    if (appWindowKind !== 'main') return;
+    void loadAppRuntimeSettings();
+    return startTrayIconSync(tStandalone);
+  }, []);
+
+  useEffect(() => {
+    if (appWindowKind !== 'main') return;
+    const timer = window.setTimeout(() => {
+      void runStartupUpdateCheck(tStandalone);
+    }, 4_000);
+    return () => window.clearTimeout(timer);
   }, []);
 
   useEffect(() => {
