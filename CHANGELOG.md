@@ -15,6 +15,11 @@ together when cutting a release:
 
 ## [Unreleased]
 
+### Added
+- Auto-update from GitHub Releases, with a Settings toggle to disable automatic checks.
+- In-app changelog for app versions under Settings → System.
+- System tray icon with show/quit actions and a Settings toggle (close hides to tray when enabled).
+
 ## [1.0.1] - 2026-08-05
 
 ### Improved

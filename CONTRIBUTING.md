@@ -75,6 +75,8 @@ npm --prefix src-tauri/sidecar test
 
 Architecture details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
+App auto-update / GitHub Releases signing: [docs/UPDATES.md](docs/UPDATES.md)
+
 ---
 
 ## Branches
