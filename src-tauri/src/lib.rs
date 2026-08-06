@@ -8,13 +8,13 @@ mod extraction;
 mod game_window;
 mod gdrive;
 mod launcher;
-mod overlay_anchor;
-mod overlay_hotkey;
 mod media_preview;
 mod media_scan;
 mod mega;
 mod migrations;
 mod mover;
+mod overlay_anchor;
+mod overlay_hotkey;
 mod remote_image_preview;
 mod save_migration;
 mod shortcuts;
@@ -26,20 +26,18 @@ use commands::{
     default_downloads_path, delete_install_dir, delete_path, disk_info, download_cancel,
     download_continue_captcha, download_continue_choice, download_start, extract_archive,
     extract_cbz_preview, fetch_alerts_list, fetch_alerts_popup, fetch_rss_feed, game_detail,
-    get_following, get_profile, has_local_session, is_logged_in,
-    launch_game, login, login_mega, login_uploadhaven, logout, migrate_saves, move_install_cancel,
-    move_install_start, open_captcha_window, ping_sidecar, resolve_media_preview,
-    resolve_remote_image_preview, restart_to_login, reveal_in_explorer, running_games, sam_list,
-    sam_options, sam_tag_search, scan_install_media, set_buzzheavier_account, set_datanodes_key,
-    set_gofile_credentials, set_mega_session, set_mixdrop_credentials, set_uploadhaven_session,
-    stop_game, verify_buzzheavier_account, verify_datanodes_key, verify_gofile_credentials,
-    verify_mega_session, verify_mixdrop_credentials, verify_uploadhaven_session,
-    overlay_clear_context, overlay_ensure, overlay_get_anchor_status, overlay_get_context,
-    init_overlay_windows,
-    overlay_hide, overlay_hide_game_hint, overlay_is_visible, overlay_set_context, overlay_show,
-    overlay_get_game_hint_payload, overlay_pause_follow, overlay_show_game_hint,
-    overlay_sync_compact_from_window,
-    overlay_sync_hotkey, overlay_toggle, AppState,
+    get_following, get_profile, has_local_session, init_overlay_windows, is_logged_in, launch_game,
+    login, login_mega, login_uploadhaven, logout, migrate_saves, move_install_cancel,
+    move_install_start, open_captcha_window, overlay_clear_context, overlay_ensure,
+    overlay_get_anchor_status, overlay_get_context, overlay_get_game_hint_payload, overlay_hide,
+    overlay_hide_game_hint, overlay_is_visible, overlay_pause_follow, overlay_set_context,
+    overlay_show, overlay_show_game_hint, overlay_sync_compact_from_window, overlay_sync_hotkey,
+    overlay_toggle, ping_sidecar, resolve_media_preview, resolve_remote_image_preview,
+    restart_to_login, reveal_in_explorer, running_games, sam_list, sam_options, sam_tag_search,
+    scan_install_media, set_buzzheavier_account, set_datanodes_key, set_gofile_credentials,
+    set_mega_session, set_mixdrop_credentials, set_uploadhaven_session, stop_game,
+    verify_buzzheavier_account, verify_datanodes_key, verify_gofile_credentials,
+    verify_mega_session, verify_mixdrop_credentials, verify_uploadhaven_session, AppState,
 };
 use tauri::{Manager, RunEvent};
 use tauri_plugin_sql::{Builder as SqlBuilder, Migration, MigrationKind};
@@ -92,6 +90,7 @@ pub fn run() {
     ];
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
@@ -122,6 +121,9 @@ pub fn run() {
             .build(),
         )
         .setup(|app| {
+            #[cfg(desktop)]
+            app.handle()
+                .plugin(tauri_plugin_updater::Builder::new().build())?;
             let state = build_state(&app.handle())?;
             app.manage(state);
             if let Err(e) = init_overlay_windows(&app.handle()) {

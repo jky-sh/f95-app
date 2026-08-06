@@ -63,8 +63,20 @@
       }
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVDOTMzNEU4NzlGMkFFRQpSV1R1S3ArSFRqUEpEcFpBclo0T3BBWG9jNFVwN2hydnRkQjBBZFk3Vzl4ZFcwUTc2WlVhUksrUgo=",
+      "endpoints": [
+        "https://github.com/jky-sh/f95-app/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "targets": "all",
     "publisher": "F95 App",
     "copyright": "Copyright © 2026 F95 App",

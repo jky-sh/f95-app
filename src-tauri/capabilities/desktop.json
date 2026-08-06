@@ -1,17 +1,13 @@
 {
   "identifier": "desktop-capability",
-  "platforms": [
-    "macOS",
-    "windows",
-    "linux"
-  ],
-  "windows": [
-    "main",
-    "game-overlay",
-    "overlay-hint",
-    "overlay-browser"
-  ],
+  "platforms": ["macOS", "windows", "linux"],
+  "windows": ["main", "login", "game-overlay", "overlay-hint", "overlay-browser"],
   "permissions": [
-    "global-shortcut:default"
+    "global-shortcut:default",
+    "updater:default",
+    "process:default",
+    "core:tray:default",
+    "core:menu:default"
   ]
 }
+
