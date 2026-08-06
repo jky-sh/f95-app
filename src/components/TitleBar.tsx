@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useT } from '../lib/i18n';
+import { handleTitleBarClose } from '../lib/tray';
 
 /**
  * Custom title bar — replaces Windows' native chrome (we set
@@ -31,7 +32,7 @@ export function TitleBar() {
     const win = getCurrentWindow();
     if (action === 'minimize') void win.minimize();
     else if (action === 'toggleMaximize') void win.toggleMaximize();
-    else void win.close();
+    else void handleTitleBarClose();
   }
 
   return (
