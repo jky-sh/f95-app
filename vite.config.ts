@@ -17,6 +17,10 @@ export default defineConfig(async () => ({
     port: 1420,
     strictPort: true,
     host: host || false,
+    // Allow importing root CHANGELOG.md into the settings UI.
+    fs: {
+      allow: ["."],
+    },
     hmr: host
       ? {
           protocol: "ws",

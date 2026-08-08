@@ -1,3 +1,4 @@
+mod achievements;
 mod bridge;
 mod buzzheavier;
 mod commands;
@@ -8,13 +9,13 @@ mod extraction;
 mod game_window;
 mod gdrive;
 mod launcher;
-mod overlay_anchor;
-mod overlay_hotkey;
 mod media_preview;
 mod media_scan;
 mod mega;
 mod migrations;
 mod mover;
+mod overlay_anchor;
+mod overlay_hotkey;
 mod remote_image_preview;
 mod save_migration;
 mod shortcuts;
@@ -22,24 +23,25 @@ mod sidecar;
 mod uploadhaven;
 
 use commands::{
-    build_state, check_network, close_captcha_window, complete_login, create_game_shortcuts,
+    achievement_toast, achievements_configure, achievements_scan_now, build_state, check_network,
+    close_captcha_window, complete_login, create_game_shortcuts,
     default_downloads_path, delete_install_dir, delete_path, disk_info, download_cancel,
     download_continue_captcha, download_continue_choice, download_start, extract_archive,
     extract_cbz_preview, fetch_alerts_list, fetch_alerts_popup, fetch_rss_feed, game_detail,
-    get_following, get_profile, has_local_session, is_logged_in,
-    launch_game, login, login_mega, login_uploadhaven, logout, migrate_saves, move_install_cancel,
-    move_install_start, open_captcha_window, ping_sidecar, resolve_media_preview,
-    resolve_remote_image_preview, restart_to_login, reveal_in_explorer, running_games, sam_list,
-    sam_options, sam_tag_search, scan_install_media, set_buzzheavier_account, set_datanodes_key,
-    set_gofile_credentials, set_mega_session, set_mixdrop_credentials, set_uploadhaven_session,
-    stop_game, verify_buzzheavier_account, verify_datanodes_key, verify_gofile_credentials,
-    verify_mega_session, verify_mixdrop_credentials, verify_uploadhaven_session,
-    overlay_clear_context, overlay_ensure, overlay_get_anchor_status, overlay_get_context,
-    init_overlay_windows,
-    overlay_hide, overlay_hide_game_hint, overlay_is_visible, overlay_set_context, overlay_show,
-    overlay_get_game_hint_payload, overlay_pause_follow, overlay_show_game_hint,
-    overlay_sync_compact_from_window,
-    overlay_sync_hotkey, overlay_toggle, AppState,
+    get_following, get_member_profile, get_profile, has_local_session, init_overlay_windows,
+    is_logged_in, launch_game,
+    login, login_mega, login_uploadhaven, logout, migrate_saves, move_install_cancel,
+    move_install_start, open_captcha_window, overlay_clear_context, overlay_ensure,
+    overlay_get_anchor_status, overlay_get_context, overlay_get_game_hint_payload, overlay_hide,
+    overlay_hide_game_hint, overlay_is_visible, overlay_pause_follow, overlay_set_context,
+    overlay_show, overlay_show_game_hint, overlay_sync_compact_from_window, overlay_sync_hotkey,
+    overlay_toggle, ping_sidecar, resolve_media_preview, resolve_remote_image_preview,
+    restart_to_login, reveal_in_explorer, running_games, sam_list, sam_options, sam_tag_search,
+    scan_install_media, set_buzzheavier_account, set_datanodes_key, set_gofile_credentials,
+    set_mega_session, set_mixdrop_credentials, set_uploadhaven_session, steam_detect_appid,
+    steam_fetch_achievement_schema, steam_search_games, stop_game,
+    verify_buzzheavier_account, verify_datanodes_key, verify_gofile_credentials,
+    verify_mega_session, verify_mixdrop_credentials, verify_uploadhaven_session, AppState,
 };
 use tauri::{Manager, RunEvent};
 use tauri_plugin_sql::{Builder as SqlBuilder, Migration, MigrationKind};
@@ -89,9 +91,28 @@ pub fn run() {
             sql: migrations::V7_NOTIFICATIONS,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 8,
+            description: "library_collections",
+            sql: migrations::V8_LIBRARY_COLLECTIONS,
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 9,
+            description: "steam_achievements",
+            sql: migrations::V9_STEAM_ACHIEVEMENTS,
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 10,
+            description: "achievements_save_scan",
+            sql: migrations::V10_ACH_SAVE_SCAN,
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
@@ -122,6 +143,9 @@ pub fn run() {
             .build(),
         )
         .setup(|app| {
+            #[cfg(desktop)]
+            app.handle()
+                .plugin(tauri_plugin_updater::Builder::new().build())?;
             let state = build_state(&app.handle())?;
             app.manage(state);
             if let Err(e) = init_overlay_windows(&app.handle()) {
@@ -134,6 +158,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             login,
             get_profile,
+            get_member_profile,
             is_logged_in,
             has_local_session,
             check_network,
@@ -200,7 +225,13 @@ pub fn run() {
             overlay_get_game_hint_payload,
             overlay_hide_game_hint,
             overlay_pause_follow,
-            overlay_sync_compact_from_window
+            overlay_sync_compact_from_window,
+            achievements_configure,
+            achievements_scan_now,
+            achievement_toast,
+            steam_fetch_achievement_schema,
+            steam_search_games,
+            steam_detect_appid
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")

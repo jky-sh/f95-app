@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { openUrl } from '@tauri-apps/plugin-opener';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import * as ipc from '../lib/ipc';
 import { useT } from '../lib/i18n';
 import { FriendCardGridSkeleton } from '../components/ui/FriendCardSkeleton';
@@ -17,9 +17,11 @@ type State =
 
 export function FriendsPage() {
   const { t } = useT();
+  const navigate = useNavigate();
   const { isOffline } = useOffline();
   const { openContextMenu } = useContextMenu();
   const [state, setState] = useState<State>({ kind: 'loading' });
+  const [search, setSearch] = useState('');
 
   const reload = useCallback(async () => {
     setState({ kind: 'loading' });
@@ -40,12 +42,27 @@ export function FriendsPage() {
     reload();
   }, [reload]);
 
+  const visible = useMemo(() => {
+    if (state.kind !== 'ready') return [];
+    const sorted = [...state.users].sort((a, b) =>
+      a.username.localeCompare(b.username, undefined, { sensitivity: 'base' }),
+    );
+    const q = search.trim().toLowerCase();
+    if (!q) return sorted;
+    return sorted.filter((u) => u.username.toLowerCase().includes(q));
+  }, [state, search]);
+
   return (
     <OfflineGate>
     <div style={pageStyle}>
       <header style={headerStyle}>
         <div>
           <h1 style={titleStyle}>{t('friends.title')}</h1>
+          {state.kind === 'ready' && state.users.length > 0 && (
+            <div style={subtitleStyle}>
+              {t('friends.subtitle', { count: state.users.length })}
+            </div>
+          )}
         </div>
         <button
           onClick={reload}
@@ -62,6 +79,16 @@ export function FriendsPage() {
           )}
         </button>
       </header>
+
+      {state.kind === 'ready' && state.users.length > 0 && (
+        <input
+          type="text"
+          value={search}
+          placeholder={t('friends.searchPlaceholder')}
+          onChange={(e) => setSearch(e.target.value)}
+          style={searchInput}
+        />
+      )}
 
       {state.kind === 'error' && <div style={errorBox}>{state.message}</div>}
 
@@ -80,15 +107,23 @@ export function FriendsPage() {
 
       {state.kind === 'ready' && state.users.length > 0 && (
         <div style={gridStyle}>
-          {state.users.map((u) => (
+          {visible.map((u) => (
             <button
               key={u.userId}
-              onClick={() => openUrl(u.profileUrl)}
+              className="friend-card"
+              onClick={() => navigate(`/friends/${u.userId}`)}
               onContextMenu={(e) =>
-                openContextMenu(e, buildFriendsMenu(u, { isOffline, t }))
+                openContextMenu(
+                  e,
+                  buildFriendsMenu(u, {
+                    isOffline,
+                    t,
+                    onViewProfile: () => navigate(`/friends/${u.userId}`),
+                  }),
+                )
               }
               style={cardStyle}
-              title={t('friends.openProfile')}
+              title={t('friends.viewProfile')}
             >
               <div style={avatarWrap}>
                 {u.avatarUrl ? (
@@ -126,6 +161,23 @@ const headerStyle: React.CSSProperties = {
   marginBottom: 16,
 };
 const titleStyle: React.CSSProperties = { fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', margin: 0 };
+const subtitleStyle: React.CSSProperties = {
+  marginTop: 4,
+  fontSize: 12,
+  color: 'var(--text-muted)',
+};
+const searchInput: React.CSSProperties = {
+  width: '100%',
+  boxSizing: 'border-box',
+  padding: '7px 10px',
+  background: 'var(--bg-elevated)',
+  border: '1px solid var(--border)',
+  borderRadius: 3,
+  color: 'var(--text-secondary)',
+  fontSize: 13,
+  outline: 'none',
+  marginBottom: 14,
+};
 const refreshBtn: React.CSSProperties = {
   background: 'transparent',
   color: 'var(--text-tertiary)',

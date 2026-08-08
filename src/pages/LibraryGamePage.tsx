@@ -14,6 +14,7 @@ import { useRunningGames } from '../contexts/RunningGames';
 import { useOffline } from '../contexts/Offline';
 import { InstallLocationModal } from '../components/InstallLocationModal';
 import { MoveProgressModal } from '../components/MoveProgressModal';
+import { GameAchievementsSection } from '../components/game/GameAchievementsSection';
 import { GameDescription } from '../components/game/GameDescription';
 import { ScreenshotGallery } from '../components/game/ScreenshotGallery';
 import { clearGridPreviewCache } from '../lib/gridPreviewQueue';
@@ -578,6 +579,14 @@ export function LibraryGamePage() {
                 style={{ fontSize: 13.5, lineHeight: 1.65, wordBreak: 'break-word' }}
               />
             </GameDetailSection>
+          )}
+
+          {isGame && (
+            <GameAchievementsSection
+              game={g}
+              storeDetail={storeDetail}
+              onChanged={() => void reload()}
+            />
           )}
 
           <GameDetailSection title={t('libdetail.section.notes')}>

@@ -1,3 +1,4 @@
+mod achievements;
 mod alerts;
 mod auth;
 mod captcha;
@@ -12,6 +13,7 @@ mod sam;
 mod state;
 mod window;
 
+pub use achievements::*;
 pub use alerts::*;
 pub use auth::*;
 pub use captcha::*;

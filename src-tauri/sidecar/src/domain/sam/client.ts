@@ -4,6 +4,11 @@ import { log } from '../../logger';
 import { assertNotCloudflareChallenge } from '../../shared/cloudflare';
 import { F95_BASE } from '../../shared/constants';
 import { parseRssXml, type RssFeed, type RssFeedItem } from './rss';
+import {
+  buildSearchVariants,
+  mergeSamPages,
+  rankSamPage,
+} from './search';
 
 export type { RssFeed, RssFeedItem };
 
@@ -99,6 +104,53 @@ export class SamClient {
   constructor(private readonly http: BrowserClient) {}
 
   async list(filters: SamFilters): Promise<SamPage> {
+    const rawSearch = filters.search?.trim() ?? '';
+    if (!rawSearch) {
+      return this.fetchList(filters);
+    }
+
+    const variants = buildSearchVariants(rawSearch);
+    const pageNum = filters.page ?? 1;
+    const rows = filters.rows ?? 15;
+
+    // Page > 1: keep a stable normalized query so pagination stays consistent.
+    if (pageNum > 1) {
+      const page = await this.fetchList({ ...filters, search: variants[0] ?? rawSearch });
+      return rankSamPage(page, rawSearch) as SamPage;
+    }
+
+    const collected: SamPage[] = [];
+    for (const variant of variants) {
+      const page = await this.fetchList({ ...filters, search: variant, page: 1 });
+      if (page.items.length === 0 && page.totalRows === 0) continue;
+      collected.push(page);
+
+      // Good enough hit on the preferred variant — rank and return.
+      if (collected.length === 1 && page.items.length >= Math.min(5, rows)) {
+        log(`[sam] search hit with variant="${variant}" rows=${page.totalRows}`);
+        return rankSamPage(page, rawSearch) as SamPage;
+      }
+
+      // After a few fallback variants, merge what we have.
+      if (collected.length >= 3) break;
+    }
+
+    if (collected.length === 0) {
+      return rankSamPage(
+        await this.fetchList({ ...filters, search: variants[0] ?? rawSearch }),
+        rawSearch,
+      ) as SamPage;
+    }
+
+    if (collected.length === 1) {
+      return rankSamPage(collected[0], rawSearch) as SamPage;
+    }
+
+    log(`[sam] search merged ${collected.length} variants for "${rawSearch}"`);
+    return mergeSamPages(collected, rawSearch, rows) as SamPage;
+  }
+
+  private async fetchList(filters: SamFilters): Promise<SamPage> {
     const params = new URLSearchParams();
     params.set('cmd', 'list');
     params.set('cat', filters.category ?? 'games');
@@ -132,6 +184,8 @@ export class SamClient {
 
   /** Autocomplete tags for the filter sidebar (`cmd=tags`). */
   async searchTags(category: SamCategory, search: string): Promise<SamTag[]> {
+    await this.ensureTagCatalog();
+
     const params = new URLSearchParams();
     params.set('cmd', 'tags');
     params.set('cat', category);
@@ -151,7 +205,24 @@ export class SamClient {
         `SAM tags HTTP ${res.status} (body head: ${res.body.slice(0, 200)})`,
       );
     }
-    return normalizeSamTags(res.body, tagCatalogCache);
+
+    const remote = normalizeSamTags(res.body, tagCatalogCache);
+    if (q) {
+      // Merge local catalog matches so typos / partial names still surface.
+      const local = searchCatalogTags(tagCatalogCache, q, 40);
+      return mergeTagLists(remote, local).slice(0, 40);
+    }
+    return remote.length > 0 ? remote : searchCatalogTags(tagCatalogCache, '', 40);
+  }
+
+  private async ensureTagCatalog(): Promise<void> {
+    if (tagCatalogCache.size >= 80) return;
+    try {
+      const fromPage = await this.bootstrapTagCatalog();
+      mergeTagCatalog(fromPage);
+    } catch (err) {
+      log(`[sam] tag catalog ensure skipped: ${(err as Error).message}`);
+    }
   }
 
   /** Latest updates RSS feed (`cmd=rss`). Public — no login required. */
@@ -211,10 +282,13 @@ export class SamClient {
       }
     }
 
-    if (tagCatalogCache.size < 80) {
+    if (tagCatalogCache.size < 200) {
       try {
         const fromPage = await this.bootstrapTagCatalog();
         mergeTagCatalog(fromPage);
+        if (fromPage.size > 0) {
+          log(`[sam] tag catalog size=${tagCatalogCache.size}`);
+        }
       } catch (err) {
         log(`[sam] tag catalog bootstrap skipped: ${(err as Error).message}`);
       }
@@ -257,7 +331,8 @@ export class SamClient {
   }
 }
 
-function normalizeSamTags(body: string, catalog: Map<number, string>): SamTag[] {
+/** @internal Exported for unit tests. */
+export function normalizeSamTags(body: string, catalog: Map<number, string>): SamTag[] {
   let parsed: unknown;
   try {
     parsed = JSON.parse(body);
@@ -273,6 +348,10 @@ function normalizeSamTags(body: string, catalog: Map<number, string>): SamTag[] 
     const tag = toTag(raw, catalog);
     if (!tag || seen.has(tag.id)) continue;
     seen.add(tag.id);
+    // Keep resolving names into the shared catalog for later autocomplete/pills.
+    if (tag.name && !tag.name.startsWith('#')) {
+      catalog.set(tag.id, tag.name);
+    }
     out.push(tag);
   }
   return out.slice(0, 40);
@@ -284,11 +363,34 @@ function extractTagList(msg: unknown): unknown[] {
     const m = msg as Record<string, unknown>;
     if (Array.isArray(m.data)) return m.data;
     if (Array.isArray(m.tags)) return m.tags;
+    // Shape: { "123": "oral sex", "456": "romance" }
+    if (m.tags && typeof m.tags === 'object' && !Array.isArray(m.tags)) {
+      return Object.entries(m.tags as Record<string, unknown>).map(([id, name]) => ({
+        id,
+        name,
+      }));
+    }
+    // Bare id→name map as the message itself.
+    const entries = Object.entries(m);
+    if (
+      entries.length > 0 &&
+      entries.every(([k, v]) => numberOrNull(k) !== null && (typeof v === 'string' || typeof v === 'number'))
+    ) {
+      return entries.map(([id, name]) => ({ id, name: String(name) }));
+    }
   }
   return [];
 }
 
 function toTag(raw: unknown, catalog: Map<number, string>): SamTag | null {
+  // cmd=tags frequently returns plain ids: [107, 162, ...]
+  if (typeof raw === 'number' || typeof raw === 'string') {
+    const id = numberOrNull(raw);
+    if (id === null) return null;
+    const name = catalog.get(id) ?? null;
+    if (!name) return null;
+    return { id, name };
+  }
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const r = raw as Record<string, unknown>;
   const id = numberOrNull(r.id ?? r.tag_id ?? r.tagId);
@@ -297,6 +399,47 @@ function toTag(raw: unknown, catalog: Map<number, string>): SamTag | null {
     stringOrNull(r.name ?? r.tag ?? r.label ?? r.title) ?? catalog.get(id) ?? null;
   if (!name) return null;
   return { id, name };
+}
+
+function searchCatalogTags(
+  catalog: Map<number, string>,
+  query: string,
+  limit: number,
+): SamTag[] {
+  const q = query.trim().toLowerCase();
+  const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
+  const scored: { tag: SamTag; score: number }[] = [];
+
+  for (const [id, name] of catalog) {
+    const lower = name.toLowerCase();
+    let score = 0;
+    if (!q) {
+      score = 1;
+    } else if (lower === q) {
+      score = 100;
+    } else if (lower.startsWith(q)) {
+      score = 80;
+    } else if (lower.includes(q)) {
+      score = 50;
+    } else if (tokens.length > 0 && tokens.every((t) => lower.includes(t))) {
+      score = 40;
+    } else {
+      continue;
+    }
+    scored.push({ tag: { id, name }, score });
+  }
+
+  scored.sort((a, b) => b.score - a.score || a.tag.name.localeCompare(b.tag.name));
+  return scored.slice(0, limit).map((s) => s.tag);
+}
+
+function mergeTagLists(primary: SamTag[], secondary: SamTag[]): SamTag[] {
+  const out = new Map<number, SamTag>();
+  for (const tag of primary) out.set(tag.id, tag);
+  for (const tag of secondary) {
+    if (!out.has(tag.id)) out.set(tag.id, tag);
+  }
+  return [...out.values()];
 }
 
 function mergeTagCatalog(source: Map<number, string>): void {

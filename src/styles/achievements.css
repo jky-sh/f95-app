@@ -1,0 +1,471 @@
+/* Seção de conquistas Steam na página do jogo (biblioteca). */
+
+.game-ach-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.game-ach-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 180px;
+}
+
+.game-ach-progress-text {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.game-ach-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--bg-inset, rgba(0, 0, 0, 0.35));
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.game-ach-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--accent), #d8a02e);
+  transition: width 0.4s ease;
+}
+
+.game-ach-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.game-ach-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.game-ach-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  opacity: 0.72;
+}
+
+.game-ach-row--unlocked {
+  opacity: 1;
+  border-left: 3px solid #d8a02e;
+}
+
+.game-ach-icon {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 4px;
+  object-fit: cover;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.game-ach-icon--locked {
+  filter: grayscale(1) brightness(0.6);
+}
+
+.game-ach-icon--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.game-ach-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.game-ach-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.game-ach-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.game-ach-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.game-ach-when {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.game-ach-rarity {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.game-ach-rarity--rare {
+  color: #e8bc4f;
+}
+
+.game-ach-error {
+  font-size: 12px;
+  color: var(--status-danger-text, #f1a4a4);
+  margin: 8px 0 0;
+}
+
+/* ── Página /achievements + seção do perfil ───────────────────────────── */
+
+.ach-hub-page {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 16px 8px 40px;
+  color: var(--text-secondary);
+}
+
+.ach-hub-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.ach-hub-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ach-hub-overall {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 220px;
+}
+
+.ach-hub-overall .game-ach-bar {
+  flex: 1;
+}
+
+.ach-hub-overall-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.ach-hub-games {
+  list-style: none;
+  margin: 0;
+  padding: 8px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ach-hub-game-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  text-decoration: none;
+  color: inherit;
+}
+
+.ach-hub-game-row:hover {
+  border-color: var(--accent);
+}
+
+.ach-hub-game-thumb {
+  flex-shrink: 0;
+  width: 64px;
+  height: 30px;
+  border-radius: 4px;
+  object-fit: cover;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.ach-hub-game-thumb--empty {
+  background: var(--bg-inset, rgba(0, 0, 0, 0.3));
+}
+
+.ach-hub-game-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ach-hub-game-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ach-hub-game-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.ach-hub-game-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.ach-hub-perfect {
+  font-size: 11px;
+  font-weight: 700;
+  color: #e8bc4f;
+  border: 1px solid #d8a02e;
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+
+/* Feed de desbloqueios (perfil + página) */
+
+.ach-feed {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ach-feed--page {
+  padding: 8px 14px 14px;
+  margin: 0;
+}
+
+.ach-feed-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+}
+
+.ach-feed-icon {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  object-fit: cover;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.ach-feed-icon--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  font-weight: 700;
+}
+
+.ach-feed-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.ach-feed-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ach-feed-game,
+.ach-feed-desc {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ach-feed-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.ach-feed-game-link {
+  font-size: 11.5px;
+  color: var(--accent);
+  text-decoration: none;
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ach-feed-game-link:hover {
+  text-decoration: underline;
+}
+
+.ach-feed-when {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.ach-profile-body {
+  padding: 2px 18px 16px;
+}
+
+.ach-profile-actions {
+  margin-top: 12px;
+}
+
+/* Toggle de detecção por saves (experimental) */
+
+.game-ach-savescan {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.game-ach-savescan-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.game-ach-savescan-hint {
+  margin: 6px 0 0;
+  font-size: 11.5px;
+  color: var(--text-faint);
+  line-height: 1.4;
+}
+
+/* UI de vínculo de appid */
+
+.game-ach-link {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.game-ach-link-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.game-ach-link-row .game-detail-tag-input {
+  flex: 1;
+  min-width: 200px;
+}
+
+.game-ach-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.game-ach-result-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+  text-align: left;
+}
+
+.game-ach-result-btn:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.game-ach-result-id {
+  font-size: 11px;
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+
+/* Grid do painel de conquistas no overlay in-game */
+
+.game-overlay-achievement-icon {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  object-fit: cover;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.game-overlay-achievement-icon--locked {
+  filter: grayscale(1) brightness(0.6);
+}
+
+.game-overlay-achievement-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}

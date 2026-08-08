@@ -19,11 +19,87 @@ pub fn extract(archive: &Path, dest: &Path) -> Result<(), AppError> {
         .and_then(|s| s.to_str())
         .unwrap_or("")
         .to_lowercase();
+    preflight_disk_space(archive, dest, &ext)?;
     match ext.as_str() {
         "zip" => extract_zip(archive, dest),
         "7z" => extract_7z(archive, dest),
         "rar" => extract_rar(archive, dest),
         other => Err(AppError::Other(format!("formato não suportado: .{other}"))),
+    }
+}
+
+/// Margem além do tamanho estimado (metadados de FS, arredondamento de cluster).
+const DISK_SPACE_MARGIN: u64 = 256 * 1024 * 1024;
+
+/// Falha ANTES de extrair quando o disco de destino claramente não comporta o
+/// conteúdo. Estourar espaço no meio da extração aparecia como um críptico
+/// "rar extract: Could not create file" — comum aqui porque a extração ocorre
+/// ao lado do arquivo baixado, muitas vezes no C: quase cheio.
+fn preflight_disk_space(archive: &Path, dest: &Path, ext: &str) -> Result<(), AppError> {
+    let needed = estimated_unpacked_size(archive, ext).unwrap_or_else(|| {
+        // Sem metadados legíveis: estimativa conservadora de 2× o arquivo
+        // (jogos são pesados em mídia e comprimem pouco).
+        fs::metadata(archive).map(|m| m.len().saturating_mul(2)).unwrap_or(0)
+    });
+    if needed == 0 {
+        return Ok(());
+    }
+    // dest ainda não existe na primeira extração; mede no ancestral existente.
+    let probe = if dest.exists() {
+        dest
+    } else {
+        dest.parent().unwrap_or(dest)
+    };
+    let Ok(free) = fs4::available_space(probe) else {
+        return Ok(()); // sem leitura de espaço, deixa a extração tentar
+    };
+    let needed_total = needed.saturating_add(DISK_SPACE_MARGIN);
+    if free < needed_total {
+        return Err(AppError::Other(format!(
+            "Espaço em disco insuficiente para extrair: o conteúdo precisa de ~{} e o destino ({}) tem só {} livres. Libere espaço ou adicione uma biblioteca de instalação em outro disco (Configurações → Armazenamento).",
+            fmt_bytes(needed_total),
+            probe.display(),
+            fmt_bytes(free)
+        )));
+    }
+    Ok(())
+}
+
+/// Soma dos tamanhos descomprimidos, quando o formato permite ler barato
+/// (zip: central directory; rar: listagem de headers). 7z cai no fallback.
+fn estimated_unpacked_size(archive: &Path, ext: &str) -> Option<u64> {
+    match ext {
+        "zip" => {
+            let f = fs::File::open(archive).ok()?;
+            let mut z = zip::ZipArchive::new(f).ok()?;
+            let mut total = 0u64;
+            for i in 0..z.len() {
+                if let Ok(entry) = z.by_index_raw(i) {
+                    total = total.saturating_add(entry.size());
+                }
+            }
+            Some(total)
+        }
+        "rar" => {
+            let open = unrar::Archive::new(archive).open_for_listing().ok()?;
+            let mut total = 0u64;
+            for header in open.flatten() {
+                total = total.saturating_add(header.unpacked_size);
+            }
+            Some(total)
+        }
+        _ => None,
+    }
+}
+
+fn fmt_bytes(bytes: u64) -> String {
+    const GB: f64 = 1024.0 * 1024.0 * 1024.0;
+    const MB: f64 = 1024.0 * 1024.0;
+    let b = bytes as f64;
+    if b >= GB {
+        format!("{:.1} GB", b / GB)
+    } else {
+        format!("{:.0} MB", b / MB)
     }
 }
 
@@ -77,10 +153,11 @@ fn extract_rar(archive: &Path, dest: &Path) -> Result<(), AppError> {
             .map_err(|e| AppError::Other(format!("rar read header: {e}")))?;
         let Some(header) = next else { break };
         let is_file = header.entry().is_file();
+        let entry_name = header.entry().filename.display().to_string();
         open = if is_file {
             header
                 .extract_with_base(dest)
-                .map_err(|e| AppError::Other(format!("rar extract: {e}")))?
+                .map_err(|e| rar_extract_error(e, &entry_name, dest))?
         } else {
             header
                 .skip()
@@ -88,6 +165,31 @@ fn extract_rar(archive: &Path, dest: &Path) -> Result<(), AppError> {
         };
     }
     Ok(())
+}
+
+/// "Could not create file" do UnRAR (ERAR_ECREATE) não diz o porquê; os dois
+/// culpados reais são disco cheio e caminho acima do limite do Windows.
+/// Anexa o diagnóstico para o usuário não ficar no escuro.
+fn rar_extract_error(e: unrar::error::UnrarError, entry_name: &str, dest: &Path) -> AppError {
+    let base = format!("rar extract ({entry_name}): {e}");
+    let msg = e.to_string().to_lowercase();
+    if msg.contains("could not create") || msg.contains("write") {
+        let free = fs4::available_space(dest)
+            .map(fmt_bytes)
+            .unwrap_or_else(|_| "?".into());
+        let full_path_len = dest.join(entry_name).as_os_str().len();
+        let hint = if full_path_len > 250 {
+            format!(
+                "O caminho de destino tem {full_path_len} caracteres — acima do limite do Windows. Mova a biblioteca de instalação para um caminho mais curto."
+            )
+        } else {
+            format!(
+                "Provável disco cheio (livres no destino: {free}). Libere espaço ou adicione uma biblioteca de instalação em outro disco (Configurações → Armazenamento)."
+            )
+        };
+        return AppError::Other(format!("{base}. {hint}"));
+    }
+    AppError::Other(base)
 }
 
 fn io_err(e: io::Error) -> AppError {

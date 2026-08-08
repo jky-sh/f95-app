@@ -24,6 +24,8 @@ interface DbRow {
   total_playtime_seconds: number;
   custom_tags_json: string | null;
   notes: string | null;
+  steam_appid: string | null;
+  ach_save_scan: number | null;
 }
 
 function rowToGame(r: DbRow): LibraryGame {
@@ -52,6 +54,8 @@ function rowToGame(r: DbRow): LibraryGame {
     totalPlaytimeSeconds: r.total_playtime_seconds ?? 0,
     customTags,
     notes: r.notes ?? '',
+    steamAppid: r.steam_appid,
+    achSaveScan: (r.ach_save_scan ?? 0) !== 0,
   };
 }
 
@@ -186,6 +190,12 @@ export async function isInLibrary(threadId: string): Promise<boolean> {
   return (rows[0]?.n ?? 0) > 0;
 }
 
+/** Recently played library games (newest first), for tray / quick launch UIs. */
+export async function listRecentPlayed(limit = 5): Promise<LibraryGame[]> {
+  const items = await list({ sort: 'last_played' });
+  return items.filter((g) => !!g.lastPlayedAt).slice(0, Math.max(0, limit));
+}
+
 export async function list(filter: LibraryFilter = {}): Promise<LibraryGame[]> {
   const where: string[] = [];
   const args: unknown[] = [];
@@ -198,9 +208,21 @@ export async function list(filter: LibraryFilter = {}): Promise<LibraryGame[]> {
     args.push(filter.status);
   }
   if (filter.search) {
-    where.push(`(LOWER(title) LIKE ? OR LOWER(notes) LIKE ?)`);
-    const needle = `%${filter.search.toLowerCase()}%`;
-    args.push(needle, needle);
+    const tokens = filter.search
+      .toLowerCase()
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .split(/\s+/)
+      .map((t) => t.trim())
+      .filter((t) => t.length >= 2);
+    const needles = tokens.length > 0 ? tokens : [filter.search.toLowerCase().trim()].filter(Boolean);
+    for (const token of needles) {
+      where.push(
+        `(LOWER(title) LIKE ? OR LOWER(IFNULL(notes, '')) LIKE ? OR LOWER(IFNULL(custom_tags_json, '')) LIKE ?)`,
+      );
+      const needle = `%${token}%`;
+      args.push(needle, needle, needle);
+    }
   }
   const orderBy = sortClause(filter.sort ?? 'added');
   const sql =
@@ -262,6 +284,36 @@ export async function clearExe(threadId: string): Promise<void> {
         WHERE thread_id = ?`,
     [threadId],
   );
+}
+
+/** Vincula (ou desvincula, com null) o AppID Steam usado pelos achievements. */
+export async function setSteamAppid(
+  threadId: string,
+  steamAppid: string | null,
+): Promise<void> {
+  await execute(
+    `UPDATE library_games SET steam_appid = ? WHERE thread_id = ?`,
+    [steamAppid, threadId],
+  );
+}
+
+/** Liga/desliga a detecção de conquistas via saves do próprio jogo. */
+export async function setAchSaveScan(
+  threadId: string,
+  enabled: boolean,
+): Promise<void> {
+  await execute(
+    `UPDATE library_games SET ach_save_scan = ? WHERE thread_id = ?`,
+    [enabled ? 1 : 0, threadId],
+  );
+}
+
+/** Jogos com AppID Steam vinculado — o conjunto observado pelo watcher. */
+export async function listWithSteamAppid(): Promise<LibraryGame[]> {
+  const rows = await query<DbRow>(
+    `SELECT * FROM library_games WHERE steam_appid IS NOT NULL AND steam_appid != ''`,
+  );
+  return rows.map(rowToGame);
 }
 
 export async function setNotes(threadId: string, notes: string): Promise<void> {

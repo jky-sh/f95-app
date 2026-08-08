@@ -1,0 +1,158 @@
+/* Transparent chrome; hide scrollbars so a 1px miss never shows gutters. */
+html.tray-menu-window,
+html.tray-menu-window body,
+html.tray-menu-window #root {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow: hidden !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  scrollbar-width: none !important;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+html.tray-menu-window::-webkit-scrollbar,
+html.tray-menu-window body::-webkit-scrollbar,
+html.tray-menu-window #root::-webkit-scrollbar,
+.tray-menu-root::-webkit-scrollbar,
+.tray-menu-panel::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+}
+
+.tray-menu-root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  overflow: hidden;
+}
+
+.tray-menu-panel {
+  box-sizing: border-box;
+  width: 288px;
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+  background: color-mix(in srgb, var(--bg-elevated, var(--bg-base)) 94%, #000 6%);
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--text-primary, var(--text));
+  overflow: hidden;
+}
+
+.tray-menu-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: color-mix(in srgb, var(--border) 80%, transparent);
+  flex-shrink: 0;
+}
+
+.tray-menu-section-label {
+  margin: 4px 10px 2px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.tray-menu-empty {
+  margin: 0 10px 4px;
+  padding: 4px 0 6px;
+  font-size: 12px;
+  color: var(--text-faint, var(--text-muted));
+}
+
+.tray-menu-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-primary, var(--text));
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.tray-menu-item:hover,
+.tray-menu-item:focus-visible {
+  outline: none;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.tray-menu-item--danger {
+  color: color-mix(in srgb, #f87171 85%, var(--text-primary, var(--text)));
+}
+
+.tray-menu-item--danger:hover,
+.tray-menu-item--danger:focus-visible {
+  background: color-mix(in srgb, #f87171 16%, transparent);
+  color: #fecaca;
+}
+
+.tray-menu-game {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-primary, var(--text));
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.tray-menu-game:hover,
+.tray-menu-game:focus-visible {
+  outline: none;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.tray-menu-game-thumb {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--bg-sunken, #111);
+}
+
+.tray-menu-game-thumb--fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.tray-menu-game-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

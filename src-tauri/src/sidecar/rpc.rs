@@ -100,6 +100,14 @@ impl SidecarClient {
         Ok(serde_json::from_value(value)?)
     }
 
+    /// Public profile of an arbitrary member. Raw JSON passthrough (typed
+    /// on the frontend as `MemberProfileDto`), same policy as `get_following`.
+    pub async fn get_member_profile(&self, user_id: &str) -> Result<Value, AppError> {
+        self.inner
+            .call("getMemberProfile", json!({ "userId": user_id }))
+            .await
+    }
+
     pub async fn is_logged_in(&self) -> Result<bool, AppError> {
         let value: Value = self.inner.call("isLoggedIn", json!({})).await?;
         let parsed: LoggedInResult = serde_json::from_value(value)?;

@@ -8,7 +8,16 @@ import { formatRelativeDate } from '../lib/formatDate';
 import { useT } from '../lib/i18n';
 import { extractThreadIdFromUrl } from '../lib/rssUpdates';
 
-export function NotificationBell() {
+interface NotificationBellProps {
+  /**
+   * Where the panel opens relative to the button. `side` (default) suits the
+   * left sidebar; `below` suits the Steam top nav, dropping the panel under
+   * the bell aligned to its right edge.
+   */
+  placement?: 'side' | 'below';
+}
+
+export function NotificationBell({ placement = 'side' }: NotificationBellProps) {
   const { t, locale } = useT();
   const navigate = useNavigate();
   const { isOffline } = useOffline();
@@ -24,6 +33,14 @@ export function NotificationBell() {
     const rect = btn.getBoundingClientRect();
     const panelWidth = 360;
     const gap = 8;
+
+    if (placement === 'below') {
+      const top = rect.bottom + gap;
+      const left = Math.max(12, Math.min(rect.right - panelWidth, window.innerWidth - panelWidth - 12));
+      setPanelPos({ top, left });
+      return;
+    }
+
     let left = rect.right + gap;
     const top = rect.top;
 
@@ -32,7 +49,7 @@ export function NotificationBell() {
     }
 
     setPanelPos({ top, left });
-  }, []);
+  }, [placement]);
 
   useLayoutEffect(() => {
     if (!open) return;

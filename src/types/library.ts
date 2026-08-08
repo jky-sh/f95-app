@@ -24,6 +24,13 @@ export interface LibraryGame {
   totalPlaytimeSeconds: number;
   customTags: string[];
   notes: string;
+  /** AppID Steam vinculado (para achievements). Null = nunca vinculado
+   *  (autodetecção pode rodar); '' = desvinculado pelo usuário (não
+   *  re-detectar sozinho). */
+  steamAppid: string | null;
+  /** Modo experimental: detectar conquistas nos saves do próprio jogo
+   *  (builds DRM-free sem emulador Steam). */
+  achSaveScan: boolean;
 }
 
 export interface LibraryFilter {

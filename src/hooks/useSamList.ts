@@ -90,7 +90,7 @@ export function useSamList(filters: SamFilters): SamListState & {
         setPage(0);
         fetchPage(1, false);
       },
-      isSearch ? 250 : 0,
+      isSearch ? 350 : 0,
     );
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps

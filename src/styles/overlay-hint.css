@@ -91,6 +91,53 @@ html.overlay-hint-window #root {
   line-height: 1.35;
 }
 
+/* Variante "conquista desbloqueada" (estilo Hydra) */
+.overlay-hint-toast--achievement {
+  border-left-color: #d8a02e;
+}
+
+.overlay-hint-icon--achievement {
+  color: #d8a02e;
+}
+
+.overlay-hint-ach-icon {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 4px;
+  object-fit: cover;
+  background: rgba(0, 0, 0, 0.35);
+  animation: overlay-hint-ach-pop 0.35s ease-out;
+}
+
+@keyframes overlay-hint-ach-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.overlay-hint-title--achievement {
+  color: #e8bc4f;
+}
+
+.overlay-hint-ach-queue {
+  font-weight: 600;
+  color: var(--text-muted, #8a90a0);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.overlay-hint-ach-sub {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .overlay-hint-toast--error {
   border-left-color: var(--status-danger, #c2453a);
 }

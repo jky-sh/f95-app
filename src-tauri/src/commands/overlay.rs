@@ -1490,6 +1490,110 @@ pub fn schedule_launch_hint(app: AppHandle, thread_id: String, game_title: Strin
 #[cfg(not(windows))]
 pub fn schedule_launch_hint(_app: AppHandle, _thread_id: String, _game_title: String, _pid: u32) {}
 
+/// Payload emitido para a janela overlay-hint quando uma conquista é
+/// desbloqueada (evento `overlay:achievement`).
+#[derive(Debug, Clone, Serialize)]
+pub struct OverlayAchievementPayload {
+    pub title: String,
+    pub description: Option<String>,
+    #[serde(rename = "iconUrl")]
+    pub icon_url: Option<String>,
+    /// Posição desta conquista na fila do toast (1-based) e total na fila.
+    pub index: usize,
+    pub count: usize,
+    #[serde(rename = "unlockedCount")]
+    pub unlocked_count: u32,
+    #[serde(rename = "totalCount")]
+    pub total_count: u32,
+}
+
+/// Mostra uma sequência de toasts de conquista sobre a janela do jogo,
+/// reusando a janela/máquina do overlay-hint (posicionamento Win32 + follow
+/// + geração para cancelamento). Cada item fica ~4,3s na tela.
+#[cfg(windows)]
+pub async fn show_achievement_toasts(
+    app: &AppHandle,
+    state: &AppState,
+    pid: u32,
+    items: Vec<super::achievements::AchievementToastItem>,
+    unlocked_count: u32,
+    total_count: u32,
+) -> Result<bool, AppError> {
+    let pid = normalize_game_pid(pid);
+    let Some(game_match) = crate::game_window::find_game_window_with_hwnd(pid)
+        .or_else(|| crate::game_window::find_game_window_for_overlay(pid))
+    else {
+        return Ok(false);
+    };
+
+    // Toma posse da janela de hint: cancela follow/auto-hide/reveal pendentes
+    // do hint de launch e invalida a geração anterior.
+    hide_game_hint(app);
+    let generation = bump_hint_generation(state);
+
+    let window = ensure_hint_window(app)?;
+    place_hint_on_game(&window, &game_match, true)?;
+    window
+        .show()
+        .map_err(|e| AppError::Other(format!("achievement toast show: {e}")))?;
+    let _ = place_hint_on_game(&window, &game_match, false);
+    if let Ok(hwnd) = window.hwnd() {
+        crate::game_window::win32_show_no_activate(hwnd);
+        crate::game_window::raise_overlay(hwnd);
+    }
+    start_hint_follow(app.clone(), pid);
+
+    let app_task = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let generation_ok = |app: &AppHandle| {
+            app.try_state::<AppState>()
+                .map(|s| hint_generation_matches(&s, generation))
+                .unwrap_or(false)
+        };
+        tokio::time::sleep(Duration::from_millis(120)).await;
+        let count = items.len();
+        for (i, item) in items.into_iter().enumerate() {
+            if !generation_ok(&app_task) {
+                return;
+            }
+            let payload = OverlayAchievementPayload {
+                title: item.title,
+                description: item.description,
+                icon_url: item.icon_url,
+                index: i + 1,
+                count,
+                unlocked_count,
+                total_count,
+            };
+            // Emite mais de uma vez, como o hint: a webview pode ainda estar
+            // registrando o listener logo após a criação da janela.
+            if let Some(win) = app_task.get_webview_window(OVERLAY_HINT_WINDOW_LABEL) {
+                for _ in 0..3 {
+                    let _ = win.emit("overlay:achievement", &payload);
+                    tokio::time::sleep(Duration::from_millis(60)).await;
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(4300)).await;
+        }
+        if generation_ok(&app_task) {
+            hide_game_hint(&app_task);
+        }
+    });
+    Ok(true)
+}
+
+#[cfg(not(windows))]
+pub async fn show_achievement_toasts(
+    _app: &AppHandle,
+    _state: &AppState,
+    _pid: u32,
+    _items: Vec<super::achievements::AchievementToastItem>,
+    _unlocked_count: u32,
+    _total_count: u32,
+) -> Result<bool, AppError> {
+    Ok(false)
+}
+
 #[tauri::command]
 pub async fn overlay_show_game_hint(
     app: AppHandle,

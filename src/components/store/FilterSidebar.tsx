@@ -353,7 +353,7 @@ function TagFilterInput({
   max: number;
 }) {
   const { t } = useT();
-  const { catalog } = useTagCatalog();
+  const { catalog, setFromRecord } = useTagCatalog();
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<SamTag[]>([]);
   const [loading, setLoading] = useState(false);
@@ -366,62 +366,112 @@ function TagFilterInput({
   const menuResizeObserverRef = useRef<ResizeObserver | null>(null);
 
   const selectedIds = useMemo(() => new Set(selected.map((t) => t.id)), [selected]);
+  const selectedIdsRef = useRef(selectedIds);
+  selectedIdsRef.current = selectedIds;
+  const catalogRef = useRef(catalog);
+  catalogRef.current = catalog;
 
-  const localSuggestions = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return [];
-    const out: SamTag[] = [];
-    for (const [id, name] of catalog) {
-      if (selectedIds.has(id)) continue;
-      if (name.toLowerCase().includes(q)) {
-        out.push({ id, name });
-        if (out.length >= 24) break;
+  const buildLocalSuggestions = useCallback((qRaw: string, selectedSet: Set<number>) => {
+    const q = qRaw.trim().toLowerCase();
+    const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
+    const scored: { tag: SamTag; score: number }[] = [];
+
+    for (const [id, name] of catalogRef.current) {
+      if (selectedSet.has(id)) continue;
+      const lower = name.toLowerCase();
+      let score = 0;
+      if (!q) {
+        score = 1;
+      } else if (lower === q) {
+        score = 100;
+      } else if (lower.startsWith(q)) {
+        score = 80;
+      } else if (lower.includes(q)) {
+        score = 50;
+      } else if (tokens.length > 0 && tokens.every((t) => lower.includes(t))) {
+        score = 40;
+      } else {
+        continue;
       }
+      scored.push({ tag: { id, name }, score });
     }
-    return out;
-  }, [catalog, query, selectedIds]);
+
+    scored.sort((a, b) => b.score - a.score || a.tag.name.localeCompare(b.tag.name));
+    return scored.slice(0, q ? 24 : 20).map((s) => s.tag);
+  }, []);
+
+  // Keep the open dropdown in sync with the local catalog without re-fetching.
+  useEffect(() => {
+    if (!open) return;
+    setSuggestions((prev) => {
+      const local = buildLocalSuggestions(query, selectedIds);
+      if (prev.length === 0) return local;
+      const merged = new Map<number, SamTag>();
+      for (const tag of prev) {
+        if (!selectedIds.has(tag.id)) merged.set(tag.id, tag);
+      }
+      for (const tag of local) {
+        if (!merged.has(tag.id)) merged.set(tag.id, tag);
+      }
+      return [...merged.values()].slice(0, 40);
+    });
+  }, [catalog, open, query, selectedIds, buildLocalSuggestions]);
 
   useEffect(() => {
     setQuery('');
     setSuggestions([]);
     setOpen(false);
+    setLoading(false);
   }, [category]);
 
   useEffect(() => {
     if (!open) return;
+
+    const local = buildLocalSuggestions(query, selectedIdsRef.current);
+    setSuggestions(local);
+
+    let cancelled = false;
     const tmr = setTimeout(() => {
-      setLoading(true);
+      // Only show the loading row when we have nothing useful yet.
+      if (local.length === 0) setLoading(true);
       ipc
         .samTagSearch(category, query)
         .then((rows) => {
+          if (cancelled) return;
+          if (rows.length > 0) {
+            const record: Record<string, string> = {};
+            for (const tag of rows) record[String(tag.id)] = tag.name;
+            setFromRecord(record);
+          }
+          const selectedSet = selectedIdsRef.current;
+          const localNow = buildLocalSuggestions(query, selectedSet);
           const merged = new Map<number, SamTag>();
           for (const tag of rows) {
-            if (!selectedIds.has(tag.id)) merged.set(tag.id, tag);
+            if (!selectedSet.has(tag.id)) merged.set(tag.id, tag);
           }
-          for (const tag of localSuggestions) {
+          for (const tag of localNow) {
             if (!merged.has(tag.id)) merged.set(tag.id, tag);
           }
           setSuggestions([...merged.values()].slice(0, 40));
         })
         .catch((err) => {
           console.warn('[filter] tag search failed', err);
-          setSuggestions([]);
+          if (!cancelled) {
+            setSuggestions(buildLocalSuggestions(query, selectedIdsRef.current));
+          }
         })
-        .finally(() => setLoading(false));
-    }, query ? 220 : 0);
-    return () => clearTimeout(tmr);
-  }, [category, query, open, selectedIds, localSuggestions]);
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    }, query.trim() ? 220 : 0);
 
-  useEffect(() => {
-    if (!open || query.trim()) return;
-    const popular: SamTag[] = [];
-    for (const [id, name] of catalog) {
-      if (selectedIds.has(id)) continue;
-      popular.push({ id, name });
-      if (popular.length >= 20) break;
-    }
-    setSuggestions(popular);
-  }, [open, query, catalog, selectedIds]);
+    return () => {
+      cancelled = true;
+      clearTimeout(tmr);
+    };
+    // Intentionally omit catalog: remote fetch only depends on query/open/category.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category, query, open, buildLocalSuggestions, setFromRecord]);
 
   const updateMenuPosition = useCallback(() => {
     const input = inputRef.current;
@@ -557,6 +607,13 @@ function TagFilterInput({
                 (inputRef.current ? computeFloatingMenuStyle(inputRef.current) : undefined)
               }
             >
+              {suggestions.map((tag) => (
+                <li key={tag.id}>
+                  <button type="button" role="option" onClick={() => addTag(tag)}>
+                    {tag.name}
+                  </button>
+                </li>
+              ))}
               {loading && (
                 <li className="store-filter-tag-suggestion-muted store-filter-tag-suggestion-loading">
                   <Spinner size="sm" />
@@ -566,14 +623,6 @@ function TagFilterInput({
               {!loading && suggestions.length === 0 && (
                 <li className="store-filter-tag-suggestion-muted">{t('filter.tags.noResults')}</li>
               )}
-              {!loading &&
-                suggestions.map((tag) => (
-                  <li key={tag.id}>
-                    <button type="button" role="option" onClick={() => addTag(tag)}>
-                      {tag.name}
-                    </button>
-                  </li>
-                ))}
             </ul>,
             document.body,
           )}

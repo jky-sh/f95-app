@@ -23,6 +23,10 @@ export const RPC_METHODS = {
     params: {},
     result: 'ProfileDto',
   },
+  getMemberProfile: {
+    params: { userId: 'string' },
+    result: 'MemberProfileDto',
+  },
   isLoggedIn: {
     params: {},
     result: { loggedIn: 'boolean' },

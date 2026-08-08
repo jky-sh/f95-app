@@ -19,7 +19,7 @@ export interface F95AlertsListResult {
   page: number;
 }
 
-export type NotificationSource = 'f95' | 'rss_library';
+export type NotificationSource = 'f95' | 'rss_library' | 'achievement';
 
 export interface AppNotification {
   id: string;

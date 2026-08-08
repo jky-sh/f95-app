@@ -1,17 +1,26 @@
 {
   "identifier": "desktop-capability",
-  "platforms": [
-    "macOS",
-    "windows",
-    "linux"
-  ],
-  "windows": [
-    "main",
-    "game-overlay",
-    "overlay-hint",
-    "overlay-browser"
-  ],
+  "platforms": ["macOS", "windows", "linux"],
+  "windows": ["main", "login", "game-overlay", "overlay-hint", "overlay-browser", "tray-menu"],
   "permissions": [
-    "global-shortcut:default"
+    "global-shortcut:default",
+    "updater:default",
+    "process:default",
+    "core:tray:default",
+    "core:menu:default",
+    "core:image:default",
+    "core:app:default",
+    "core:webview:allow-create-webview-window",
+    "core:window:allow-create",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-close",
+    "core:window:allow-set-focus",
+    "core:window:allow-set-position",
+    "core:window:allow-set-size",
+    "core:window:allow-unminimize",
+    "core:window:allow-is-focused",
+    "core:event:default"
   ]
 }
+

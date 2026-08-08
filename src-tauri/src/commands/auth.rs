@@ -1,6 +1,7 @@
 use super::state::{ensure_sidecar, AppState, ProfileDto};
 use crate::error::AppError;
 use crate::sidecar;
+use serde_json::Value;
 use tauri::State;
 
 #[tauri::command]
@@ -17,6 +18,16 @@ pub async fn login(
 pub async fn get_profile(state: State<'_, AppState>) -> Result<ProfileDto, AppError> {
     let client = ensure_sidecar(&state).await?;
     client.get_profile().await
+}
+
+/// Public profile of an arbitrary member (friend profile pages).
+#[tauri::command]
+pub async fn get_member_profile(
+    state: State<'_, AppState>,
+    user_id: String,
+) -> Result<Value, AppError> {
+    let client = ensure_sidecar(&state).await?;
+    client.get_member_profile(&user_id).await
 }
 
 /// No-op RPC used by the frontend to pre-spawn + init the sidecar without

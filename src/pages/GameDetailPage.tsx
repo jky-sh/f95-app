@@ -11,6 +11,7 @@ import { GameDescription } from '../components/game/GameDescription';
 import { clearGridPreviewCache } from '../lib/gridPreviewQueue';
 import { clearRemoteImageQueue } from '../lib/remoteImageQueue';
 import { ScreenshotGallery } from '../components/game/ScreenshotGallery';
+import { StoreAchievementsSection } from '../components/game/StoreAchievementsSection';
 import { DownloadLinks } from '../components/game/DownloadLinks';
 import {
   GameDetailBackBar,
@@ -302,6 +303,8 @@ function GameDetailPageInner() {
               style={{ fontSize: 13.5, lineHeight: 1.65, wordBreak: 'break-word' }}
             />
           </GameDetailSection>
+
+          {category === 'games' && <StoreAchievementsSection detail={g} />}
         </GameDetailMain>
 
         <GameDetailAside>

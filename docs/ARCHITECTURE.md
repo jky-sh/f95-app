@@ -192,7 +192,7 @@ Routing: `src/router.tsx` (React Router v7). Pages under `src/pages/`.
 
 i18n: custom implementation in `src/lib/i18n.ts` — locales in `src/locales/` (pt, en, de, ru). No react-i18next.
 
-Theming: CSS custom properties in `src/styles/theme.css`, applied via `src/lib/theme.ts`.
+Theming: CSS custom properties in `src/styles/theme.css`, applied via `src/lib/theme.ts`. Two independent axes: *theme* (`data-theme`, color palette) and *skin* (`data-skin`, structural style — e.g. the Steam-like skin in `src/styles/steam-skin.css`, which derives all colors from the active theme's variables).
 
 ---
 

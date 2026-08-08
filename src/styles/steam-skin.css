@@ -1,0 +1,772 @@
+/* -----------------------------------------------------------------------------
+ * STEAM SKIN
+ *
+ * A structural restyle inspired by the Steam client: classic typography,
+ * squared corners, horizontal button gradients, flat near-black chrome and
+ * square scrollbars.
+ *
+ * IMPORTANT: this file never hardcodes palette colors. Every color derives
+ * from the active theme's CSS variables (via color-mix), so the skin works
+ * with ANY theme picked in Settings (Padrão, Escuro, Claro, Vermelho, Steam).
+ * Picking the "Steam" *theme* together with this skin reproduces the real
+ * Steam client; picking another theme keeps the Steam structure tinted with
+ * that palette.
+ *
+ * Everything is scoped under `html[data-skin='steam']` (set by lib/theme.ts),
+ * so the default skin is untouched. `!important` is used only where the
+ * original styling lives in inline styles (which otherwise always win).
+ * -------------------------------------------------------------------------- */
+
+:root[data-skin='steam'] {
+  /* Steam ships "Motiva Sans" and falls back to Arial — same stack here. */
+  font-family: 'Motiva Sans', Arial, 'Segoe UI', sans-serif;
+
+  /* Derived skin tokens (recomputed automatically per theme). */
+  --sk-chrome: color-mix(in srgb, var(--bg-sunken) 82%, #000);
+  --sk-chrome-border: color-mix(in srgb, var(--bg-sunken) 55%, #000);
+  --sk-border-dark: color-mix(in srgb, var(--border) 65%, #000);
+  --sk-panel-top: color-mix(in srgb, var(--bg-elevated) 96%, #fff);
+  --sk-panel-bottom: color-mix(in srgb, var(--bg-elevated) 93%, #000);
+  --sk-btn-neutral-top: color-mix(in srgb, var(--text-primary) 16%, var(--bg-elevated));
+  --sk-btn-neutral-bottom: color-mix(in srgb, var(--text-primary) 7%, var(--bg-elevated));
+  --sk-btn-accent-top: color-mix(in srgb, var(--accent) 78%, #fff);
+  --sk-btn-accent-bottom: color-mix(in srgb, var(--accent) 80%, #000);
+  --sk-btn-danger-top: color-mix(in srgb, var(--status-danger) 80%, #fff);
+  --sk-btn-danger-bottom: color-mix(in srgb, var(--status-danger) 80%, #000);
+  --sk-accent-glow: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+/* ------------------------------------------------------------------ */
+/* Text selection — Steam's accent-tinted highlight                    */
+/* ------------------------------------------------------------------ */
+
+:root[data-skin='steam'] ::selection {
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+  color: var(--text-primary);
+}
+
+/* ------------------------------------------------------------------ */
+/* Window chrome: title bar, sidebar, status bar                       */
+/* ------------------------------------------------------------------ */
+
+/* Near-black flat strip, like Steam's top chrome. (inline bg → !important) */
+:root[data-skin='steam'] .app-titlebar {
+  background: var(--sk-chrome) !important;
+  border-bottom: 1px solid var(--sk-chrome-border) !important;
+}
+
+:root[data-skin='steam'] .status-bar {
+  background: var(--sk-chrome) !important;
+  border-top: 1px solid var(--sk-chrome-border) !important;
+}
+
+/* Main content: subtle light-from-top wash like the Steam store/library.
+ * (The left sidebar doesn't render with this skin — AppShell swaps it for
+ * the Steam top nav below.) */
+:root[data-skin='steam'] .app-main {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--bg-base) 95%, #fff) 0px,
+    var(--bg-base) 260px
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Typography details                                                  */
+/* ------------------------------------------------------------------ */
+
+:root[data-skin='steam'] .settings-title,
+:root[data-skin='steam'] .downloads-title,
+:root[data-skin='steam'] .game-detail-title {
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Buttons — Steam's signature horizontal gradients, 2px corners       */
+/* ------------------------------------------------------------------ */
+
+/* Base geometry for every regular button family. */
+:root[data-skin='steam'] .settings-btn,
+:root[data-skin='steam'] .settings-toolbar-btn,
+:root[data-skin='steam'] .game-detail-btn,
+:root[data-skin='steam'] .app-dialog-btn,
+:root[data-skin='steam'] .dl-action-btn,
+:root[data-skin='steam'] .downloads-toolbar-btn,
+:root[data-skin='steam'] .downloads-empty-cta {
+  border-radius: 2px;
+}
+
+/* Neutral (gray) buttons: translucent-white gradient over the surface. */
+:root[data-skin='steam'] .settings-btn,
+:root[data-skin='steam'] .settings-toolbar-btn,
+:root[data-skin='steam'] .app-dialog-btn,
+:root[data-skin='steam'] .dl-action-btn,
+:root[data-skin='steam'] .downloads-toolbar-btn,
+:root[data-skin='steam'] .game-detail-btn-secondary {
+  background: linear-gradient(90deg, var(--sk-btn-neutral-top) 5%, var(--sk-btn-neutral-bottom) 95%);
+  border: none;
+  color: var(--text-secondary);
+}
+
+:root[data-skin='steam'] .settings-btn:hover:not(:disabled),
+:root[data-skin='steam'] .settings-toolbar-btn:hover:not(:disabled),
+:root[data-skin='steam'] .app-dialog-btn:hover:not(:disabled),
+:root[data-skin='steam'] .dl-action-btn:hover:not(:disabled),
+:root[data-skin='steam'] .downloads-toolbar-btn:hover:not(:disabled),
+:root[data-skin='steam'] .game-detail-btn-secondary:hover:not(:disabled) {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--text-primary) 26%, var(--bg-elevated)) 5%,
+    color-mix(in srgb, var(--text-primary) 14%, var(--bg-elevated)) 95%
+  );
+  color: var(--text-primary);
+}
+
+/* Accent / primary CTAs. Declared after the neutral rules so they win. */
+:root[data-skin='steam'] .settings-btn-primary,
+:root[data-skin='steam'] .settings-toolbar-btn-accent,
+:root[data-skin='steam'] .game-detail-btn-primary,
+:root[data-skin='steam'] .app-dialog-btn-primary,
+:root[data-skin='steam'] .dl-action-btn-accent,
+:root[data-skin='steam'] .downloads-empty-cta {
+  background: linear-gradient(90deg, var(--sk-btn-accent-top) 5%, var(--sk-btn-accent-bottom) 95%);
+  border: none;
+  color: var(--accent-text);
+}
+
+:root[data-skin='steam'] .settings-btn-primary:hover:not(:disabled),
+:root[data-skin='steam'] .settings-toolbar-btn-accent:hover:not(:disabled),
+:root[data-skin='steam'] .game-detail-btn-primary:hover:not(:disabled),
+:root[data-skin='steam'] .app-dialog-btn-primary:hover:not(:disabled),
+:root[data-skin='steam'] .dl-action-btn-accent:hover:not(:disabled),
+:root[data-skin='steam'] .downloads-empty-cta:hover:not(:disabled) {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent) 60%, #fff) 5%,
+    color-mix(in srgb, var(--accent) 92%, #000) 95%
+  );
+  color: var(--accent-text);
+}
+
+/* Danger buttons keep the semantic red but in gradient form. */
+:root[data-skin='steam'] .settings-btn-danger,
+:root[data-skin='steam'] .game-detail-btn-danger,
+:root[data-skin='steam'] .app-dialog-btn-danger {
+  background: linear-gradient(90deg, var(--sk-btn-danger-top) 5%, var(--sk-btn-danger-bottom) 95%);
+  border: none;
+  color: #fff;
+}
+
+:root[data-skin='steam'] .settings-btn-danger:hover:not(:disabled),
+:root[data-skin='steam'] .game-detail-btn-danger:hover:not(:disabled),
+:root[data-skin='steam'] .app-dialog-btn-danger:hover:not(:disabled) {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--status-danger) 62%, #fff) 5%,
+    color-mix(in srgb, var(--status-danger) 90%, #000) 95%
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Inputs                                                              */
+/* ------------------------------------------------------------------ */
+
+:root[data-skin='steam'] .app-dialog-input,
+:root[data-skin='steam'] .settings-host-input-wrap,
+:root[data-skin='steam'] .game-detail-tag-input {
+  border-radius: 3px;
+  box-shadow: inset 1px 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+/* ------------------------------------------------------------------ */
+/* Panels, cards and dialogs — vertical sheen + 3px corners            */
+/* ------------------------------------------------------------------ */
+
+:root[data-skin='steam'] .settings-card,
+:root[data-skin='steam'] .settings-panel,
+:root[data-skin='steam'] .settings-host-panel,
+:root[data-skin='steam'] .settings-account-card,
+:root[data-skin='steam'] .downloads-history-panel,
+:root[data-skin='steam'] .dl-active-card {
+  background: linear-gradient(180deg, var(--sk-panel-top) 0%, var(--sk-panel-bottom) 100%);
+  border: 1px solid var(--sk-border-dark);
+  border-radius: 3px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+:root[data-skin='steam'] .app-dialog {
+  background: linear-gradient(180deg, var(--sk-panel-top) 0%, var(--sk-panel-bottom) 100%);
+  border: 1px solid var(--sk-border-dark);
+  border-radius: 4px;
+  box-shadow: 0 0 32px rgba(0, 0, 0, 0.55);
+}
+
+/* Settings picker cards (theme / locale / store mode). */
+:root[data-skin='steam'] .settings-theme-card,
+:root[data-skin='steam'] .settings-locale-card,
+:root[data-skin='steam'] .settings-store-scroll-card {
+  border-radius: 3px;
+}
+
+:root[data-skin='steam'] .settings-theme-swatch,
+:root[data-skin='steam'] .settings-theme-swatch-inner {
+  border-radius: 2px;
+}
+
+/* Collection folder cards follow the squared Steam corners. */
+:root[data-skin='steam'] .collection-folder {
+  border-radius: 3px;
+}
+
+/* Member profile pieces (own profile + friend profiles). */
+:root[data-skin='steam'] .member-hero,
+:root[data-skin='steam'] .member-section,
+:root[data-skin='steam'] .member-profile-skeleton-hero,
+:root[data-skin='steam'] .member-profile-skeleton-block {
+  border-radius: 3px;
+}
+
+:root[data-skin='steam'] .member-stat,
+:root[data-skin='steam'] .member-hero-avatar,
+:root[data-skin='steam'] .member-hero-banner {
+  border-radius: 2px;
+}
+
+/* Store & library cards use inline styles → !important required. The
+ * border-color override is scoped to :not(:hover) so the accent border
+ * highlight on hover (App.css, also !important) keeps working. */
+:root[data-skin='steam'] .store-card,
+:root[data-skin='steam'] .continue-card {
+  border-radius: 3px !important;
+}
+
+:root[data-skin='steam'] .store-card:not(:hover),
+:root[data-skin='steam'] .continue-card:not(:hover) {
+  border-color: var(--sk-border-dark) !important;
+}
+
+:root[data-skin='steam'] .store-card:hover,
+:root[data-skin='steam'] .continue-card:hover {
+  box-shadow: 0 0 12px var(--sk-accent-glow);
+}
+
+:root[data-skin='steam'] .store-featured {
+  border-radius: 3px !important;
+}
+
+/* Skeletons follow the squared corners so loading states match. */
+:root[data-skin='steam'] .game-card-skeleton,
+:root[data-skin='steam'] .friend-card-skeleton,
+:root[data-skin='steam'] .news-page-skeleton-card {
+  border-radius: 3px !important;
+}
+
+/* ------------------------------------------------------------------ */
+/* Pills, chips and tags — Steam tags are squared                      */
+/* ------------------------------------------------------------------ */
+
+:root[data-skin='steam'] .settings-pill,
+:root[data-skin='steam'] .dl-pill,
+:root[data-skin='steam'] .game-detail-chip,
+:root[data-skin='steam'] .game-detail-tag,
+:root[data-skin='steam'] .game-detail-custom-tag,
+:root[data-skin='steam'] .game-detail-prefix,
+:root[data-skin='steam'] .store-prefix-pill,
+:root[data-skin='steam'] .store-content-tag,
+:root[data-skin='steam'] .settings-status-chip,
+:root[data-skin='steam'] .settings-version-badge {
+  border-radius: 2px !important;
+}
+
+/* ------------------------------------------------------------------ */
+/* Settings navigation — accent slab for the active entry              */
+/* ------------------------------------------------------------------ */
+
+:root[data-skin='steam'] .settings-nav-item {
+  border-radius: 2px;
+}
+
+:root[data-skin='steam'] .settings-nav-item-active {
+  background: linear-gradient(90deg, var(--sk-btn-accent-top) 0%, var(--sk-btn-accent-bottom) 100%);
+  color: var(--accent-text);
+  border-left-color: transparent;
+}
+
+/* Library category tabs get the same treatment. */
+:root[data-skin='steam'] .library-category-tab {
+  border-radius: 2px;
+}
+
+:root[data-skin='steam'] .library-category-tab--active {
+  background: linear-gradient(90deg, var(--sk-btn-accent-top) 0%, var(--sk-btn-accent-bottom) 100%);
+  color: var(--accent-text);
+  border-left-color: transparent;
+}
+
+/* ------------------------------------------------------------------ */
+/* Steam top nav — replaces the left sidebar (rendered by AppShell     */
+/* only when this skin is active)                                      */
+/* ------------------------------------------------------------------ */
+
+:root[data-skin='steam'] .steam-topnav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: 44px;
+  padding: 0 14px 0 22px;
+  flex-shrink: 0;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--bg-sunken) 90%, #fff) 0%,
+    var(--bg-sunken) 100%
+  );
+  border-bottom: 1px solid var(--sk-chrome-border);
+  position: relative;
+  z-index: 60;
+  user-select: none;
+}
+
+:root[data-skin='steam'] .steam-topnav-links {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  height: 100%;
+  min-width: 0;
+}
+
+:root[data-skin='steam'] .steam-topnav-link {
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  box-sizing: border-box;
+  padding-top: 2px;
+  border-bottom: 2px solid transparent;
+  color: var(--text-tertiary);
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 0.1s ease, border-color 0.1s ease;
+}
+
+:root[data-skin='steam'] .steam-topnav-link:hover {
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+:root[data-skin='steam'] .steam-topnav-link.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+:root[data-skin='steam'] .steam-topnav-side {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+:root[data-skin='steam'] .steam-topnav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 2px;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: background 0.1s ease, color 0.1s ease;
+}
+
+:root[data-skin='steam'] .steam-topnav-icon:hover {
+  background: color-mix(in srgb, var(--text-primary) 10%, transparent);
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+:root[data-skin='steam'] .steam-topnav-icon.active {
+  color: var(--accent);
+}
+
+:root[data-skin='steam'] .steam-topnav-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 6px;
+  padding: 3px 8px 3px 4px;
+  border-radius: 2px;
+  text-decoration: none;
+  transition: background 0.1s ease;
+}
+
+:root[data-skin='steam'] .steam-topnav-user:hover {
+  background: color-mix(in srgb, var(--text-primary) 10%, transparent);
+  text-decoration: none;
+}
+
+/* Square avatar with a status-colored frame, like Steam personas. */
+:root[data-skin='steam'] .steam-topnav-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 2px;
+  object-fit: cover;
+  border: 1px solid var(--status-success);
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+:root[data-skin='steam'] .steam-topnav-avatar-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+:root[data-skin='steam'] .steam-topnav-avatar--offline {
+  border-color: var(--status-warning);
+}
+
+:root[data-skin='steam'] .steam-topnav-username {
+  max-width: 140px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: color-mix(in srgb, var(--accent) 70%, var(--text-primary));
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+:root[data-skin='steam'] .steam-topnav-username--offline {
+  color: var(--status-warning);
+}
+
+/* ------------------------------------------------------------------ */
+/* Steam library layout — left game-list panel + shelves               */
+/* (elements only exist when LibraryPage renders in Steam mode)        */
+/* ------------------------------------------------------------------ */
+
+:root[data-skin='steam'] .steam-library {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  min-height: 100%;
+  box-sizing: border-box;
+}
+
+/* Chrome height above/below .app-main with the top nav present:
+ * titlebar 32 + topnav 44 + statusbar 28 = 104px. A fixed height (not
+ * max-height) keeps the panel filling the full column even when the
+ * library has only a couple of games. */
+:root[data-skin='steam'] .steam-library-sidebar {
+  width: 250px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: calc(100vh - 104px);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--bg-sidebar) 90%, #fff) 0%,
+    var(--bg-sidebar) 160px
+  );
+  border-right: 1px solid var(--sk-chrome-border);
+}
+
+:root[data-skin='steam'] .steam-library-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 10px 8px;
+  padding: 0 8px;
+  background: color-mix(in srgb, var(--bg-sunken) 88%, #000);
+  border: 1px solid var(--sk-border-dark);
+  border-radius: 2px;
+  transition: border-color 0.12s;
+}
+
+:root[data-skin='steam'] .steam-library-search-wrap:focus-within {
+  border-color: var(--accent);
+}
+
+:root[data-skin='steam'] .steam-library-search-icon {
+  color: var(--text-faint);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+:root[data-skin='steam'] .steam-library-search {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 12.5px;
+  padding: 7px 0;
+  font-family: inherit;
+}
+
+:root[data-skin='steam'] .steam-library-search::placeholder {
+  color: var(--text-faint);
+}
+
+:root[data-skin='steam'] .steam-library-side-head {
+  padding: 6px 12px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+:root[data-skin='steam'] .steam-library-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 12px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+:root[data-skin='steam'] .steam-library-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-weight: 500;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s ease, color 0.1s ease;
+}
+
+:root[data-skin='steam'] .steam-library-row:hover {
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  color: var(--text-primary);
+}
+
+/* Installed games read brighter than not-installed ones, like Steam. */
+:root[data-skin='steam'] .steam-library-row--installed {
+  color: var(--text-secondary);
+}
+
+/* The game currently open in the detail route: accent slab, like the
+ * selected game in Steam's list. */
+:root[data-skin='steam'] .steam-library-row--active,
+:root[data-skin='steam'] .steam-library-row--active:hover {
+  background: linear-gradient(90deg, var(--sk-btn-accent-top) 0%, var(--sk-btn-accent-bottom) 100%);
+  color: var(--accent-text);
+}
+
+:root[data-skin='steam'] .steam-library-row-thumb {
+  width: 30px;
+  height: 17px;
+  object-fit: cover;
+  border-radius: 2px;
+  flex-shrink: 0;
+  background: var(--bg-sunken);
+  display: inline-block;
+}
+
+:root[data-skin='steam'] .steam-library-row-title {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Collection groups — collapsible sections like Steam collections. */
+:root[data-skin='steam'] .steam-library-group {
+  margin-bottom: 2px;
+}
+
+:root[data-skin='steam'] .steam-library-group-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 12px 4px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  text-align: left;
+  transition: color 0.1s ease;
+}
+
+:root[data-skin='steam'] .steam-library-group-head:hover {
+  color: var(--text-secondary);
+}
+
+:root[data-skin='steam'] .steam-library-group-chevron {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid currentColor;
+  transition: transform 0.12s ease;
+  flex-shrink: 0;
+}
+
+:root[data-skin='steam'] .steam-library-group--collapsed .steam-library-group-chevron {
+  transform: rotate(-90deg);
+}
+
+:root[data-skin='steam'] .steam-library-group-name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+:root[data-skin='steam'] .steam-library-group-count {
+  color: var(--text-faint);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+:root[data-skin='steam'] .steam-library-group-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* No padding here: each routed page (library home, game detail) brings
+ * its own spacing — the detail hero stays full-bleed like Steam's. */
+:root[data-skin='steam'] .steam-library-main {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* ------------------------------------------------------------------ */
+/* Store — Steam search-page format: filters on the right              */
+/* ------------------------------------------------------------------ */
+
+:root[data-skin='steam'] .store-page {
+  flex-direction: row-reverse;
+}
+
+/* The sidebar background strip is painted by .store-page:before at
+ * left:0 — mirror it to the right edge. */
+:root[data-skin='steam'] .store-page:before {
+  left: auto;
+  right: 0;
+  border-right: none;
+  border-left: 1px solid var(--sk-chrome-border);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--bg-sunken) 92%, #fff) 0%,
+    var(--bg-sunken) 320px
+  );
+}
+
+/* Keep the sticky filter panel inside the viewport with the top nav. */
+:root[data-skin='steam'] .store-filter {
+  max-height: calc(100vh - 104px);
+}
+
+/* Filter widgets: squared, dark inset inputs — Steam "narrow by" look. */
+:root[data-skin='steam'] .store-filter-search-wrap,
+:root[data-skin='steam'] .store-filter-select,
+:root[data-skin='steam'] .store-filter-tag-input-wrap,
+:root[data-skin='steam'] .store-filter-prefix-group,
+:root[data-skin='steam'] .store-filter-tag-suggestions {
+  border-radius: 2px;
+}
+
+:root[data-skin='steam'] .store-filter-search-wrap,
+:root[data-skin='steam'] .store-filter-tag-input-wrap {
+  background: color-mix(in srgb, var(--bg-sunken) 88%, #000);
+  border-color: var(--sk-border-dark);
+}
+
+:root[data-skin='steam'] .store-filter-cat {
+  border-radius: 2px;
+}
+
+:root[data-skin='steam'] .store-filter-cat-active {
+  background: linear-gradient(90deg, var(--sk-btn-accent-top) 0%, var(--sk-btn-accent-bottom) 100%);
+  color: var(--accent-text);
+  border-left-color: transparent;
+}
+
+/* Capsule feel: thumbnails brighten on hover like Steam capsules. */
+:root[data-skin='steam'] .store-card img,
+:root[data-skin='steam'] .continue-card img {
+  transition: filter 0.12s ease;
+}
+
+:root[data-skin='steam'] .store-card:hover img,
+:root[data-skin='steam'] .continue-card:hover img {
+  filter: brightness(1.12);
+}
+
+:root[data-skin='steam'] .store-featured {
+  box-shadow: 0 0 18px rgba(0, 0, 0, 0.45);
+}
+
+:root[data-skin='steam'] .store-pagination-btn,
+:root[data-skin='steam'] .store-pagination-page {
+  border-radius: 2px;
+}
+
+/* Mirror store-filter.css's responsive stacking (our row-reverse rule
+ * has higher specificity and would otherwise override it). */
+@media (max-width: 900px) {
+  :root[data-skin='steam'] .store-page {
+    flex-direction: column;
+  }
+
+  :root[data-skin='steam'] .store-page:before {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Scrollbars — square and chunky, like the Steam client               */
+/* ------------------------------------------------------------------ */
+
+:root[data-skin='steam'] ::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+:root[data-skin='steam'] ::-webkit-scrollbar-track {
+  background: color-mix(in srgb, var(--scrollbar-track) 80%, #000);
+  border-radius: 0;
+}
+
+:root[data-skin='steam'] ::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 0;
+  border: none;
+}
+
+:root[data-skin='steam'] ::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}

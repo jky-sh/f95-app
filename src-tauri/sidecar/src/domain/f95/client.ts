@@ -215,6 +215,33 @@ export class F95Client {
     };
   }
 
+  /**
+   * Public profile of an arbitrary member. Same member-header + recent
+   * activity parsing as `getProfile`, but the username comes from the
+   * member page itself (the navbar only knows the logged-in user).
+   */
+  async getMemberProfile(userId: string): Promise<MemberProfileDto> {
+    const profileUrl = `${BASE}/members/${encodeURIComponent(userId)}/`;
+    const res = await this.client.get(profileUrl);
+    assertNotCloudflareChallenge(res.body, res.headers);
+    if (res.url.includes('/login')) {
+      throw new RpcError(RPC_ERROR.NOT_INITIALIZED, 'not logged in');
+    }
+    if (res.status !== 200) {
+      throw new RpcError(RPC_ERROR.INTERNAL, `member page HTTP ${res.status}`);
+    }
+    const username = parseMemberUsername(res.body);
+    if (!username) {
+      throw new RpcError(
+        RPC_ERROR.INTERNAL,
+        'could not parse member profile (username not found)',
+      );
+    }
+    const header = parseMemberHeader(res.body);
+    const activity = await this.fetchActivity(profileUrl);
+    return { userId, username, profileUrl, ...header, activity };
+  }
+
   private async fetchActivity(profileUrl: string): Promise<ActivityItem[]> {
     const url = profileUrl.replace(/\/?$/, '/') + 'recent-content';
     try {
@@ -359,6 +386,22 @@ interface MemberHeaderInfo {
   points: number | null;
   ratingsReceived: number | null;
   extraStats: Record<string, string>;
+}
+
+/** Public profile of any member — `getProfile` minus the navbar badges. */
+export interface MemberProfileDto extends MemberHeaderInfo {
+  userId: string;
+  username: string;
+  profileUrl: string;
+  activity: ActivityItem[];
+}
+
+function parseMemberUsername(html: string): string | null {
+  const $ = cheerio.load(html);
+  const name =
+    cleanText($('.memberHeader-name .username').first().text()) ||
+    cleanText($('.memberHeader-name').first().text());
+  return name || null;
 }
 
 function parseMemberHeader(html: string): MemberHeaderInfo {

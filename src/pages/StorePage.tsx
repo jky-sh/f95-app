@@ -26,7 +26,7 @@ export function StorePage() {
   const [sort, setSort] = useState<SamSort>('date');
   const [prefixFilter, setPrefixFilter] = useState<Record<number, PrefixFilterMode>>({});
   const [selectedTags, setSelectedTags] = useState<SamTag[]>([]);
-  const [tagMode, setTagMode] = useState<SamTagMode>('and');
+  const [tagMode, setTagMode] = useState<SamTagMode>('or');
 
   const includePrefixes = useMemo(
     () =>
@@ -118,7 +118,7 @@ export function StorePage() {
       setPrefixFilter({});
       setSelectedTags([]);
       setSearch('');
-      setTagMode('and');
+      setTagMode('or');
     },
     [category],
   );
@@ -127,7 +127,7 @@ export function StorePage() {
     setSearch('');
     setPrefixFilter({});
     setSelectedTags([]);
-    setTagMode('and');
+    setTagMode('or');
   }
 
   return (

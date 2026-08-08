@@ -14,6 +14,7 @@ import {
   uninstallGameFromMenu,
 } from '../libraryGameActions';
 import type { LibraryGame } from '../../types/library';
+import { openManageCollections } from '../collections';
 import { item, offlineTitle, sep } from './helpers';
 
 function primaryLabel(
@@ -77,6 +78,9 @@ export function buildLibraryMenu(
 
   items.push(
     item('detail', t('contextMenu.openDetail'), () => openLibraryDetail(game, navigate)),
+    item('collections', t('contextMenu.addToCollection'), () =>
+      openManageCollections({ threadId: game.threadId, title: game.title }),
+    ),
   );
 
   if (game.installPath) {

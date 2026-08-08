@@ -16,6 +16,7 @@
             "login",
             "logout",
             "getProfile",
+            "getMemberProfile",
             "isLoggedIn",
             "samList",
             "samTagSearch",

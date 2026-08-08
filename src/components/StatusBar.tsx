@@ -9,6 +9,7 @@ import { useT } from '../lib/i18n';
 import { formatDownloadSpeed } from '../lib/downloadSettings';
 import type { DownloadProgress, DownloadRow } from '../types/download';
 import { formatBytes, stateKey } from '../types/download';
+import { VersionInfoModal } from './VersionInfoModal';
 
 const ACTIVE_STATES = new Set(['pending', 'resolving', 'downloading']);
 
@@ -45,6 +46,7 @@ export function StatusBar() {
   const { rows, progress } = useDownloads();
   const { settings: dlSettings } = useDownloadSettings();
   const [version, setVersion] = useState<string | null>(null);
+  const [versionModalOpen, setVersionModalOpen] = useState(false);
   const [titles, setTitles] = useState<Record<string, string>>({});
   const active = useMemo(
     () => rows.filter((r) => ACTIVE_STATES.has(r.state)),
@@ -58,6 +60,14 @@ export function StatusBar() {
     getVersion()
       .then(setVersion)
       .catch(() => setVersion('—'));
+  }, []);
+
+  useEffect(() => {
+    function openFromTray() {
+      setVersionModalOpen(true);
+    }
+    window.addEventListener('f95:open-version-modal', openFromTray);
+    return () => window.removeEventListener('f95:open-version-modal', openFromTray);
   }, []);
 
   useEffect(() => {
@@ -154,9 +164,21 @@ export function StatusBar() {
         </button>
       )}
 
-      <div style={versionStyle} title={t('statusbar.versionTitle')}>
+      <button
+        type="button"
+        className="status-bar-version"
+        title={t('statusbar.versionTitle')}
+        aria-label={t('statusbar.versionTitle')}
+        onClick={() => setVersionModalOpen(true)}
+      >
         {version ? `v${version}` : '…'}
-      </div>
+      </button>
+
+      <VersionInfoModal
+        open={versionModalOpen}
+        version={version}
+        onClose={() => setVersionModalOpen(false)}
+      />
     </footer>
   );
 }
@@ -250,15 +272,4 @@ const progressFillStyle: React.CSSProperties = {
   height: '100%',
   background: 'var(--accent)',
   transition: 'width 200ms linear',
-};
-
-const versionStyle: React.CSSProperties = {
-  flexShrink: 0,
-  display: 'flex',
-  alignItems: 'center',
-  padding: '0 12px',
-  fontSize: 10,
-  color: 'var(--text-faint)',
-  borderLeft: '1px solid var(--border-faint)',
-  fontVariantNumeric: 'tabular-nums',
 };

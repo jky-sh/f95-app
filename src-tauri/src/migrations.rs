@@ -169,3 +169,80 @@ CREATE TABLE rss_seen_guids (
   seen_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 "#;
+
+/// v8 adds Steam-style library collections: user-named folders that group
+/// library entries. Membership is N:N — a game can live in any number of
+/// collections (junction rows are removed explicitly on delete since the
+/// SQLite plugin doesn't enable foreign_keys enforcement).
+pub const V8_LIBRARY_COLLECTIONS: &str = r#"
+CREATE TABLE library_collections (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  name       TEXT NOT NULL,
+  position   INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE library_collection_games (
+  collection_id INTEGER NOT NULL,
+  thread_id     TEXT NOT NULL,
+  added_at      TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (collection_id, thread_id),
+  FOREIGN KEY (collection_id) REFERENCES library_collections(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_collection_games_thread ON library_collection_games(thread_id);
+"#;
+
+/// v9 wires the Hydra-style Steam achievement integration.
+///
+/// `library_games.steam_appid` links an F95 thread to its Steam release (the
+/// crack emulators — CODEX, Goldberg/GSE, RUNE, OnlineFix… — key their
+/// achievement files by that appid). Games without a linked appid simply have
+/// no achievements for now; a fully local achievement system will live in the
+/// v6 `achievement_definitions` tables later.
+///
+/// `steam_achievements` caches the schema fetched from Steam (display name,
+/// description, icons, global unlock %), keyed per appid so two library
+/// entries pointing at the same Steam game share one cache. `language`
+/// records which locale the strings were fetched in so a locale switch can
+/// invalidate the cache.
+///
+/// `steam_achievement_unlocks` is keyed by thread_id (the app's identity for
+/// a game), NOT appid — unlock history survives re-linking and is what the
+/// watcher diffs against to decide what is "new". `unlock_time` is epoch
+/// milliseconds (nullable: some crack formats don't store a timestamp).
+pub const V9_STEAM_ACHIEVEMENTS: &str = r#"
+ALTER TABLE library_games ADD COLUMN steam_appid TEXT;
+
+CREATE TABLE steam_achievements (
+  steam_appid    TEXT NOT NULL,
+  api_name       TEXT NOT NULL,
+  display_name   TEXT NOT NULL,
+  description    TEXT,
+  icon_url       TEXT,
+  icon_gray_url  TEXT,
+  hidden         INTEGER NOT NULL DEFAULT 0,
+  global_percent REAL,
+  sort_order     INTEGER NOT NULL DEFAULT 0,
+  language       TEXT NOT NULL DEFAULT 'english',
+  fetched_at     TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (steam_appid, api_name)
+);
+
+CREATE TABLE steam_achievement_unlocks (
+  thread_id   TEXT NOT NULL,
+  api_name    TEXT NOT NULL,
+  unlock_time INTEGER,
+  source      TEXT,
+  synced_at   TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (thread_id, api_name)
+);
+CREATE INDEX idx_steam_unlocks_thread ON steam_achievement_unlocks(thread_id);
+"#;
+
+/// v10: builds DRM-free (sem emulador Steam — comum em jogos Godot/Ren'Py do
+/// F95) guardam conquistas no save do próprio jogo. O modo "save scan" (opt-in
+/// por jogo, heurístico) vasculha os saves atrás dos nomes das conquistas do
+/// schema Steam. A flag vive na linha do jogo.
+pub const V10_ACH_SAVE_SCAN: &str = r#"
+ALTER TABLE library_games ADD COLUMN ach_save_scan INTEGER NOT NULL DEFAULT 0;
+"#;

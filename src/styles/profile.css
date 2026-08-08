@@ -1,0 +1,296 @@
+/* Member profile shared pieces (own Profile page + friend profiles) and
+ * the Friends page cards. Colors come from theme variables. */
+
+/* ── Hero ─────────────────────────────────────────────────────────────── */
+
+.member-hero {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  padding: 22px 24px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent) 10%, var(--bg-elevated)) 0%,
+    var(--bg-elevated) 55%
+  );
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.member-hero-avatar {
+  width: 112px;
+  height: 112px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-strong);
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.member-hero-avatar--fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 44px;
+  font-weight: 700;
+  color: var(--text-faint);
+}
+
+.member-hero-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.member-hero-name {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.member-hero-banner {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 3px 10px;
+  border-radius: 3px;
+  background: var(--accent-soft-bg);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.member-hero-subtitle {
+  margin-top: 6px;
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+.member-hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 14px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.member-hero-meta-label {
+  color: var(--text-faint);
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.member-hero-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ── Stat cards ───────────────────────────────────────────────────────── */
+
+.member-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.member-stat {
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 14px;
+}
+
+.member-stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.member-stat-label {
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* ── Sections (activity / about) ──────────────────────────────────────── */
+
+.member-section {
+  margin-top: 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.member-section-title {
+  margin: 0;
+  padding: 12px 18px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  border-bottom: 1px solid var(--border-faint);
+}
+
+.member-activity-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.member-activity-row {
+  display: flex;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 18px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-faint);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: background 0.1s ease;
+}
+
+.member-activity-list li:last-child .member-activity-row {
+  border-bottom: none;
+}
+
+.member-activity-row:hover {
+  background: var(--bg-hover);
+}
+
+.member-activity-row--static,
+.member-activity-row--static:hover {
+  cursor: default;
+  background: transparent;
+}
+
+.member-activity-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  object-fit: cover;
+  background: var(--bg-sunken);
+  flex-shrink: 0;
+}
+
+.member-activity-avatar--fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.member-activity-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.member-activity-title {
+  color: var(--text-secondary);
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.member-activity-snippet {
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-style: italic;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.member-activity-date {
+  margin-top: 5px;
+  color: var(--text-faint);
+  font-size: 11.5px;
+}
+
+.member-activity-empty {
+  padding: 36px 18px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.member-about {
+  margin: 0;
+  padding: 6px 0;
+}
+
+.member-about-row {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 12px;
+  padding: 9px 18px;
+  border-bottom: 1px solid var(--border-faint);
+  font-size: 13px;
+}
+
+.member-about-row:last-child {
+  border-bottom: none;
+}
+
+.member-about-key {
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.member-about-val {
+  color: var(--text-secondary);
+  margin: 0;
+  word-break: break-word;
+}
+
+/* ── Friends page cards ───────────────────────────────────────────────── */
+
+.friend-card {
+  transition: transform 0.12s ease, border-color 0.12s ease;
+}
+
+.friend-card:hover {
+  transform: translateY(-1px);
+  border-color: var(--accent) !important;
+}
+
+/* ── Friend profile page skeleton ─────────────────────────────────────── */
+
+.member-profile-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.member-profile-skeleton-hero {
+  height: 160px;
+  border-radius: 8px;
+}
+
+.member-profile-skeleton-block {
+  height: 220px;
+  border-radius: 8px;
+}
