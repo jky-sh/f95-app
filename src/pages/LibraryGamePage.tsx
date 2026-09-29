@@ -15,6 +15,7 @@ import { useOffline } from '../contexts/Offline';
 import { InstallLocationModal } from '../components/InstallLocationModal';
 import { MoveProgressModal } from '../components/MoveProgressModal';
 import { GameAchievementsSection } from '../components/game/GameAchievementsSection';
+import { InstallVersionsSection } from '../components/game/InstallVersionsSection';
 import { GameDescription } from '../components/game/GameDescription';
 import { ScreenshotGallery } from '../components/game/ScreenshotGallery';
 import { clearGridPreviewCache } from '../lib/gridPreviewQueue';
@@ -41,6 +42,7 @@ import {
   GameDetailAside,
 } from '../components/game/GameDetailLayout';
 import { useLibraryGameActions } from '../hooks/useLibraryGameActions';
+import { openGameDownloadModal } from '../lib/gameDownloadModal';
 import { useT } from '../lib/i18n';
 import type { GameDetail } from '../types/game';
 import type { LibraryGame } from '../types/library';
@@ -304,7 +306,14 @@ export function LibraryGamePage() {
   }
 
   function onUpdateNow() {
-    navigate(`/store/game/${g.threadId}?cat=${g.category}`);
+    // Modal de escolha de host — atualiza sem sair da página do jogo.
+    openGameDownloadModal({
+      threadId: g.threadId,
+      category: g.category,
+      mode: 'update',
+      title: g.title,
+      versionLabel: g.availableVersion,
+    });
   }
 
   function onOpenViewer() {
@@ -479,7 +488,10 @@ export function LibraryGamePage() {
                 >
                   {t('libdetail.action.stop')}
                 </GameDetailBtnPrimary>
-              ) : g.availableVersion && g.installStatus === 'update_available' ? (
+              ) : g.availableVersion &&
+                g.installStatus === 'update_available' &&
+                !g.exePath ? (
+                // Sem exe não há o que jogar — o update segue como primário.
                 <GameDetailBtnPrimary
                   onClick={onUpdateNow}
                   className="game-detail-btn-update"
@@ -490,19 +502,34 @@ export function LibraryGamePage() {
                   {t('libdetail.action.update', { version: g.availableVersion })}
                 </GameDetailBtnPrimary>
               ) : (
-                <GameDetailBtnPrimary
-                  onClick={onPlay}
-                  disabled={!g.exePath || launching}
-                  title={
-                    !g.exePath
-                      ? t('libdetail.action.play.hintExe')
-                      : launching
-                        ? t('libdetail.action.play.hintLaunch')
-                        : t('libdetail.action.play.title')
-                  }
-                >
-                  {launching ? t('libdetail.action.launching') : t('libdetail.action.play')}
-                </GameDetailBtnPrimary>
+                // Jogar continua primário mesmo com update pendente — a versão
+                // instalada nunca fica injogável por causa de um update.
+                <>
+                  <GameDetailBtnPrimary
+                    onClick={onPlay}
+                    disabled={!g.exePath || launching}
+                    title={
+                      !g.exePath
+                        ? t('libdetail.action.play.hintExe')
+                        : launching
+                          ? t('libdetail.action.play.hintLaunch')
+                          : t('libdetail.action.play.title')
+                    }
+                  >
+                    {launching ? t('libdetail.action.launching') : t('libdetail.action.play')}
+                  </GameDetailBtnPrimary>
+                  {g.availableVersion && g.installStatus === 'update_available' && (
+                    <GameDetailBtnSecondary
+                      onClick={onUpdateNow}
+                      className="game-detail-btn-update"
+                      title={t('libdetail.action.update.title', {
+                        version: g.availableVersion,
+                      })}
+                    >
+                      {t('libdetail.action.update', { version: g.availableVersion })}
+                    </GameDetailBtnSecondary>
+                  )}
+                </>
               )}
               <GameDetailBtnSecondary onClick={onPickExe}>
                 {g.exePath ? t('libdetail.action.switchExe') : t('libdetail.action.setExe')}
@@ -720,6 +747,8 @@ export function LibraryGamePage() {
               </div>
             )}
           </GameDetailSection>
+
+          <InstallVersionsSection game={g} onChanged={reload} />
 
           <GameDetailSection title={t('libdetail.section.actions')}>
             <GameDetailActionList>

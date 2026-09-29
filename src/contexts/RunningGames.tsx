@@ -56,8 +56,10 @@ interface RunningGamesValue {
   launching: Map<string, LaunchEntry>;
   /** Steam/Hydra-style launch helper. Registers the game in `launching`,
    *  creates a session row, calls the IPC, then waits for `game:started`
-   *  (or a timeout) to clear it. */
-  launch: (game: LibraryGame) => Promise<void>;
+   *  (or a timeout) to clear it. `exeOverride` lança um executável diferente
+   *  do ativo — usado pela lista de versões instaladas (jogar uma versão
+   *  antiga sem trocar a ativa). */
+  launch: (game: LibraryGame, exeOverride?: string) => Promise<void>;
   /** Force-clear a launching state — used by the overlay's dismiss button
    *  or when launch errors. */
   cancelLaunch: (threadId: string) => void;
@@ -114,8 +116,9 @@ export function RunningGamesProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const launch = useCallback(
-    async (game: LibraryGame) => {
-      if (!game.exePath) {
+    async (game: LibraryGame, exeOverride?: string) => {
+      const exePath = exeOverride ?? game.exePath;
+      if (!exePath) {
         throw new Error('exe path not set');
       }
       const entry: LaunchEntry = { game, startedAt: Date.now() };
@@ -139,7 +142,7 @@ export function RunningGamesProvider({ children }: { children: ReactNode }) {
         await ipc.launchGame({
           threadId: game.threadId,
           title: game.title,
-          exePath: game.exePath,
+          exePath,
           sessionId,
         });
       } catch (err) {

@@ -26,6 +26,8 @@ interface Props {
   downloads: GameDownload[];
   social: SocialLink[];
   embedded?: boolean;
+  /** Chamado quando um download foi de fato iniciado (modal usa pra fechar). */
+  onDownloadStarted?: () => void;
 }
 
 const STREAMABLE_HOSTS = new Set(['pixeldrain', 'mediafire', 'gofile', 'mega', 'uploadhaven', 'buzzheavier', 'datanodes', 'gdrive', 'workupload', 'mixdrop']);
@@ -48,7 +50,7 @@ const HOST_COLORS: Record<string, string> = {
   '1fichier': '#3aaa8a',
 };
 
-export function DownloadLinks({ game, downloads: items, social, embedded }: Props) {
+export function DownloadLinks({ game, downloads: items, social, embedded, onDownloadStarted }: Props) {
   const { t } = useT();
   const { isOffline } = useOffline();
   const [busyUrl, setBusyUrl] = useState<string | null>(null);
@@ -85,6 +87,7 @@ export function DownloadLinks({ game, downloads: items, social, embedded }: Prop
         libraryPath,
         platformGroup: download.group,
       });
+      onDownloadStarted?.();
     } catch (err) {
       await dialog.alert(t('dl.start.failed', { error: formatError(err) }), { kind: 'error' });
     } finally {

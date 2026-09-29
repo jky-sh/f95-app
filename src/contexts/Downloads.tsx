@@ -13,6 +13,7 @@ import type { DownloadProgress, DownloadRow } from '../types/download';
 interface DownloadsValue {
   rows: DownloadRow[];
   progress: Record<number, DownloadProgress>;
+  extractProgress: Record<string, number>;
   reload: () => Promise<void>;
 }
 

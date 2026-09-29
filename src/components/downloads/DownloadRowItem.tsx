@@ -87,6 +87,8 @@ export function DownloadActiveCard({ row, progress, game, onCancel, onContextMen
 interface RowProps {
   row: DownloadRow;
   game?: DownloadGameInfo;
+  /** Percentual da extração em andamento deste arquivo (auto ou manual). */
+  extractPct?: number;
   onRemove: () => void;
   onReveal: () => void;
   onRetry: () => void;
@@ -100,6 +102,7 @@ interface RowProps {
 export function DownloadHistoryRow({
   row,
   game,
+  extractPct,
   onRemove,
   onReveal,
   onRetry,
@@ -110,6 +113,7 @@ export function DownloadHistoryRow({
 }: RowProps) {
   const { t } = useT();
   const [extracting, setExtracting] = useState(false);
+  const busyExtracting = extracting || extractPct !== undefined;
   const [continuing, setContinuing] = useState(false);
   const isArchive = row.destPath ? isArchivePath(row.destPath) : false;
   const displayTitle = game?.title ?? t('dl.thread', { id: row.threadId });
@@ -203,7 +207,7 @@ export function DownloadHistoryRow({
               <button
                 type="button"
                 className="dl-action-btn dl-action-btn-accent"
-                disabled={extracting}
+                disabled={busyExtracting}
                 onClick={async () => {
                   setExtracting(true);
                   try {
@@ -213,7 +217,11 @@ export function DownloadHistoryRow({
                   }
                 }}
               >
-                {extracting ? t('downloads.action.extracting') : t('downloads.action.extract')}
+                {busyExtracting
+                  ? extractPct !== undefined
+                    ? t('downloads.action.extractingPct', { pct: extractPct })
+                    : t('downloads.action.extracting')
+                  : t('downloads.action.extract')}
               </button>
             )}
             <button type="button" className="dl-action-btn" onClick={onReveal}>

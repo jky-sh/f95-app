@@ -31,7 +31,17 @@ const SAVE_DIR_NAMES: &[&str] = &[
     "savedata",  // various
     "save_data", // various
     "www/save",  // RPGMaker MV (we look inside www/)
+    "SaveGames", // Unreal (<Projeto>/Saved/SaveGames)
 ];
+
+/// Extensões de arquivos de save que vivem SOLTOS na raiz do install (não em
+/// pasta própria): família RGSS do RPG Maker (XP: .rxdata, VX: .rvdata,
+/// VX Ace: .rvdata2) e RPG Maker 2000/2003 (.lsd). São nomes tipo
+/// `Save01.rvdata2` ao lado do Game.exe. O prefixo "save" no nome é
+/// OBRIGATÓRIO: `Data/` da mesma engine guarda os dados do jogo nas mesmas
+/// extensões (Map001.rvdata2, Actors.rvdata2…) e copiá-los por cima da
+/// versão nova reverteria o update.
+const SAVE_FILE_EXTS: &[&str] = &["rvdata2", "rvdata", "rxdata", "lsd"];
 
 // Look up to this many directory levels deep when scanning for save folders.
 // Most engines stash saves at root or one level deep (Ren'Py: `game/saves/`,
@@ -49,12 +59,27 @@ pub struct MigrationResult {
     pub bytes_copied: u64,
     /// Where each copied directory landed in the new install, for logging.
     pub destinations: Vec<String>,
+    /// Engine detectada no install antigo/novo (slug de `engine_detect`).
+    /// `None` = não identificada.
+    pub old_engine: Option<String>,
+    pub new_engine: Option<String>,
+    /// True quando as duas engines foram detectadas e são DIFERENTES — o dev
+    /// trocou de engine entre versões (RPGM→Ren'Py acontece no F95). Nesse
+    /// caso nada é copiado: o formato de save não é compatível e sobrescrever
+    /// arquivos da instalação nova com lixo de outra engine só faz mal. A UI
+    /// avisa o usuário que os saves antigos ficaram na versão anterior.
+    pub engine_mismatch: bool,
 }
 
 /// Copy every recognized save directory from `old_root` into `new_root`,
 /// preserving the relative path. Files inside an existing destination are
 /// merged (existing files overwritten) so a partial new-install layout
 /// doesn't lose the user's progress.
+///
+/// Antes de copiar, compara a engine detectada dos dois lados — só migra
+/// quando compatíveis (iguais, ou quando algum lado é desconhecido: aí o
+/// benefício de tentar supera o risco, já que só copiamos nomes de pasta
+/// reconhecidamente de save).
 pub fn migrate(old_root: &Path, new_root: &Path) -> Result<MigrationResult, AppError> {
     if !old_root.exists() {
         return Err(AppError::Other(format!(
@@ -69,41 +94,83 @@ pub fn migrate(old_root: &Path, new_root: &Path) -> Result<MigrationResult, AppE
         )));
     }
 
+    let old_engine = crate::engine_detect::detect_engine(old_root);
+    let new_engine = crate::engine_detect::detect_engine(new_root);
+    let engine_mismatch = match (old_engine, new_engine) {
+        (Some(a), Some(b)) => a != b,
+        _ => false,
+    };
+
     let mut result = MigrationResult {
         copied: 0,
         bytes_copied: 0,
         destinations: Vec::new(),
+        old_engine: old_engine.map(str::to_string),
+        new_engine: new_engine.map(str::to_string),
+        engine_mismatch,
     };
+    if engine_mismatch {
+        return Ok(result);
+    }
 
     for entry in WalkDir::new(old_root)
         .max_depth(MAX_SCAN_DEPTH)
         .into_iter()
         .filter_map(|e| e.ok())
     {
-        if !entry.file_type().is_dir() {
-            continue;
-        }
         let path = entry.path();
         if path == old_root {
             continue;
         }
-        if !is_save_dir(path) {
-            continue;
+        if entry.file_type().is_dir() {
+            if !is_save_dir(path) {
+                continue;
+            }
+            let rel = match path.strip_prefix(old_root) {
+                Ok(r) => r,
+                Err(_) => continue,
+            };
+            let dest = new_root.join(rel);
+            let copied_bytes = copy_dir_merge(path, &dest)?;
+            result.copied += 1;
+            result.bytes_copied += copied_bytes;
+            result
+                .destinations
+                .push(dest.to_string_lossy().into_owned());
+        } else if entry.file_type().is_file() && entry.depth() <= 2 && is_save_file(path) {
+            // Saves soltos (RPGM RGSS/2k) — replica no mesmo nível relativo.
+            let rel = match path.strip_prefix(old_root) {
+                Ok(r) => r,
+                Err(_) => continue,
+            };
+            let dest = new_root.join(rel);
+            if let Some(parent) = dest.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            let n = fs::copy(path, &dest)?;
+            result.copied += 1;
+            result.bytes_copied += n;
+            result
+                .destinations
+                .push(dest.to_string_lossy().into_owned());
         }
-        let rel = match path.strip_prefix(old_root) {
-            Ok(r) => r,
-            Err(_) => continue,
-        };
-        let dest = new_root.join(rel);
-        let copied_bytes = copy_dir_merge(path, &dest)?;
-        result.copied += 1;
-        result.bytes_copied += copied_bytes;
-        result
-            .destinations
-            .push(dest.to_string_lossy().into_owned());
     }
 
     Ok(result)
+}
+
+fn is_save_file(path: &Path) -> bool {
+    let Some(ext) = path.extension().and_then(OsStr::to_str) else {
+        return false;
+    };
+    let ext = ext.to_ascii_lowercase();
+    if !SAVE_FILE_EXTS.contains(&ext.as_str()) {
+        return false;
+    }
+    path.file_stem()
+        .and_then(OsStr::to_str)
+        .map(|stem| stem.to_ascii_lowercase().starts_with("save"))
+        .unwrap_or(false)
 }
 
 fn is_save_dir(path: &Path) -> bool {

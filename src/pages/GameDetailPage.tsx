@@ -35,6 +35,7 @@ import {
   PrefixPill,
 } from '../components/game/GameDetailLayout';
 import { OfflineGate } from '../components/OfflineGate';
+import { openGameDownloadModal } from '../lib/gameDownloadModal';
 import { useContextMenu } from '../components/contextMenu';
 import { useOffline } from '../contexts/Offline';
 import { buildStoreMenu } from '../lib/contextMenus/buildStoreMenu';
@@ -172,6 +173,20 @@ function GameDetailPageInner() {
     }
   }
 
+  function onInstall() {
+    if (state.kind !== 'ready') return;
+    // Reaproveita o detail já carregado — o modal abre sem novo scrape.
+    openGameDownloadModal({
+      threadId: state.data.threadId,
+      category,
+      mode: 'install',
+      title: state.data.title,
+      detail: state.data,
+      // O download adiciona o jogo à biblioteca; reflete na hora no botão.
+      onStarted: () => setInLibrary(true),
+    });
+  }
+
   if (state.kind === 'loading') {
     return (
       <GameDetailShell>
@@ -237,9 +252,33 @@ function GameDetailPageInner() {
                 {t('gamedetail.action.openInLibrary')}
               </GameDetailBtnPrimary>
             ) : (
-              <GameDetailBtnPrimary onClick={onAddToLibrary} disabled={adding}>
-                {adding ? t('gamedetail.action.adding') : t('gamedetail.action.addToLibrary')}
-              </GameDetailBtnPrimary>
+              <div className="install-split">
+                <button
+                  type="button"
+                  className="game-detail-btn game-detail-btn-primary install-split-btn install-split-main"
+                  onClick={onInstall}
+                  title={t('gamedetail.action.install.title')}
+                >
+                  <DownloadIcon />
+                  <span className="install-split-label">
+                    {t('gamedetail.action.install')}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="game-detail-btn game-detail-btn-secondary install-split-btn install-split-add"
+                  onClick={onAddToLibrary}
+                  disabled={adding}
+                  title={t('gamedetail.action.addToLibrary')}
+                >
+                  <PlusIcon />
+                  <span className="install-split-label">
+                    {adding
+                      ? t('gamedetail.action.adding')
+                      : t('gamedetail.action.addToLibrary')}
+                  </span>
+                </button>
+              </div>
             )}
             <GameDetailBtnSecondary onClick={() => openUrl(g.threadUrl)}>
               {t('gamedetail.action.openThread')}
@@ -441,4 +480,45 @@ function formatError(err: unknown): string {
     return String((err as { message: string }).message);
   }
   return String(err);
+}
+
+/** Seta de download (traço + seta pra baixo), no tamanho do texto do botão. */
+function DownloadIcon() {
+  return (
+    <svg
+      className="install-split-icon"
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M12 3v12" />
+      <path d="m6 11 6 6 6-6" />
+      <path d="M4 21h16" />
+    </svg>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg
+      className="install-split-icon"
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.6"
+      strokeLinecap="round"
+      aria-hidden
+    >
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </svg>
+  );
 }

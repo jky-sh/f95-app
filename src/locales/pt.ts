@@ -60,6 +60,8 @@ const pt: Record<string, string> = {
   'gamedetail.section.tags': 'Tags',
   'gamedetail.section.info': 'Informações',
   'gamedetail.action.addToLibrary': 'Adicionar à biblioteca',
+  'gamedetail.action.install': 'Instalar',
+  'gamedetail.action.install.title': 'Escolher por onde baixar e instalar',
   'gamedetail.action.adding': 'Adicionando…',
   'gamedetail.action.openInLibrary': 'Abrir na biblioteca',
   'gamedetail.action.openThread': 'Abrir no F95Zone',
@@ -241,6 +243,7 @@ const pt: Record<string, string> = {
   'downloads.action.reveal': 'Mostrar arquivo',
   'downloads.action.extract': 'Extrair',
   'downloads.action.extracting': 'Extraindo…',
+  'downloads.action.extractingPct': 'Extraindo… {pct}%',
   'downloads.action.openBrowser': 'Abrir {host} no navegador',
   'downloads.subtitle': 'Acompanhe downloads, extraia arquivos e retome falhas.',
   'downloads.stats.active': 'Em andamento',
@@ -326,6 +329,10 @@ const pt: Record<string, string> = {
   'settings.downloads.deleteArchive': 'Sempre deletar arquivos compactados após a extração',
   'settings.downloads.createShortcuts':
     'Criar atalhos na Área de Trabalho e no Menu Iniciar quando o jogo terminar de baixar',
+  'settings.downloads.keepOldVersions':
+    'Manter a versão anterior instalada ao atualizar (permite voltar de versão)',
+  'settings.downloads.keepOldVersions.hint':
+    'Cada atualização fica lado a lado com a anterior. Exclua versões antigas na página do jogo para liberar espaço.',
 
   'settings.hosts.section': 'Hosts de download',
   'settings.hosts.hint': 'Alguns links restringem download a contas Premium do host. Cole suas credenciais aqui pra que o app baixe usando sua conta.',
@@ -582,6 +589,8 @@ const pt: Record<string, string> = {
   'libcard.cta.updateTo': 'Atualizar ({version})',
   'libcard.cta.update.title': 'Nova versão {version} — abre a Loja',
   'libcard.cta.update.titleSimple': 'Atualizar',
+  'libcard.cta.updatePlayable.title':
+    'Atualização {version} disponível — clique para jogar a versão instalada',
   'libcard.cta.error': 'Tentar novamente',
   'libcard.cta.error.title': 'Reabrir o fluxo',
   'libcard.cta.read': 'Ler',
@@ -704,6 +713,23 @@ const pt: Record<string, string> = {
   // ─── Download list card ─────────────────────────────────────────────────
   'dllist.reveal.failed': 'Não foi possível abrir o local: {error}',
   'dllist.extract.failed': 'Falha ao extrair: {error}',
+  'dllist.saves.engineMismatch':
+    'Os saves não foram copiados para a versão nova: a engine do jogo mudou ({old} → {new}) e os formatos são incompatíveis. Os saves antigos continuam na versão anterior.',
+
+  'libdetail.versions.title': 'Versões instaladas',
+  'libdetail.versions.active': 'Ativa',
+  'libdetail.versions.makeActive': 'Tornar ativa',
+  'libdetail.versions.makeActive.title':
+    'O botão Jogar passa a usar esta versão (rollback de update quebrado)',
+  'libdetail.versions.play.title': 'Jogar esta versão sem trocar a ativa',
+  'libdetail.versions.play.blockedRunning': 'O jogo já está em execução',
+  'libdetail.versions.delete.title': 'Excluir esta versão do disco',
+  'libdetail.versions.delete.blockedActive':
+    'A versão ativa não pode ser excluída — torne outra ativa antes',
+  'libdetail.versions.confirmDelete':
+    'Excluir a versão "{label}" do disco? Isso libera {size}.',
+  'libdetail.versions.hint':
+    'Atualizações mantêm a versão anterior instalada (Configurações → Downloads). Ative uma versão antiga para voltar a ela; os saves dentro da instalação são copiados no update quando a engine é compatível.',
   'dllist.empty.hint': 'Vá em Loja, abra um jogo e clique em Baixar num link Pixeldrain. Outros hosts ainda precisam ser abertos no navegador.',
   'dllist.meta.eta': 'ETA {eta}',
 
@@ -878,6 +904,13 @@ const pt: Record<string, string> = {
 
   // ─── Modals ─────────────────────────────────────────────────────────────
   'modal.install.title': 'Instalar {game}',
+  'modal.gdl.installTitle': 'Instalar {title}',
+  'modal.gdl.updateTitle': 'Atualizar {title}',
+  'modal.gdl.installHint': 'Escolha por onde baixar o jogo.',
+  'modal.gdl.updateHint':
+    'Escolha por onde baixar a atualização {version}. A versão atual continua instalada e jogável enquanto isso.',
+  'modal.gdl.loadFailed': 'Falha ao carregar os links de download: {error}',
+  'modal.gdl.openStore': 'Abrir página na loja',
   'modal.install.hint': 'Escolha onde o jogo vai ficar. Você pode adicionar mais pastas em Configurações → Locais de instalação.',
   'modal.install.confirm': 'Baixar aqui',
   'modal.install.empty': 'Nenhuma biblioteca disponível. Adicione uma em Configurações → Locais de instalação.',

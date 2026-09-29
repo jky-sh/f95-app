@@ -17,7 +17,7 @@
     "build:prune": "node scripts/prune-playwright-artifacts.mjs"
   },
   "dependencies": {
-    "browser-rest-api": "file:../../../browser-api",
+    "browser-rest-api": "^1.0.1",
     "cheerio": "^1.0.0",
     "fast-xml-parser": "^5.8.0",
     "playwright": "^1.60.0"

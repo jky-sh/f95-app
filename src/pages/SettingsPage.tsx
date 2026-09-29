@@ -1122,6 +1122,14 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                   />
                   <span>{t('settings.downloads.createShortcuts')}</span>
                 </label>
+                <label className="settings-check-row" title={t('settings.downloads.keepOldVersions.hint')}>
+                  <input
+                    type="checkbox"
+                    checked={dlSettings.keepOldVersions}
+                    onChange={(e) => updateDlSettings({ keepOldVersions: e.target.checked })}
+                  />
+                  <span>{t('settings.downloads.keepOldVersions')}</span>
+                </label>
               </div>
             </div>
           </section>

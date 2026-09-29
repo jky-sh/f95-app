@@ -4,6 +4,7 @@ mod buzzheavier;
 mod commands;
 mod dev_debug;
 mod download;
+mod engine_detect;
 mod error;
 mod extraction;
 mod game_window;
@@ -35,7 +36,8 @@ use commands::{
     overlay_get_anchor_status, overlay_get_context, overlay_get_game_hint_payload, overlay_hide,
     overlay_hide_game_hint, overlay_is_visible, overlay_pause_follow, overlay_set_context,
     overlay_show, overlay_show_game_hint, overlay_sync_compact_from_window, overlay_sync_hotkey,
-    overlay_toggle, ping_sidecar, resolve_media_preview, resolve_remote_image_preview,
+    overlay_toggle, ping_sidecar, probe_install_dir, resolve_media_preview,
+    resolve_remote_image_preview,
     restart_to_login, reveal_in_explorer, running_games, sam_list, sam_options, sam_tag_search,
     scan_install_media, set_buzzheavier_account, set_datanodes_key, set_gofile_credentials,
     set_mega_session, set_mixdrop_credentials, set_uploadhaven_session, steam_detect_appid,
@@ -109,6 +111,12 @@ pub fn run() {
             sql: migrations::V10_ACH_SAVE_SCAN,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 11,
+            description: "install_versions",
+            sql: migrations::V11_INSTALL_VERSIONS,
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()
@@ -178,6 +186,7 @@ pub fn run() {
             close_captcha_window,
             download_cancel,
             extract_archive,
+            probe_install_dir,
             scan_install_media,
             resolve_media_preview,
             resolve_remote_image_preview,
