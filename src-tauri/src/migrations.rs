@@ -246,3 +246,29 @@ CREATE INDEX idx_steam_unlocks_thread ON steam_achievement_unlocks(thread_id);
 pub const V10_ACH_SAVE_SCAN: &str = r#"
 ALTER TABLE library_games ADD COLUMN ach_save_scan INTEGER NOT NULL DEFAULT 0;
 "#;
+
+/// v11: versões instaladas lado a lado (estilo GOG Galaxy). Cada extração
+/// bem-sucedida registra uma linha; a versão ATIVA é a que
+/// `library_games.install_path` aponta — sem coluna de flag para não criar
+/// duas fontes de verdade. Atualizar deixa de apagar a instalação anterior
+/// (configurável), então um update quebrado nunca deixa o jogo injogável:
+/// o usuário reativa a versão antiga na página do jogo.
+///
+/// `engine` guarda a engine detectada por marcadores no diretório (renpy,
+/// rpgm_mv, unity…) — usada para decidir se os saves da versão anterior podem
+/// ser copiados para a nova. `size_bytes` alimenta o botão de excluir
+/// ("libera 3,2 GB"). `version` é o rótulo F95 quando conhecido; NULL para
+/// instalações antigas semeadas retroativamente.
+pub const V11_INSTALL_VERSIONS: &str = r#"
+CREATE TABLE install_versions (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  thread_id    TEXT NOT NULL,
+  version      TEXT,
+  install_path TEXT NOT NULL UNIQUE,
+  exe_path     TEXT,
+  engine       TEXT,
+  size_bytes   INTEGER,
+  installed_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX idx_install_versions_thread ON install_versions(thread_id);
+"#;
