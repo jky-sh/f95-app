@@ -25,5 +25,5 @@ pub use hosts::*;
 pub use network::*;
 pub use overlay::*;
 pub use sam::*;
-pub use state::{build_state, ActivityItem, AppState, ProfileDto};
+pub use state::{build_state, AppState};
 pub use window::*;

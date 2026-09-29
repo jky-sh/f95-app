@@ -1,6 +1,5 @@
 use crate::bridge::Sidecar;
 use crate::error::AppError;
-use crate::sidecar::dto::ProfileDto;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::sync::Arc;
@@ -95,9 +94,8 @@ impl SidecarClient {
         Ok(())
     }
 
-    pub async fn get_profile(&self) -> Result<ProfileDto, AppError> {
-        let value: Value = self.inner.call("getProfile", json!({})).await?;
-        Ok(serde_json::from_value(value)?)
+    pub async fn get_profile(&self) -> Result<Value, AppError> {
+        self.inner.call("getProfile", json!({})).await
     }
 
     /// Public profile of an arbitrary member. Raw JSON passthrough (typed
