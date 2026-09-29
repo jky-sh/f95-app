@@ -2,8 +2,14 @@ import { BrowserClient } from 'browser-rest-api';
 import * as cheerio from 'cheerio';
 import { RPC_ERROR, RpcError } from '../../rpc';
 import { log } from '../../logger';
+import { F95_BASE } from '../../shared/constants';
+import { absoluteUrl, cleanText, memberIdFromHref } from '../f95/html';
+import { parseMemberSummary, usernameFromHref } from '../f95/member';
 
-const BASE = 'https://f95zone.to';
+const BASE = F95_BASE;
+
+/** Safety cap on `/account/following` pagination. */
+const MAX_FOLLOWING_PAGES = 20;
 
 export interface FollowedUser {
   userId: string;
@@ -11,105 +17,87 @@ export interface FollowedUser {
   avatarUrl: string | null;
   profileUrl: string;
   customTitle: string | null;
+  location: string | null;
+  isStaff: boolean;
+  isModerator: boolean;
+  messagesCount: number | null;
+  reactionScore: number | null;
+  points: number | null;
 }
 
 export class SocialClient {
   constructor(private readonly http: BrowserClient) {}
 
   /**
-   * Scrape `/account/following` for the list of users this account follows.
-   * Returns `[]` when the user follows nobody. The page layout used here
-   * matches the most common XenForo 2 patterns; if F95 changes it, run
-   * __manual__/probe-following.ts again to update the selectors.
+   * Scrape `/account/following` (every page) for the members this account
+   * follows. Returns `[]` when the user follows nobody. If F95 changes the
+   * layout, run __manual__/probe-following.ts again to update the selectors.
    */
   async getFollowing(): Promise<FollowedUser[]> {
-    log('[social] GET /account/following');
-    const res = await this.http.get(`${BASE}/account/following`);
-    if (res.status >= 400) {
-      throw new RpcError(
-        RPC_ERROR.INTERNAL,
-        `following fetch HTTP ${res.status}`,
-      );
+    const users = new Map<string, FollowedUser>();
+    for (let page = 1; page <= MAX_FOLLOWING_PAGES; page++) {
+      const url = `${BASE}/account/following${page > 1 ? `?page=${page}` : ''}`;
+      log(`[social] GET ${url}`);
+      const res = await this.http.get(url);
+      if (res.status >= 400) {
+        throw new RpcError(RPC_ERROR.INTERNAL, `following fetch HTTP ${res.status}`);
+      }
+      const parsed = parseFollowingPage(res.body);
+      for (const u of parsed.users) {
+        if (!users.has(u.userId)) users.set(u.userId, u);
+      }
+      if (page >= parsed.lastPage) break;
     }
-    return parseFollowing(res.body);
+    return Array.from(users.values());
   }
 }
 
-function parseFollowing(html: string): FollowedUser[] {
+/** One page of `/account/following`: XF's member list rows plus its pager. */
+export function parseFollowingPage(html: string): { users: FollowedUser[]; lastPage: number } {
   const $ = cheerio.load(html);
-  const main = $('.p-body-main, .p-body, body');
+  const $content = $('.p-body-pageContent').first();
+  const $scope: cheerio.Cheerio<any> = $content.length ? $content : $.root();
 
-  // Empty state: "You are not currently following any members." or similar.
-  const emptyText = main.find('.block-row, .blockMessage, .p-body-main').text();
-  if (/not\s+currently\s+following/i.test(emptyText)) {
-    return [];
-  }
+  // Each followed member renders as `li.block-row > .contentRow`; fall back
+  // to bare block rows if a theme drops the contentRow wrapper.
+  let rows = $scope.find('.contentRow').toArray().filter((el) => $(el).parents('.contentRow').length === 0);
+  if (rows.length === 0) rows = $scope.find('.block-row').toArray();
 
-  const seen = new Map<string, FollowedUser>();
-
-  // Try multiple XF2 patterns. Each yields zero rows if not present.
-  const rowSelectors = [
-    'ol.memberList li',
-    '.memberList-row',
-    '.contentRow',
-    '.structItem--member',
-    '.block-row',
-  ];
-  for (const sel of rowSelectors) {
-    $(sel).each((_, el) => {
-      const $row = $(el);
-      const $link = $row
+  const users: FollowedUser[] = [];
+  for (const el of rows) {
+    const $row = $(el);
+    const $name = $row.find('a.username').first();
+    const href =
+      $name.attr('href') ??
+      $row
         .find('a[href*="/members/"]')
-        .filter((_i, a) => !!extractUserIdFromHref($(a).attr('href') ?? ''))
-        .first();
-      if ($link.length === 0) return;
-      const href = $link.attr('href') ?? '';
-      const userId = extractUserIdFromHref(href);
-      if (!userId || seen.has(userId)) return;
+        .filter((_i, a) => !!memberIdFromHref($(a).attr('href') ?? ''))
+        .first()
+        .attr('href') ??
+      '';
+    const userId = $name.attr('data-user-id') ?? memberIdFromHref(href);
+    if (!userId || users.some((u) => u.userId === userId)) continue;
 
-      const username = cleanText($link.text()) || extractUsernameFromHref(href);
-      const $avatar = $row.find('img.avatar, .avatarWrapper img, .memberList-avatar img').first();
-      const avatarUrl = absoluteUrl(
-        $avatar.attr('src') ?? $avatar.attr('data-src') ?? '',
-      );
-      const customTitle =
-        cleanText($row.find('.userTitle, .memberList-customTitle, .memberList-stats').first().text()) ||
-        null;
-
-      seen.set(userId, {
-        userId,
-        username: username || `User ${userId}`,
-        avatarUrl: avatarUrl && !avatarUrl.startsWith('data:') ? avatarUrl : null,
-        profileUrl: absoluteUrl(href) ?? `${BASE}/members/${userId}/`,
-        customTitle: customTitle && customTitle.length < 120 ? customTitle : null,
-      });
+    const summary = parseMemberSummary($, $row);
+    users.push({
+      userId,
+      username: cleanText($name.text()) || usernameFromHref(href) || `User ${userId}`,
+      avatarUrl: summary.avatarUrl,
+      profileUrl: href ? absoluteUrl(href) : `${BASE}/members/${userId}/`,
+      customTitle: summary.customTitle,
+      location: summary.location,
+      isStaff: summary.isStaff,
+      isModerator: summary.isModerator,
+      messagesCount: summary.messagesCount,
+      reactionScore: summary.reactionScore,
+      points: summary.points,
     });
-    if (seen.size > 0) break;
   }
 
-  return Array.from(seen.values());
-}
-
-function extractUserIdFromHref(href: string): string | null {
-  // /members/<slug>.<id>/ or /members/<id>/
-  const m = href.match(/\/members\/(?:[^/]*?\.)?(\d+)\/?(?:#.*)?$/);
-  return m ? m[1] : null;
-}
-
-function extractUsernameFromHref(href: string): string {
-  const m = href.match(/\/members\/([^/.]+)/);
-  return m ? m[1].replace(/-/g, ' ') : '';
-}
-
-function absoluteUrl(src: string): string {
-  if (!src) return '';
-  if (/^https?:\/\//i.test(src)) return src;
-  if (src.startsWith('//')) return `https:${src}`;
-  if (src.startsWith('/')) return `${BASE}${src}`;
-  return `${BASE}/${src}`;
-}
-
-function cleanText(s: string | null | undefined): string {
-  if (!s) return '';
-  return s.replace(/\s+/g, ' ').trim();
+  let lastPage = 1;
+  $('.pageNav-page').each((_, el) => {
+    const n = parseInt(cleanText($(el).text()), 10);
+    if (Number.isFinite(n) && n > lastPage) lastPage = n;
+  });
+  return { users, lastPage };
 }
