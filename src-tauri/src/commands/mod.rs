@@ -10,6 +10,7 @@ mod hosts;
 mod network;
 pub mod overlay;
 mod sam;
+mod social;
 mod state;
 mod window;
 
@@ -25,5 +26,6 @@ pub use hosts::*;
 pub use network::*;
 pub use overlay::*;
 pub use sam::*;
+pub use social::*;
 pub use state::{build_state, AppState};
 pub use window::*;

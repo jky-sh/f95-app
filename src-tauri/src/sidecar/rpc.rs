@@ -143,6 +143,30 @@ impl SidecarClient {
         self.inner.call("getFollowing", json!({})).await
     }
 
+    pub async fn get_member_activity(&self, user_id: &str, kind: &str) -> Result<Value, AppError> {
+        self.inner
+            .call("getMemberActivity", json!({ "userId": user_id, "kind": kind }))
+            .await
+    }
+
+    pub async fn get_member_about(&self, user_id: &str) -> Result<Value, AppError> {
+        self.inner
+            .call("getMemberAbout", json!({ "userId": user_id }))
+            .await
+    }
+
+    pub async fn get_member_cards(&self, user_ids: &[String]) -> Result<Value, AppError> {
+        self.inner
+            .call("getMemberCards", json!({ "userIds": user_ids }))
+            .await
+    }
+
+    pub async fn set_member_follow(&self, user_id: &str, follow: bool) -> Result<Value, AppError> {
+        self.inner
+            .call("setMemberFollow", json!({ "userId": user_id, "follow": follow }))
+            .await
+    }
+
     pub async fn fetch_rss(&self, params: serde_json::Map<String, Value>) -> Result<Value, AppError> {
         self.inner.call("fetchRss", Value::Object(params)).await
     }

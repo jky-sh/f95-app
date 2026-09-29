@@ -16,14 +16,19 @@ import {
 import { findAvatarSrc } from './html';
 import {
   parseActivityRows,
+  parseMemberAbout,
   parseMemberHeader,
   parseMemberUsername,
   type ActivityItem,
+  type MemberAboutDto,
   type MemberHeaderInfo,
 } from './member';
+import { fetchMemberPage, forgetCsrf, memberUrl, rememberCsrf } from './pages';
 
 export type { F95Alert, F95AlertsListResult, F95AlertsPopupResult };
 export type { ActivityItem };
+
+export type MemberActivityKind = 'latest' | 'postings';
 
 const BASE = F95_BASE;
 const LOGIN_PAGE = `${BASE}/login/`;
@@ -176,6 +181,7 @@ export class F95Client {
         const memberRes = await this.client.get(base.profileUrl);
         assertNotCloudflareChallenge(memberRes.body, memberRes.headers);
         if (memberRes.status === 200) {
+          rememberCsrf(memberRes.body);
           const header = parseMemberHeader(memberRes.body);
           // Override the navbar avatar with the larger member-page avatar when present.
           const avatarUrl = header.avatarUrl ?? base.avatarUrl;
@@ -199,25 +205,29 @@ export class F95Client {
    * member page itself (the navbar only knows the logged-in user).
    */
   async getMemberProfile(userId: string): Promise<MemberProfileDto> {
-    const profileUrl = `${BASE}/members/${encodeURIComponent(userId)}/`;
-    const res = await this.client.get(profileUrl);
-    assertNotCloudflareChallenge(res.body, res.headers);
-    if (res.url.includes('/login')) {
-      throw new RpcError(RPC_ERROR.NOT_INITIALIZED, 'not logged in');
-    }
-    if (res.status !== 200) {
-      throw new RpcError(RPC_ERROR.INTERNAL, `member page HTTP ${res.status}`);
-    }
-    const username = parseMemberUsername(res.body);
+    const profileUrl = memberUrl(userId);
+    const html = await fetchMemberPage(this.client, userId);
+    const username = parseMemberUsername(html);
     if (!username) {
       throw new RpcError(
         RPC_ERROR.INTERNAL,
         'could not parse member profile (username not found)',
       );
     }
-    const header = parseMemberHeader(res.body);
+    const header = parseMemberHeader(html);
     const activity = await this.fetchActivity(profileUrl);
     return { userId, username, profileUrl, ...header, activity };
+  }
+
+  /** A member's "Latest activity" feed or "Postings" tab. */
+  async getMemberActivity(userId: string, kind: MemberActivityKind): Promise<ActivityItem[]> {
+    const tab = kind === 'postings' ? 'recent-content' : 'latest-activity';
+    return parseActivityRows(await fetchMemberPage(this.client, userId, tab));
+  }
+
+  /** A member's About tab: bio, custom fields, signature, follow lists. */
+  async getMemberAbout(userId: string): Promise<MemberAboutDto> {
+    return parseMemberAbout(await fetchMemberPage(this.client, userId, 'about'));
   }
 
   /**
@@ -287,6 +297,7 @@ export class F95Client {
   /** Drop persisted cookies/session so `isLoggedIn()` is false immediately. */
   private async resetLocalSession(): Promise<void> {
     await this.client.close();
+    forgetCsrf();
     const filePath = path.join(this._sessionDir, `${this._sessionId}.json`);
     try {
       await fs.unlink(filePath);

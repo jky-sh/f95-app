@@ -1,11 +1,17 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { ProfileDto } from '../types';
+import type { ActivityItem, ProfileDto } from '../types';
 import type { SamFilters, SamOptionsResult, SamPage, SamTag } from '../types/sam';
 import type { SamCategory } from '../types/sam';
 import type { GameDetail } from '../types/game';
 import type { CbzPreviewResult, InstallMediaIndex } from '../types/media';
 import type { F95AlertsListResult, F95AlertsPopupResult } from '../types/alerts';
-import type { FollowedUser, MemberProfileDto } from '../types/social';
+import type {
+  FollowedUser,
+  MemberAboutDto,
+  MemberActivityKind,
+  MemberCardDto,
+  MemberProfileDto,
+} from '../types/social';
 import type { RssFeed, RssFeedOptions } from '../types/rss';
 import type { RunningInfo } from '../types/session';
 import type {
@@ -71,6 +77,29 @@ export async function getProfile(): Promise<ProfileDto> {
 
 export async function getMemberProfile(userId: string): Promise<MemberProfileDto> {
   return invoke<MemberProfileDto>('get_member_profile', { userId });
+}
+
+export async function getMemberActivity(
+  userId: string,
+  kind: MemberActivityKind,
+): Promise<ActivityItem[]> {
+  return invoke<ActivityItem[]>('get_member_activity', { userId, kind });
+}
+
+export async function getMemberAbout(userId: string): Promise<MemberAboutDto> {
+  return invoke<MemberAboutDto>('get_member_about', { userId });
+}
+
+/** Tooltip cards for up to 24 members per call (the sidecar serializes RPCs). */
+export async function getMemberCards(userIds: string[]): Promise<MemberCardDto[]> {
+  return invoke<MemberCardDto[]>('get_member_cards', { userIds });
+}
+
+export async function setMemberFollow(
+  userId: string,
+  follow: boolean,
+): Promise<{ following: boolean }> {
+  return invoke<{ following: boolean }>('set_member_follow', { userId, follow });
 }
 
 export async function fetchRssFeed(options: RssFeedOptions = {}): Promise<RssFeed> {
