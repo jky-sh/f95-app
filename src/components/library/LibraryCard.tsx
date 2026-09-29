@@ -117,6 +117,19 @@ function primaryCta(
     case 'extracting':
       return { label: t('libcard.cta.extracting'), title: t('libcard.cta.inFlight.title'), disabled: true, intent: 'noop' };
     case 'update_available':
+      // Jogável mesmo com update pendente: o CTA continua sendo Jogar (o
+      // badge de status do card já sinaliza a atualização; ela fica no menu
+      // de contexto e na página do jogo).
+      if (g.category === 'games' && g.exePath) {
+        return {
+          label: t('libcard.cta.play'),
+          title: g.availableVersion
+            ? t('libcard.cta.updatePlayable.title', { version: g.availableVersion })
+            : t('libcard.cta.play.title'),
+          disabled: false,
+          intent: 'play',
+        };
+      }
       return {
         label: g.availableVersion
           ? t('libcard.cta.updateTo', { version: g.availableVersion })

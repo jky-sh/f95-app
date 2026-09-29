@@ -6,7 +6,19 @@ import * as library from './library';
 import * as updates from './updates';
 import * as uninstall from './uninstall';
 import { dialog } from './dialog';
+import { openGameDownloadModal } from './gameDownloadModal';
 import type { LibraryGame } from '../types/library';
+
+/** Abre o modal global de update (escolha de host) para um jogo da biblioteca. */
+export function openUpdateModal(game: LibraryGame): void {
+  openGameDownloadModal({
+    threadId: game.threadId,
+    category: game.category,
+    mode: 'update',
+    title: game.title,
+    versionLabel: game.availableVersion,
+  });
+}
 
 export type TranslateFn = (
   key: string,
@@ -43,7 +55,18 @@ export async function playOrStop(
     return;
   }
   if (game.installStatus === 'update_available') {
-    navigate(`/store/game/${game.threadId}?cat=${game.category}`);
+    // Update pendente não torna o jogo injogável: com exe configurado, Jogar
+    // continua jogando a versão instalada — atualizar é ação separada (menu
+    // de contexto, página do jogo ou loja).
+    if (game.exePath) {
+      try {
+        await launch(game);
+      } catch (err) {
+        await dialog.alert(formatErr(err), { kind: 'error' });
+      }
+      return;
+    }
+    openUpdateModal(game);
     return;
   }
   if (game.installStatus === 'installed' && game.installPath && game.category !== 'games') {

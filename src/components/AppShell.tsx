@@ -13,6 +13,7 @@ import { StatusBar } from './StatusBar';
 import { useSkin } from '../hooks/useSkin';
 import { LaunchingOverlay } from './LaunchingOverlay';
 import { CollectionPickerModal } from './library/CollectionPickerModal';
+import { GameDownloadModal } from './GameDownloadModal';
 import { CatalogBootstrap } from './store/CatalogBootstrap';
 import { PrefixCatalogProvider } from '../contexts/PrefixCatalogContext';
 import { TagCatalogProvider } from '../contexts/TagCatalogContext';
@@ -74,6 +75,7 @@ export function AppShell({ profile, onLoggedOut }: Props) {
                   <StatusBar />
                   <LaunchingOverlay />
                   <CollectionPickerModal />
+                  <GameDownloadModal />
                 </div>
               </PrefixCatalogProvider>
             </TagCatalogProvider>

@@ -60,6 +60,8 @@ const ru: Record<string, string> = {
   'gamedetail.section.tags': 'Теги',
   'gamedetail.section.info': 'Информация',
   'gamedetail.action.addToLibrary': 'Добавить в библиотеку',
+  'gamedetail.action.install': 'Установить',
+  'gamedetail.action.install.title': 'Выбрать источник загрузки и установить',
   'gamedetail.action.adding': 'Добавление…',
   'gamedetail.action.openInLibrary': 'Открыть в библиотеке',
   'gamedetail.action.openThread': 'Открыть на F95Zone',
@@ -239,6 +241,7 @@ const ru: Record<string, string> = {
   'downloads.action.reveal': 'Показать файл',
   'downloads.action.extract': 'Распаковать',
   'downloads.action.extracting': 'Распаковка…',
+  'downloads.action.extractingPct': 'Распаковка… {pct}%',
   'downloads.action.openBrowser': 'Открыть {host} в браузере',
   'downloads.subtitle': 'Следите за загрузками, распаковывайте архивы и повторяйте ошибки.',
   'downloads.stats.active': 'Активные',
@@ -324,6 +327,10 @@ const ru: Record<string, string> = {
   'settings.downloads.deleteArchive': 'Всегда удалять архивы после распаковки',
   'settings.downloads.createShortcuts':
     'Создавать ярлыки на рабочем столе и в меню «Пуск» после установки игры',
+  'settings.downloads.keepOldVersions':
+    'Сохранять предыдущую установку при обновлении (возможен откат версии)',
+  'settings.downloads.keepOldVersions.hint':
+    'Каждое обновление устанавливается рядом с предыдущим. Удаляйте старые версии на странице игры, чтобы освободить место.',
 
   'settings.hosts.section': 'Хосты загрузок',
   'settings.hosts.hint': 'Некоторые ссылки ограничивают загрузки до Premium-аккаунтов. Вставьте свои данные, чтобы приложение скачивало под вашим аккаунтом.',
@@ -577,6 +584,8 @@ const ru: Record<string, string> = {
   'libcard.cta.updateTo': 'Обновить ({version})',
   'libcard.cta.update.title': 'Новая версия {version} — откроет Магазин',
   'libcard.cta.update.titleSimple': 'Обновить',
+  'libcard.cta.updatePlayable.title':
+    'Доступно обновление {version} — нажмите, чтобы играть в установленную версию',
   'libcard.cta.error': 'Повторить',
   'libcard.cta.error.title': 'Открыть процесс заново',
   'libcard.cta.read': 'Читать',
@@ -699,6 +708,23 @@ const ru: Record<string, string> = {
   // ─── Download list card ─────────────────────────────────────────────────
   'dllist.reveal.failed': 'Не удалось открыть расположение: {error}',
   'dllist.extract.failed': 'Не удалось распаковать: {error}',
+  'dllist.saves.engineMismatch':
+    'Сохранения не были скопированы в новую версию: движок игры сменился ({old} → {new}), форматы несовместимы. Старые сохранения остались в предыдущей версии.',
+
+  'libdetail.versions.title': 'Установленные версии',
+  'libdetail.versions.active': 'Активна',
+  'libdetail.versions.makeActive': 'Сделать активной',
+  'libdetail.versions.makeActive.title':
+    'Кнопка «Играть» будет запускать эту версию (откат неудачного обновления)',
+  'libdetail.versions.play.title': 'Играть в эту версию, не меняя активную',
+  'libdetail.versions.play.blockedRunning': 'Игра уже запущена',
+  'libdetail.versions.delete.title': 'Удалить эту версию с диска',
+  'libdetail.versions.delete.blockedActive':
+    'Активную версию нельзя удалить — сначала активируйте другую',
+  'libdetail.versions.confirmDelete':
+    'Удалить версию «{label}» с диска? Освободится {size}.',
+  'libdetail.versions.hint':
+    'Обновления сохраняют предыдущую версию (Настройки → Загрузки). Активируйте старую версию для отката; сохранения внутри установки копируются при обновлении, если движок совместим.',
   'dllist.empty.hint': 'Перейдите в Магазин, откройте игру и нажмите «Скачать» на ссылке Pixeldrain. Остальные хосты пока открываются в браузере.',
   'dllist.meta.eta': 'Осталось {eta}',
 
@@ -873,6 +899,13 @@ const ru: Record<string, string> = {
 
   // ─── Modals ─────────────────────────────────────────────────────────────
   'modal.install.title': 'Установить {game}',
+  'modal.gdl.installTitle': 'Установить {title}',
+  'modal.gdl.updateTitle': 'Обновить {title}',
+  'modal.gdl.installHint': 'Выберите, откуда скачать игру.',
+  'modal.gdl.updateHint':
+    'Выберите, откуда скачать обновление {version}. Текущая версия остаётся установленной и играбельной.',
+  'modal.gdl.loadFailed': 'Не удалось загрузить ссылки на скачивание: {error}',
+  'modal.gdl.openStore': 'Открыть страницу в магазине',
   'modal.install.hint': 'Выберите, куда установить игру. Добавить ещё папок можно в Настройки → Места установки.',
   'modal.install.confirm': 'Скачать сюда',
   'modal.install.empty': 'Нет доступных библиотек. Добавьте одну в Настройки → Места установки.',

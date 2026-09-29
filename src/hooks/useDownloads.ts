@@ -3,6 +3,8 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import * as downloads from '../lib/downloads';
 import * as library from '../lib/library';
 import * as libraries from '../lib/libraries';
+import * as installVersions from '../lib/installVersions';
+import { engineLabel } from '../lib/installVersions';
 import * as ipc from '../lib/ipc';
 import { loadDownloadSettings } from '../lib/downloadSettings';
 import {
@@ -60,6 +62,7 @@ export async function runExtraction(
     throw new Error('Jogo não está na biblioteca');
   }
   const previousInstallDir = game.installPath;
+  const previousVersionLabel = game.currentVersion;
   const wasInstalled =
     game.installStatus === 'installed' || game.installStatus === 'update_available';
 
@@ -75,6 +78,25 @@ export async function runExtraction(
     });
     const cat = game.category ?? 'games';
     const mediaOnly = cat === 'comics' || cat === 'animations' || cat === 'assets';
+    const isUpdate =
+      wasInstalled && !!previousInstallDir && previousInstallDir !== result.destDir;
+
+    // Garante que a instalação ANTERIOR tenha registro de versão antes de a
+    // linha do jogo apontar para a nova — senão o rótulo/exe dela se perdem.
+    if (isUpdate && previousInstallDir) {
+      try {
+        await installVersions.register({
+          threadId,
+          version: previousVersionLabel,
+          installPath: previousInstallDir,
+          exePath: game.exePath,
+          engine: null,
+          sizeBytes: null,
+        });
+      } catch (err) {
+        console.warn('[update] failed to register previous version', err);
+      }
+    }
 
     await library.setInstallPath(threadId, result.destDir);
     if (result.exePath) {
@@ -88,6 +110,20 @@ export async function runExtraction(
     }
     if (gameVersion) {
       await library.applyVersion(threadId, gameVersion);
+    }
+
+    // Registra a versão recém-extraída (upsert por caminho).
+    try {
+      await installVersions.register({
+        threadId,
+        version: gameVersion ?? null,
+        installPath: result.destDir,
+        exePath: result.exePath,
+        engine: result.engine,
+        sizeBytes: result.sizeBytes,
+      });
+    } catch (err) {
+      console.warn('[extract] failed to register install version', err);
     }
 
     const dlSettings = await loadDownloadSettings();
@@ -109,17 +145,28 @@ export async function runExtraction(
       }
     }
 
-    if (
-      wasInstalled &&
-      previousInstallDir &&
-      previousInstallDir !== result.destDir
-    ) {
+    if (isUpdate && previousInstallDir) {
+      // Copia os saves da versão anterior quando as engines são compatíveis —
+      // engines com save fora do install (Unity, Godot, persistente do Ren'Py)
+      // continuam funcionando sem cópia nenhuma.
       try {
         const migration = await ipc.migrateSaves({
           oldInstallDir: previousInstallDir,
           newInstallDir: result.destDir,
         });
-        if (migration.copied > 0) {
+        if (migration.engine_mismatch) {
+          console.warn(
+            `[update] save migration skipped: engine changed ` +
+              `${migration.old_engine} -> ${migration.new_engine}`,
+          );
+          await dialog.alert(
+            tStandalone('dllist.saves.engineMismatch', {
+              old: engineLabel(migration.old_engine),
+              new: engineLabel(migration.new_engine),
+            }),
+            { kind: 'info' },
+          );
+        } else if (migration.copied > 0) {
           console.info(
             `[update] migrated ${migration.copied} save dir(s) ` +
               `(${migration.bytes_copied} bytes) from old install`,
@@ -128,20 +175,30 @@ export async function runExtraction(
       } catch (err) {
         console.warn('[update] save migration failed', err);
       }
-      try {
-        const safeRoots = await libraries.allPaths();
-        const deleted = await ipc.deleteInstallDir({
-          path: previousInstallDir,
-          safeRoots,
-        });
-        if (!deleted) {
-          console.warn(
-            '[update] previous install was outside every install library; left in place',
-            previousInstallDir,
-          );
+
+      if (dlSettings.keepOldVersions) {
+        console.info(
+          '[update] keeping previous install as switchable version:',
+          previousInstallDir,
+        );
+      } else {
+        try {
+          const safeRoots = await libraries.allPaths();
+          const deleted = await ipc.deleteInstallDir({
+            path: previousInstallDir,
+            safeRoots,
+          });
+          if (deleted) {
+            await installVersions.forgetByPath(previousInstallDir);
+          } else {
+            console.warn(
+              '[update] previous install was outside every install library; left in place',
+              previousInstallDir,
+            );
+          }
+        } catch (err) {
+          console.warn('[update] failed to remove old install dir', err);
         }
-      } catch (err) {
-        console.warn('[update] failed to remove old install dir', err);
       }
     }
   } catch (err) {
@@ -180,6 +237,13 @@ interface DonePayload {
 interface ErrorPayload {
   id: number;
   message: string;
+}
+interface ExtractProgressPayload {
+  archivePath: string;
+  percent: number;
+}
+interface ExtractDonePayload {
+  archivePath: string;
 }
 interface NeedsBrowserPayload {
   id: number;
@@ -234,10 +298,13 @@ async function reconcilePendingExtractions(
 export function useDownloads(options?: UseDownloadsOptions): {
   rows: DownloadRow[];
   progress: Record<number, DownloadProgress>;
+  /** Percentual de extração em andamento, chaveado pelo caminho do arquivo. */
+  extractProgress: Record<string, number>;
   reload: () => Promise<void>;
 } {
   const [rows, setRows] = useState<DownloadRow[]>([]);
   const [progress, setProgress] = useState<Record<number, DownloadProgress>>({});
+  const [extractProgress, setExtractProgress] = useState<Record<string, number>>({});
   const progressRef = useRef(progress);
   progressRef.current = progress;
   const extractingRef = useRef(new Set<string>());
@@ -376,6 +443,26 @@ export function useDownloads(options?: UseDownloadsOptions): {
         }),
       );
       unlisten.push(
+        await listen<ExtractProgressPayload>('extract:progress', (e) => {
+          if (cancelled) return;
+          setExtractProgress((p) => ({
+            ...p,
+            [e.payload.archivePath]: e.payload.percent,
+          }));
+        }),
+      );
+      unlisten.push(
+        await listen<ExtractDonePayload>('extract:done', (e) => {
+          if (cancelled) return;
+          setExtractProgress((p) => {
+            if (!(e.payload.archivePath in p)) return p;
+            const next = { ...p };
+            delete next[e.payload.archivePath];
+            return next;
+          });
+        }),
+      );
+      unlisten.push(
         await listen<NeedsFileChoicePayload>('download:needs-choice', async (e) => {
           await downloads.markAwaitingChoice(e.payload.id);
           options?.onNeedsFileChoice?.({
@@ -424,5 +511,5 @@ export function useDownloads(options?: UseDownloadsOptions): {
     };
   }, [reload, options?.onNeedsFileChoice]);
 
-  return { rows, progress, reload };
+  return { rows, progress, extractProgress, reload };
 }

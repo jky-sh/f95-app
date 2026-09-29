@@ -6,6 +6,8 @@ export interface DownloadSettings {
   speedInMbps: boolean;
   deleteArchiveAfterExtract: boolean;
   createShortcuts: boolean;
+  /** Atualizar mantém a instalação anterior como versão alternável (rollback). */
+  keepOldVersions: boolean;
 }
 
 export const DEFAULT_DOWNLOAD_SETTINGS: DownloadSettings = {
@@ -13,10 +15,11 @@ export const DEFAULT_DOWNLOAD_SETTINGS: DownloadSettings = {
   speedInMbps: false,
   deleteArchiveAfterExtract: false,
   createShortcuts: true,
+  keepOldVersions: true,
 };
 
 export async function loadDownloadSettings(): Promise<DownloadSettings> {
-  const [autoExtract, speedInMbps, deleteArchiveAfterExtract, createShortcuts] =
+  const [autoExtract, speedInMbps, deleteArchiveAfterExtract, createShortcuts, keepOldVersions] =
     await Promise.all([
       settings.getBool(settings.KEY_DL_AUTO_EXTRACT, DEFAULT_DOWNLOAD_SETTINGS.autoExtract),
       settings.getBool(settings.KEY_DL_SPEED_MBPS, DEFAULT_DOWNLOAD_SETTINGS.speedInMbps),
@@ -28,8 +31,12 @@ export async function loadDownloadSettings(): Promise<DownloadSettings> {
         settings.KEY_DL_CREATE_SHORTCUTS,
         DEFAULT_DOWNLOAD_SETTINGS.createShortcuts,
       ),
+      settings.getBool(
+        settings.KEY_DL_KEEP_OLD_VERSIONS,
+        DEFAULT_DOWNLOAD_SETTINGS.keepOldVersions,
+      ),
     ]);
-  return { autoExtract, speedInMbps, deleteArchiveAfterExtract, createShortcuts };
+  return { autoExtract, speedInMbps, deleteArchiveAfterExtract, createShortcuts, keepOldVersions };
 }
 
 export async function saveDownloadSettings(
@@ -42,6 +49,7 @@ export async function saveDownloadSettings(
     settings.setBool(settings.KEY_DL_SPEED_MBPS, next.speedInMbps),
     settings.setBool(settings.KEY_DL_DELETE_ARCHIVE, next.deleteArchiveAfterExtract),
     settings.setBool(settings.KEY_DL_CREATE_SHORTCUTS, next.createShortcuts),
+    settings.setBool(settings.KEY_DL_KEEP_OLD_VERSIONS, next.keepOldVersions),
   ]);
   return next;
 }

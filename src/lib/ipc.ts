@@ -168,6 +168,9 @@ export async function revealInExplorer(path: string): Promise<void> {
 export interface ExtractResult {
   destDir: string;
   exePath: string | null;
+  /** Engine detectada no diretório extraído (slug: renpy, rpgm_mv, unity…). */
+  engine: string | null;
+  sizeBytes: number;
 }
 
 export async function extractArchive(args: {
@@ -175,6 +178,17 @@ export async function extractArchive(args: {
   gameTitle: string;
 }): Promise<ExtractResult> {
   return invoke<ExtractResult>('extract_archive', args);
+}
+
+export interface InstallDirProbe {
+  sizeBytes: number;
+  engine: string | null;
+  exists: boolean;
+}
+
+/** Tamanho + engine de um install existente (seed retroativo de versões). */
+export async function probeInstallDir(path: string): Promise<InstallDirProbe> {
+  return invoke<InstallDirProbe>('probe_install_dir', { path });
 }
 
 export async function deletePath(path: string): Promise<void> {
@@ -243,6 +257,10 @@ export interface MigrationResult {
   copied: number;
   bytes_copied: number;
   destinations: string[];
+  old_engine: string | null;
+  new_engine: string | null;
+  /** Engines detectadas e diferentes — nada foi copiado. */
+  engine_mismatch: boolean;
 }
 
 export async function migrateSaves(args: {

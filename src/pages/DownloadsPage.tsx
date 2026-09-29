@@ -24,7 +24,7 @@ export function DownloadsPage() {
   const navigate = useNavigate();
   const { isOffline } = useOffline();
   const { openContextMenu } = useContextMenu();
-  const { rows, progress, reload } = useDownloads();
+  const { rows, progress, extractProgress, reload } = useDownloads();
   const { settings: dlSettings } = useDownloadSettings();
   const [libraryMap, setLibraryMap] = useState<Record<string, DownloadGameInfo>>({});
   const [clearing, setClearing] = useState(false);
@@ -320,6 +320,7 @@ export function DownloadsPage() {
                   key={r.id}
                   row={r}
                   game={libraryMap[r.threadId]}
+                  extractPct={r.destPath != null ? extractProgress[r.destPath] : undefined}
                   onRemove={() => onRemove(r)}
                   onReveal={() => onReveal(r)}
                   onRetry={() => onRetry(r)}

@@ -62,6 +62,8 @@ const en: Record<string, string> = {
   'gamedetail.section.tags': 'Tags',
   'gamedetail.section.info': 'Information',
   'gamedetail.action.addToLibrary': 'Add to library',
+  'gamedetail.action.install': 'Install',
+  'gamedetail.action.install.title': 'Choose where to download from and install',
   'gamedetail.action.adding': 'Adding…',
   'gamedetail.action.openInLibrary': 'Open in library',
   'gamedetail.action.openThread': 'Open on F95Zone',
@@ -242,6 +244,7 @@ const en: Record<string, string> = {
   'downloads.action.reveal': 'Show file',
   'downloads.action.extract': 'Extract',
   'downloads.action.extracting': 'Extracting…',
+  'downloads.action.extractingPct': 'Extracting… {pct}%',
   'downloads.action.openBrowser': 'Open {host} in browser',
   'downloads.subtitle': 'Track downloads, extract archives and retry failures.',
   'downloads.stats.active': 'In progress',
@@ -327,6 +330,10 @@ const en: Record<string, string> = {
   'settings.downloads.deleteArchive': 'Always delete archive files after extraction',
   'settings.downloads.createShortcuts':
     'Create Desktop and Start Menu shortcuts when a game finishes downloading',
+  'settings.downloads.keepOldVersions':
+    'Keep the previous install when updating (allows version rollback)',
+  'settings.downloads.keepOldVersions.hint':
+    'Each update sits alongside the previous one. Delete old versions from the game page to free disk space.',
 
   'settings.hosts.section': 'Download hosts',
   'settings.hosts.hint': 'Some links restrict downloads to Premium accounts. Paste your credentials so the app can download using your account.',
@@ -583,6 +590,8 @@ const en: Record<string, string> = {
   'libcard.cta.updateTo': 'Update ({version})',
   'libcard.cta.update.title': 'New version {version} — opens the Store',
   'libcard.cta.update.titleSimple': 'Update',
+  'libcard.cta.updatePlayable.title':
+    'Update {version} available — click to play the installed version',
   'libcard.cta.error': 'Try again',
   'libcard.cta.error.title': 'Reopen the flow',
   'libcard.cta.read': 'Read',
@@ -705,6 +714,23 @@ const en: Record<string, string> = {
   // ─── Download list card ─────────────────────────────────────────────────
   'dllist.reveal.failed': 'Could not open the location: {error}',
   'dllist.extract.failed': 'Failed to extract: {error}',
+  'dllist.saves.engineMismatch':
+    'Saves were not copied to the new version: the game engine changed ({old} → {new}) and the save formats are incompatible. Your old saves remain in the previous version.',
+
+  'libdetail.versions.title': 'Installed versions',
+  'libdetail.versions.active': 'Active',
+  'libdetail.versions.makeActive': 'Make active',
+  'libdetail.versions.makeActive.title':
+    'The Play button switches to this version (roll back a broken update)',
+  'libdetail.versions.play.title': 'Play this version without switching the active one',
+  'libdetail.versions.play.blockedRunning': 'The game is already running',
+  'libdetail.versions.delete.title': 'Delete this version from disk',
+  'libdetail.versions.delete.blockedActive':
+    'The active version cannot be deleted — make another one active first',
+  'libdetail.versions.confirmDelete':
+    'Delete version "{label}" from disk? This frees {size}.',
+  'libdetail.versions.hint':
+    'Updates keep the previous version installed (Settings → Downloads). Activate an old version to roll back; in-install saves are copied on update when the engine is compatible.',
   'dllist.empty.hint': 'Go to the Store, open a game and click Download on a Pixeldrain link. Other hosts still need to be opened in the browser.',
   'dllist.meta.eta': 'ETA {eta}',
 
@@ -879,6 +905,13 @@ const en: Record<string, string> = {
 
   // ─── Modals (install location + move) ───────────────────────────────────
   'modal.install.title': 'Install {game}',
+  'modal.gdl.installTitle': 'Install {title}',
+  'modal.gdl.updateTitle': 'Update {title}',
+  'modal.gdl.installHint': 'Choose where to download the game from.',
+  'modal.gdl.updateHint':
+    'Choose where to download the {version} update from. The current version stays installed and playable meanwhile.',
+  'modal.gdl.loadFailed': 'Failed to load download links: {error}',
+  'modal.gdl.openStore': 'Open store page',
   'modal.install.hint': 'Pick where the game will live. You can add more folders in Settings → Install locations.',
   'modal.install.confirm': 'Install here',
   'modal.install.empty': 'No library available. Add one in Settings → Install locations.',
