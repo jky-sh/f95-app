@@ -779,6 +779,7 @@ const pt: Record<string, string> = {
   'store.results': '{count} resultados',
   'store.noResults': 'Nenhum jogo bate com os filtros atuais.',
   'store.loadFailed': 'Falha ao carregar: {error}',
+  'store.refresh.title': 'Carregar os resultados de novo do F95Zone',
   'store.pagination.label': 'Paginação da loja',
   'store.pagination.prev': 'Anterior',
   'store.pagination.next': 'Próxima',

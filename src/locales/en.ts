@@ -780,6 +780,7 @@ const en: Record<string, string> = {
   'store.results': '{count} results',
   'store.noResults': 'No games match the current filters.',
   'store.loadFailed': 'Failed to load: {error}',
+  'store.refresh.title': 'Load the results again from F95Zone',
   'store.pagination.label': 'Store pagination',
   'store.pagination.prev': 'Previous',
   'store.pagination.next': 'Next',

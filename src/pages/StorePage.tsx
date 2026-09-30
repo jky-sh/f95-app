@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { FilterSidebar } from '../components/store/FilterSidebar';
 import { GameCard } from '../components/store/GameCard';
 import { FeaturedHero } from '../components/store/FeaturedHero';
@@ -7,27 +8,70 @@ import { LoadingState } from '../components/ui/LoadingState';
 import { GameCardGridSkeleton } from '../components/ui/GameCardSkeleton';
 import { useSamList } from '../hooks/useSamList';
 import { useStoreSettings } from '../contexts/StoreSettings';
+import { useTagCatalog } from '../contexts/TagCatalogContext';
 import { OfflineGate } from '../components/OfflineGate';
 import { useT } from '../lib/i18n';
 import { describeIpcError } from '../lib/ipcError';
-import type {
-  PrefixFilterMode,
-  SamCategory,
-  SamSort,
-  SamTag,
-  SamTagMode,
-} from '../types/sam';
+import {
+  readStoreQuery,
+  rememberStoreSearch,
+  writeStoreQuery,
+  type StoreQuery,
+} from '../lib/storeQuery';
+import type { PrefixFilterMode, SamCategory, SamSort, SamTag, SamTagMode } from '../types/sam';
+
+/** Typing pause before a search reaches the URL and F95. */
+const SEARCH_DEBOUNCE_MS = 350;
 
 export function StorePage() {
   const { t } = useT();
-  const { settings: storeSettings } = useStoreSettings();
+  const { settings: storeSettings, loading: storeSettingsLoading } = useStoreSettings();
   const infiniteScroll = storeSettings.scrollMode === 'infinite';
-  const [category, setCategory] = useState<SamCategory>('games');
-  const [search, setSearch] = useState('');
-  const [sort, setSort] = useState<SamSort>('date');
-  const [prefixFilter, setPrefixFilter] = useState<Record<number, PrefixFilterMode>>({});
-  const [selectedTags, setSelectedTags] = useState<SamTag[]>([]);
-  const [tagMode, setTagMode] = useState<SamTagMode>('or');
+  const { resolve: resolveTag } = useTagCatalog();
+
+  // Filters live in the URL, so Back from a game, the nav link or a reload
+  // reopen the same list.
+  const [params, setParams] = useSearchParams();
+  const query = useMemo(() => readStoreQuery(params), [params]);
+  const { category, sort, prefixFilter, tagMode } = query;
+
+  const updateQuery = useCallback(
+    (patch: Partial<StoreQuery>) => {
+      // Any filter change starts over at page 1 unless the patch says otherwise.
+      setParams((prev) => writeStoreQuery({ ...readStoreQuery(prev), page: 1, ...patch }), {
+        replace: true,
+      });
+    },
+    [setParams],
+  );
+
+  useEffect(() => {
+    const qs = params.toString();
+    rememberStoreSearch(qs ? `?${qs}` : '');
+  }, [params]);
+
+  // The box updates at once; the URL (and the list) follow when typing pauses.
+  const [searchInput, setSearchInput] = useState(query.search);
+  const pushedSearchRef = useRef(query.search);
+  useEffect(() => {
+    if (searchInput === pushedSearchRef.current) return;
+    const timer = setTimeout(() => {
+      pushedSearchRef.current = searchInput;
+      updateQuery({ search: searchInput });
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [searchInput, updateQuery]);
+  // Search changed from outside the box (a link, or the URL of a Back).
+  useEffect(() => {
+    if (query.search === pushedSearchRef.current) return;
+    pushedSearchRef.current = query.search;
+    setSearchInput(query.search);
+  }, [query.search]);
+
+  const selectedTags = useMemo<SamTag[]>(
+    () => query.tagIds.map((id) => ({ id, name: resolveTag(id) })),
+    [query.tagIds, resolveTag],
+  );
 
   const includePrefixes = useMemo(
     () =>
@@ -44,40 +88,31 @@ export function StorePage() {
     [prefixFilter],
   );
 
+  const search = query.search.trim();
   const hasActiveFilters =
-    search.trim().length > 0 ||
+    searchInput.trim().length > 0 ||
     includePrefixes.length > 0 ||
     excludePrefixes.length > 0 ||
     selectedTags.length > 0;
 
-  const {
-    items,
-    page,
-    totalPages,
-    totalRows,
-    loading,
-    error,
-    hasMore,
-    loadMore,
-    goToPage,
-    reload,
-    retry,
-  } = useSamList({
-    category,
-    sort,
-    search: search.trim() || undefined,
-    prefixes: includePrefixes.length ? includePrefixes : undefined,
-    noprefixes: excludePrefixes.length ? excludePrefixes : undefined,
-    tags: selectedTags.length ? selectedTags.map((tg) => tg.id) : undefined,
-    tagtype: selectedTags.length ? tagMode : undefined,
-  });
-
-  const scrollModeRef = useRef(storeSettings.scrollMode);
-  useEffect(() => {
-    if (scrollModeRef.current === storeSettings.scrollMode) return;
-    scrollModeRef.current = storeSettings.scrollMode;
-    reload();
-  }, [storeSettings.scrollMode, reload]);
+  const { items, page, totalPages, totalRows, loading, error, hasMore, loadMore, reload, retry } =
+    useSamList(
+      {
+        category,
+        sort,
+        search: search || undefined,
+        prefixes: includePrefixes.length ? includePrefixes : undefined,
+        noprefixes: excludePrefixes.length ? excludePrefixes : undefined,
+        tags: query.tagIds.length ? query.tagIds : undefined,
+        tagtype: query.tagIds.length ? tagMode : undefined,
+      },
+      {
+        mode: infiniteScroll ? 'infinite' : 'paged',
+        page: query.page,
+        // Wait for the saved scroll mode, or paged users fetch page 1 twice.
+        enabled: !storeSettingsLoading,
+      },
+    );
 
   // The sentinel unmounts while a page failed; re-attach once it is back.
   const errored = error != null;
@@ -118,30 +153,28 @@ export function StorePage() {
 
   const handlePageChange = useCallback(
     (target: number) => {
-      goToPage(target);
+      if (loading || target < 1 || target > totalPages || target === page) return;
+      updateQuery({ page: target });
       document.querySelector('.app-main')?.scrollTo({ top: 0, behavior: 'smooth' });
     },
-    [goToPage],
+    [loading, totalPages, page, updateQuery],
   );
 
   /** F95Zone resets filters when the SAM category tab changes — mirror that here. */
   const handleCategoryChange = useCallback(
     (next: SamCategory) => {
       if (next === category) return;
-      setCategory(next);
-      setPrefixFilter({});
-      setSelectedTags([]);
-      setSearch('');
-      setTagMode('or');
+      setSearchInput('');
+      pushedSearchRef.current = '';
+      updateQuery({ category: next, search: '', prefixFilter: {}, tagIds: [], tagMode: 'or' });
     },
-    [category],
+    [category, updateQuery],
   );
 
   function clearAllFilters() {
-    setSearch('');
-    setPrefixFilter({});
-    setSelectedTags([]);
-    setTagMode('or');
+    setSearchInput('');
+    pushedSearchRef.current = '';
+    updateQuery({ search: '', prefixFilter: {}, tagIds: [], tagMode: 'or' });
   }
 
   return (
@@ -150,16 +183,18 @@ export function StorePage() {
         <FilterSidebar
           category={category}
           onCategory={handleCategoryChange}
-          search={search}
-          onSearch={setSearch}
+          search={searchInput}
+          onSearch={setSearchInput}
           sort={sort}
-          onSort={setSort}
+          onSort={(next: SamSort) => updateQuery({ sort: next })}
           prefixFilter={prefixFilter}
-          onPrefixFilter={setPrefixFilter}
+          onPrefixFilter={(next: Record<number, PrefixFilterMode>) =>
+            updateQuery({ prefixFilter: next })
+          }
           selectedTags={selectedTags}
-          onSelectedTags={setSelectedTags}
+          onSelectedTags={(tags: SamTag[]) => updateQuery({ tagIds: tags.map((tg) => tg.id) })}
           tagMode={tagMode}
-          onTagMode={setTagMode}
+          onTagMode={(next: SamTagMode) => updateQuery({ tagMode: next })}
           onClearAll={clearAllFilters}
           hasActiveFilters={hasActiveFilters}
         />
@@ -167,15 +202,28 @@ export function StorePage() {
         <section className="store-main">
           <header className="store-main-head">
             <h1 className="store-main-title">{t('store.title')}</h1>
-            <div className="store-main-stats">
-              {totalRows > 0 && (
-                <span>{t('store.results', { count: totalRows.toLocaleString() })}</span>
-              )}
-              {!infiniteScroll && totalPages > 1 && (
-                <span className="store-main-page-hint">
-                  {t('store.pagination.page', { page, total: totalPages })}
-                </span>
-              )}
+            <div className="store-main-tools">
+              <div className="store-main-stats">
+                {totalRows > 0 && (
+                  <span>{t('store.results', { count: totalRows.toLocaleString() })}</span>
+                )}
+                {!infiniteScroll && totalPages > 1 && (
+                  <span className="store-main-page-hint">
+                    {t('store.pagination.page', { page, total: totalPages })}
+                  </span>
+                )}
+              </div>
+              {/* Results are cached for a few minutes; this fetches them again. */}
+              <button
+                type="button"
+                className="store-retry-btn store-refresh-btn"
+                onClick={reload}
+                disabled={loading}
+                title={t('store.refresh.title')}
+              >
+                <RefreshIcon />
+                {t('common.refresh')}
+              </button>
             </div>
           </header>
 
@@ -220,6 +268,25 @@ export function StorePage() {
         </section>
       </div>
     </OfflineGate>
+  );
+}
+
+function RefreshIcon() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+      <path d="M21 3v6h-6" />
+    </svg>
   );
 }
 

@@ -774,6 +774,7 @@ const ru: Record<string, string> = {
   'store.results': '{count} результатов',
   'store.noResults': 'Нет игр по текущим фильтрам.',
   'store.loadFailed': 'Ошибка загрузки: {error}',
+  'store.refresh.title': 'Заново загрузить результаты с F95Zone',
   'store.pagination.label': 'Страницы магазина',
   'store.pagination.prev': 'Назад',
   'store.pagination.next': 'Вперёд',

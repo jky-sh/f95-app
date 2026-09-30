@@ -774,6 +774,7 @@ const de: Record<string, string> = {
   'store.results': '{count} Ergebnisse',
   'store.noResults': 'Keine Spiele passen zu den aktuellen Filtern.',
   'store.loadFailed': 'Laden fehlgeschlagen: {error}',
+  'store.refresh.title': 'Ergebnisse erneut von F95Zone laden',
   'store.pagination.label': 'Shop-Seiten',
   'store.pagination.prev': 'Zurück',
   'store.pagination.next': 'Weiter',

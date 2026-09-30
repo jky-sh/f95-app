@@ -41,6 +41,7 @@ import { useOffline } from '../contexts/Offline';
 import { buildStoreMenu } from '../lib/contextMenus/buildStoreMenu';
 import { useT } from '../lib/i18n';
 import { describeIpcError, formatIpcError } from '../lib/ipcError';
+import { useStoreHref } from '../lib/storeQuery';
 import type { GameDetail, GamePrefix } from '../types/game';
 
 type State =
@@ -78,6 +79,7 @@ function GameDetailPageInner() {
   const { t } = useT();
   const { isOffline } = useOffline();
   const { openMenuAt } = useContextMenu();
+  const storeHref = useStoreHref();
   const [state, setState] = useState<State>({ kind: 'loading' });
   /** Bumped by the Retry button to run the fetch again. */
   const [attempt, setAttempt] = useState(0);
@@ -195,7 +197,7 @@ function GameDetailPageInner() {
       <GameDetailShell>
         <GameDetailBackBar
           onBack={() => navigate(-1)}
-          breadcrumbTo="/store"
+          breadcrumbTo={storeHref}
           breadcrumbLabel={t('nav.store')}
         />
         <GameDetailLoading />
@@ -208,7 +210,7 @@ function GameDetailPageInner() {
       <GameDetailShell>
         <GameDetailBackBar
           onBack={() => navigate(-1)}
-          breadcrumbTo="/store"
+          breadcrumbTo={storeHref}
           breadcrumbLabel={t('nav.store')}
         />
         <GameDetailError
@@ -235,7 +237,7 @@ function GameDetailPageInner() {
     <GameDetailShell onContextMenu={openDetailContextMenu}>
       <GameDetailBackBar
         onBack={() => navigate(-1)}
-        breadcrumbTo="/store"
+        breadcrumbTo={storeHref}
         breadcrumbLabel={t('nav.store')}
       />
 
