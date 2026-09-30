@@ -249,6 +249,7 @@ export async function setActive(
           SET install_path = ?, exe_path = NULL,
               install_status = CASE
                 WHEN install_status IN ('downloading', 'extracting') THEN install_status
+                WHEN install_status = 'update_available' THEN install_status
                 ELSE 'installed'
               END
         WHERE thread_id = ?`,
@@ -261,7 +262,9 @@ export async function setActive(
       [version.version, game.threadId],
     );
   }
-  library.notifyLibraryChange(game.threadId);
+  // Activating the version F95 advertises clears the update notice; rolling
+  // back to an older one brings it back.
+  await library.syncUpdateStatus(game.threadId);
 }
 
 /** Atualiza o exe registrado de uma versão (usuário escolheu manualmente). */

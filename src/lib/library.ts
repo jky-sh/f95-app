@@ -144,6 +144,29 @@ export async function listPendingUpdates(filter: LibraryFilter = {}): Promise<Li
   return games.filter(hasPendingUpdate);
 }
 
+/**
+ * Status of a playable install: `update_available` while F95 advertises a
+ * version other than the installed one, `installed` otherwise. Picking an
+ * exe or switching versions must not drop a pending update notice.
+ */
+const INSTALLED_STATUS_SQL = `CASE
+  WHEN available_version IS NOT NULL
+   AND LOWER(TRIM(available_version)) != LOWER(TRIM(IFNULL(current_version, '')))
+    THEN 'update_available'
+  ELSE 'installed'
+END`;
+
+/** Recompute installed ⇄ update_available after the installed version changed. */
+export async function syncUpdateStatus(threadId: string): Promise<void> {
+  await execute(
+    `UPDATE library_games
+        SET install_status = ${INSTALLED_STATUS_SQL}
+      WHERE thread_id = ? AND install_status IN ('installed', 'update_available')`,
+    [threadId],
+  );
+  notifyLibraryChange(threadId);
+}
+
 export async function setAvailableVersion(
   threadId: string,
   version: string | null,
@@ -302,7 +325,7 @@ export async function setExe(
   }
   await execute(
     `UPDATE library_games
-        SET exe_path = ?, install_path = ?, install_status = 'installed'
+        SET exe_path = ?, install_path = ?, install_status = ${INSTALLED_STATUS_SQL}
         WHERE thread_id = ?`,
     [exePath, installPath || null, threadId],
   );
@@ -436,7 +459,7 @@ export async function stats(category?: SamCategory): Promise<{ total: number; in
 export async function markInstalled(threadId: string, installPath: string): Promise<void> {
   await execute(
     `UPDATE library_games
-        SET install_path = ?, install_status = 'installed', exe_path = NULL
+        SET install_path = ?, install_status = ${INSTALLED_STATUS_SQL}, exe_path = NULL
         WHERE thread_id = ?`,
     [installPath, threadId],
   );
