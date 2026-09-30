@@ -1,6 +1,7 @@
 import { parseSamCategory } from '../constants/samCategories';
 import { execute, query } from './db';
 import { isPathInside, parentDir } from './paths';
+import { forgetGame as forgetCollectionMemberships } from './collections';
 import type {
   InstallStatus,
   LibraryFilter,
@@ -223,8 +224,15 @@ export async function applyVersion(
   notifyLibraryChange(threadId);
 }
 
+/**
+ * Forget a game: its row, its install versions and its collection entries
+ * (play sessions cascade). Files on disk are left alone, and achievements
+ * and download history are kept for when it comes back.
+ */
 export async function remove(threadId: string): Promise<void> {
   await execute(`DELETE FROM library_games WHERE thread_id = ?`, [threadId]);
+  await execute(`DELETE FROM install_versions WHERE thread_id = ?`, [threadId]);
+  await forgetCollectionMemberships(threadId);
   notifyLibraryChange(threadId);
 }
 
