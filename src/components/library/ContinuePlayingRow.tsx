@@ -3,6 +3,7 @@ import { useIsRunning } from '../../contexts/RunningGames';
 import { useT } from '../../lib/i18n';
 import type { LibraryGame } from '../../types/library';
 import { formatPlaytime } from '../../types/library';
+import { parseDbTime } from '../../lib/dbTime';
 
 interface Props {
   games: LibraryGame[];
@@ -51,9 +52,7 @@ function ContinuePlayingCard({
 }) {
   const { t } = useT();
   const isRunning = useIsRunning(game.threadId);
-  const lastPlayed = game.lastPlayedAt
-    ? new Date(game.lastPlayedAt).toLocaleDateString()
-    : null;
+  const lastPlayed = parseDbTime(game.lastPlayedAt)?.toLocaleDateString() ?? null;
   const playable = !!game.exePath;
 
   return (

@@ -12,6 +12,7 @@ import {
   stateKey,
 } from '../../types/download';
 import type { DownloadGameInfo } from './DownloadCard';
+import { parseDbTime } from '../../lib/dbTime';
 
 interface Props {
   row: DownloadRow;
@@ -120,8 +121,9 @@ export function DownloadHistoryRow({
   const fileName = fileLabel(row, displayTitle);
   const size = formatBytes(row.bytesTotal ?? row.bytesDone);
   const captchaHost = supportsCaptchaWindow(row.host);
-  const date = row.finishedAt
-    ? new Date(row.finishedAt).toLocaleString(undefined, {
+  const finished = parseDbTime(row.finishedAt);
+  const date = finished
+    ? finished.toLocaleString(undefined, {
         day: '2-digit',
         month: '2-digit',
         hour: '2-digit',

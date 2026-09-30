@@ -45,6 +45,7 @@ import {
 import { useLibraryGameActions } from '../hooks/useLibraryGameActions';
 import { openGameDownloadModal } from '../lib/gameDownloadModal';
 import { useT } from '../lib/i18n';
+import { parseDbTime } from '../lib/dbTime';
 import type { GameDetail } from '../types/game';
 import type { LibraryGame } from '../types/library';
 import type { PlaySession } from '../types/session';
@@ -470,7 +471,7 @@ export function LibraryGamePage() {
                 {g.lastPlayedAt && (
                   <GameDetailChip>
                     {t('libdetail.lastPlayed', {
-                      when: new Date(g.lastPlayedAt).toLocaleString(),
+                      when: parseDbTime(g.lastPlayedAt)?.toLocaleString() ?? '',
                     })}
                   </GameDetailChip>
                 )}
@@ -584,7 +585,7 @@ export function LibraryGamePage() {
             {g.lastPlayedAt && (
               <GameDetailStat
                 label={t('libdetail.stats.lastPlayed')}
-                value={new Date(g.lastPlayedAt).toLocaleDateString()}
+                value={parseDbTime(g.lastPlayedAt)?.toLocaleDateString() ?? '—'}
               />
             )}
           </>
@@ -636,7 +637,7 @@ export function LibraryGamePage() {
                 {recentSessions.map((s) => (
                   <li key={s.id} className="game-detail-session-row">
                     <span className="game-detail-session-when">
-                      {new Date(s.startedAt).toLocaleString()}
+                      {parseDbTime(s.startedAt)?.toLocaleString()}
                     </span>
                     <span className="game-detail-session-dur">
                       {s.endedAt
@@ -720,7 +721,7 @@ export function LibraryGamePage() {
               />
               <GameDetailField
                 label={t('libdetail.location.added')}
-                value={new Date(g.addedAt).toLocaleString()}
+                value={parseDbTime(g.addedAt)?.toLocaleString() ?? '—'}
               />
             </GameDetailFields>
 
