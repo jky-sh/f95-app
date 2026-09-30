@@ -8,3 +8,12 @@
   .dl-active-thumb { width: 96px; }
   .dl-history-thumb { width: 64px; }
 }
+
+/* History head: title and filter on the left, totals on the right. */
+.dl-history-panel-head { justify-content: flex-start; flex-wrap: wrap; }
+.dl-history-panel-meta { margin-left: auto; }
+.dl-history-panel-head .ui-chip { padding-top: 3px; padding-bottom: 3px; font-size: 12px; }
+
+/* The empty state keeps its dashed card; the primitives set the content. */
+.downloads-empty { padding: 36px 24px; }
+.downloads-empty .ui-btn { text-decoration: none; }

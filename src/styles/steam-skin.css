@@ -91,9 +91,7 @@
 :root[data-skin='steam'] .settings-toolbar-btn,
 :root[data-skin='steam'] .game-detail-btn,
 :root[data-skin='steam'] .app-dialog-btn,
-:root[data-skin='steam'] .dl-action-btn,
-:root[data-skin='steam'] .downloads-toolbar-btn,
-:root[data-skin='steam'] .downloads-empty-cta {
+:root[data-skin='steam'] .dl-action-btn {
   border-radius: 2px;
 }
 
@@ -102,7 +100,6 @@
 :root[data-skin='steam'] .settings-toolbar-btn,
 :root[data-skin='steam'] .app-dialog-btn,
 :root[data-skin='steam'] .dl-action-btn,
-:root[data-skin='steam'] .downloads-toolbar-btn,
 :root[data-skin='steam'] .game-detail-btn-secondary {
   background: linear-gradient(90deg, var(--sk-btn-neutral-top) 5%, var(--sk-btn-neutral-bottom) 95%);
   border: none;
@@ -113,7 +110,6 @@
 :root[data-skin='steam'] .settings-toolbar-btn:hover:not(:disabled),
 :root[data-skin='steam'] .app-dialog-btn:hover:not(:disabled),
 :root[data-skin='steam'] .dl-action-btn:hover:not(:disabled),
-:root[data-skin='steam'] .downloads-toolbar-btn:hover:not(:disabled),
 :root[data-skin='steam'] .game-detail-btn-secondary:hover:not(:disabled) {
   background: linear-gradient(
     90deg,
@@ -128,8 +124,7 @@
 :root[data-skin='steam'] .settings-toolbar-btn-accent,
 :root[data-skin='steam'] .game-detail-btn-primary,
 :root[data-skin='steam'] .app-dialog-btn-primary,
-:root[data-skin='steam'] .dl-action-btn-accent,
-:root[data-skin='steam'] .downloads-empty-cta {
+:root[data-skin='steam'] .dl-action-btn-accent {
   background: linear-gradient(90deg, var(--sk-btn-accent-top) 5%, var(--sk-btn-accent-bottom) 95%);
   border: none;
   color: var(--accent-text);
@@ -139,8 +134,7 @@
 :root[data-skin='steam'] .settings-toolbar-btn-accent:hover:not(:disabled),
 :root[data-skin='steam'] .game-detail-btn-primary:hover:not(:disabled),
 :root[data-skin='steam'] .app-dialog-btn-primary:hover:not(:disabled),
-:root[data-skin='steam'] .dl-action-btn-accent:hover:not(:disabled),
-:root[data-skin='steam'] .downloads-empty-cta:hover:not(:disabled) {
+:root[data-skin='steam'] .dl-action-btn-accent:hover:not(:disabled) {
   background: linear-gradient(
     90deg,
     color-mix(in srgb, var(--accent) 60%, #fff) 5%,

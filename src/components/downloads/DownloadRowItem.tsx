@@ -14,6 +14,7 @@ import {
 import type { DownloadGameInfo } from './DownloadCard';
 import { parseDbTime } from '../../lib/dbTime';
 import { LibraryCover } from '../library/LibraryCover';
+import { Icon } from '../ui/Icon';
 
 interface Props {
   row: DownloadRow;
@@ -71,7 +72,8 @@ export function DownloadActiveCard({ row, progress, game, onCancel, onContextMen
               <> · {t('dllist.meta.eta', { eta: formatEta(liveTotal - liveBytes, progress.speedBps) })}</>
             )}
           </span>
-          <button type="button" className="dl-link-btn" onClick={onCancel}>
+          <button type="button" className="ui-btn ui-btn--ghost ui-btn--sm" onClick={onCancel}>
+            <Icon name="x" size={13} />
             {t('downloads.action.cancel')}
           </button>
         </div>
