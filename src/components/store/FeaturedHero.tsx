@@ -58,7 +58,7 @@ export function FeaturedHero({ game, category, libraryEntry }: Props) {
           )}
           {game.creator && <span style={creatorStyle}>{game.creator}</span>}
           {game.version && <span style={versionBadge}>{game.version}</span>}
-          {game.rating !== null && (
+          {game.rating !== null && game.rating > 0 && (
             <span style={statBadge}>
               <span style={statIcon}>★</span> {game.rating.toFixed(1)}
             </span>

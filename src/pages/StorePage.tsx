@@ -8,6 +8,7 @@ import { LoadingState } from '../components/ui/LoadingState';
 import { GameCardGridSkeleton } from '../components/ui/GameCardSkeleton';
 import { useSamList } from '../hooks/useSamList';
 import { useLibraryIndex } from '../hooks/useLibraryIndex';
+import { useNow } from '../hooks/useNow';
 import { useStoreSettings } from '../contexts/StoreSettings';
 import { useTagCatalog } from '../contexts/TagCatalogContext';
 import { OfflineGate } from '../components/OfflineGate';
@@ -30,6 +31,7 @@ export function StorePage() {
   const infiniteScroll = storeSettings.scrollMode === 'infinite';
   const { resolve: resolveTag } = useTagCatalog();
   const libraryIndex = useLibraryIndex();
+  const now = useNow();
 
   // Filters live in the URL, so Back from a game, the nav link or a reload
   // reopen the same list.
@@ -306,6 +308,7 @@ export function StorePage() {
                 game={game}
                 category={category}
                 libraryEntry={libraryIndex.get(game.threadId)}
+                now={now}
               />
             ))}
           </div>
