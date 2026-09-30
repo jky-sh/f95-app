@@ -233,6 +233,22 @@
   border-radius: 2px;
 }
 
+/* Friends page: squared cards and avatars, Steam-style glow on hover. */
+:root[data-skin='steam'] .friend-card,
+:root[data-skin='steam'] .friends-empty {
+  border-radius: 3px;
+}
+
+:root[data-skin='steam'] .friend-card-avatar,
+:root[data-skin='steam'] .friend-card-skeleton-avatar,
+:root[data-skin='steam'] .member-role-badge {
+  border-radius: 2px;
+}
+
+:root[data-skin='steam'] .friend-card:hover {
+  box-shadow: 0 0 12px var(--sk-accent-glow);
+}
+
 /* Store & library cards use inline styles → !important required. The
  * border-color override is scoped to :not(:hover) so the accent border
  * highlight on hover (App.css, also !important) keeps working. */

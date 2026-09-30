@@ -38,6 +38,24 @@ export function MemberAvatar({
   );
 }
 
+/** "Staff" / "Mod" pills next to a member name. */
+export function MemberRoleBadges({
+  isStaff,
+  isModerator,
+}: {
+  isStaff: boolean;
+  isModerator: boolean;
+}) {
+  const { t } = useT();
+  if (!isStaff && !isModerator) return null;
+  return (
+    <span className="member-role-badges">
+      {isStaff && <span className="member-role-badge member-role-badge--staff">{t('social.role.staff')}</span>}
+      {isModerator && <span className="member-role-badge member-role-badge--mod">{t('social.role.mod')}</span>}
+    </span>
+  );
+}
+
 interface MemberHeroProps {
   avatarUrl: string | null;
   username: string;

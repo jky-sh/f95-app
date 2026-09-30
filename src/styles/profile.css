@@ -266,15 +266,443 @@
   word-break: break-word;
 }
 
-/* ── Friends page cards ───────────────────────────────────────────────── */
+/* ── Role badges (Staff / Mod) ────────────────────────────────────────── */
+
+.member-role-badges {
+  display: inline-flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.member-role-badge {
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  line-height: 1.5;
+}
+
+.member-role-badge--staff {
+  color: var(--accent);
+  background: var(--accent-soft-bg);
+}
+
+.member-role-badge--mod {
+  color: var(--status-info);
+  background: color-mix(in srgb, var(--status-info) 16%, transparent);
+}
+
+/* ── Friends page ─────────────────────────────────────────────────────── */
+
+.friends-page {
+  padding: 20px 24px 40px;
+}
+
+.friends-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border-faint);
+}
+
+.friends-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.friends-subtitle {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.friends-subtitle-online {
+  color: var(--status-success);
+  font-weight: 600;
+}
+
+.friends-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.friends-updated {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.friends-btn {
+  padding: 5px 12px;
+  background: transparent;
+  color: var(--text-tertiary);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.friends-btn:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+.friends-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.friends-btn--accent {
+  margin-top: 14px;
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.friends-notice {
+  margin-bottom: 14px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--status-warning);
+  border-radius: 3px;
+  background: var(--bg-elevated);
+  color: var(--text-tertiary);
+  font-size: 12.5px;
+}
+
+.friends-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--accent-strong);
+  border-radius: 4px;
+  background: var(--status-danger-bg);
+  color: var(--status-danger-text);
+  font-size: 13px;
+}
+
+.friends-empty {
+  padding: 40px 16px;
+  text-align: center;
+  background: var(--bg-elevated);
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+}
+
+.friends-empty-title {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 14px;
+}
+
+.friends-empty-hint {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.friends-toolbar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.friends-search {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  font-size: 13px;
+}
+
+.friends-sort {
+  display: inline-flex;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.friends-sort-btn {
+  padding: 0 12px;
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  border: none;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.friends-sort-btn + .friends-sort-btn {
+  border-left: 1px solid var(--border);
+}
+
+.friends-sort-btn.is-active {
+  background: var(--accent-soft-bg);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.friends-section + .friends-section {
+  margin-top: 22px;
+}
+
+.friends-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.friends-section-count {
+  color: var(--text-faint);
+  font-weight: 600;
+}
+
+.friends-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 12px;
+}
+
+/* ── Friend card ──────────────────────────────────────────────────────── */
 
 .friend-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 0 0 12px;
+  overflow: hidden;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
   transition: transform 0.12s ease, border-color 0.12s ease;
 }
 
 .friend-card:hover {
   transform: translateY(-1px);
-  border-color: var(--accent) !important;
+  border-color: var(--accent);
+}
+
+.friend-card--online {
+  border-color: color-mix(in srgb, var(--status-success) 40%, var(--border));
+}
+
+.friend-card-cover {
+  position: relative;
+  display: block;
+  height: 64px;
+  background-size: cover;
+  background-position-x: center;
+}
+
+.friend-card-cover::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 30%, var(--bg-elevated) 100%);
+}
+
+.friend-card-cover--empty {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent) 22%, var(--bg-elevated)) 0%,
+    var(--bg-elevated) 80%
+  );
+}
+
+.friend-card-head {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin-top: -28px;
+  padding: 0 12px;
+}
+
+.friend-card-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.friend-card-avatar {
+  display: block;
+  width: 56px;
+  height: 56px;
+  box-sizing: border-box;
+  border: 3px solid var(--bg-elevated);
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--bg-sunken);
+}
+
+.friend-card-avatar--fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.presence-dot {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 14px;
+  height: 14px;
+  box-sizing: border-box;
+  border: 3px solid var(--bg-elevated);
+  border-radius: 50%;
+  background: var(--status-success);
+}
+
+.friend-card-id {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  padding-bottom: 3px;
+}
+
+.friend-card-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.friend-card-name {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.friend-card-status {
+  margin-top: 1px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.friend-card-status--online {
+  color: var(--status-success);
+  font-weight: 600;
+}
+
+.friend-card-status-skeleton {
+  display: block;
+  width: 70%;
+  height: 10px;
+  margin-top: 5px;
+}
+
+.friend-card-sub {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  padding: 8px 12px 0;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.friend-card-title {
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.friend-card-location {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--text-muted);
+}
+
+.friend-card-stats {
+  display: flex;
+  gap: 14px;
+  padding: 8px 12px 0;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.friend-card-stats > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.friend-card-skeleton {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 14px;
+  overflow: hidden;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.friend-card-skeleton-cover {
+  height: 64px;
+  border-radius: 0;
+}
+
+.friend-card-skeleton-head {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin-top: -28px;
+  padding: 0 12px;
+}
+
+.friend-card-skeleton-avatar {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  box-sizing: border-box;
+  border: 3px solid var(--bg-elevated);
+  border-radius: 8px;
+}
+
+.friend-card-skeleton-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 6px;
+  padding-bottom: 4px;
+}
+
+.friend-card-skeleton-name {
+  width: 65%;
+  height: 12px;
+}
+
+.friend-card-skeleton-subtitle {
+  width: 45%;
+  height: 10px;
 }
 
 /* ── Friend profile page skeleton ─────────────────────────────────────── */

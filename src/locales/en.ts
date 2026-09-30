@@ -273,7 +273,7 @@ const en: Record<string, string> = {
   'friends.empty.title': 'You aren\'t following anyone yet.',
   'friends.empty.hint': 'Open a profile on F95Zone and click "Follow".',
   'friends.subtitle': 'Following {count}',
-  'friends.searchPlaceholder': 'Search by name…',
+  'friends.searchPlaceholder': 'Search by name, title or location…',
   'friends.viewProfile': 'View profile',
 
   // ─── Profile page ───────────────────────────────────────────────────────
@@ -850,6 +850,28 @@ const en: Record<string, string> = {
   'friends.count': '{count} {count, plural}',
   'friends.count.one': 'person',
   'friends.count.other': 'people',
+  'friends.onlineCount': '{count} online',
+  'friends.refreshing': 'Updating…',
+  'friends.updatedAt': 'Updated {when}',
+  'friends.refreshFailed': 'Couldn\'t update the list ({error}). Showing the saved one.',
+  'friends.offlineEmpty': 'You\'re offline and there\'s no saved list yet. Connect to load your friends.',
+  'friends.empty.browse': 'Browse members on F95Zone',
+  'friends.sort.label': 'Sort',
+  'friends.sort.activity': 'Activity',
+  'friends.sort.name': 'Name',
+  'friends.noMatch': 'No friends match “{query}”.',
+  'friends.group.online': 'Online now',
+  'friends.group.today': 'Active today',
+  'friends.group.others': 'Others',
+  'friends.unfollow.confirm': 'Unfollow {name}? You can follow them again from their profile.',
+  'friends.unfollow.action': 'Unfollow',
+  'friends.unfollow.stillFollowing': 'F95Zone still shows you following {name}. Try again.',
+  'friends.unfollow.failed': 'Couldn\'t unfollow: {error}',
+  'social.presence.online': 'Online now',
+  'social.presence.seenAgo': 'Seen {when}',
+  'social.presence.seenOn': 'Seen on {date}',
+  'social.role.staff': 'Staff',
+  'social.role.mod': 'Mod',
 
   // ─── Settings — additional strings ──────────────────────────────────────
   'settings.hosts.tokenActive': 'TOKEN ACTIVE',
@@ -901,6 +923,7 @@ const en: Record<string, string> = {
   'contextMenu.viewProfile': 'View profile in app',
   'contextMenu.openProfile': 'Open profile on F95',
   'contextMenu.copyProfileLink': 'Copy profile URL',
+  'contextMenu.unfollow': 'Unfollow',
   'contextMenu.openLink': 'Open link',
 
   // ─── Modals (install location + move) ───────────────────────────────────

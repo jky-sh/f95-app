@@ -1,267 +1,254 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import * as ipc from '../lib/ipc';
+import { useMemo, useState } from 'react';
+import { useNavigate, useOutletContext } from 'react-router-dom';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { useT } from '../lib/i18n';
+import { dialog } from '../lib/dialog';
 import { FriendCardGridSkeleton } from '../components/ui/FriendCardSkeleton';
 import { Spinner } from '../components/ui/Spinner';
 import { OfflineGate } from '../components/OfflineGate';
 import { useContextMenu } from '../components/contextMenu';
+import { FriendCard } from '../components/social/FriendCard';
 import { useOffline } from '../contexts/Offline';
+import { useFollowing } from '../hooks/useFollowing';
+import { useMemberCards } from '../hooks/useMemberCards';
+import { useNow } from '../hooks/useNow';
 import { buildFriendsMenu } from '../lib/contextMenus/buildFriendsMenu';
-import type { FollowedUser } from '../types/social';
+import { formatWhen, presenceOf, type Presence } from '../lib/memberPresence';
+import type { ProfileDto } from '../types';
+import type { FollowedUser, MemberCardDto } from '../types/social';
 
-type State =
-  | { kind: 'loading' }
-  | { kind: 'error'; message: string }
-  | { kind: 'ready'; users: FollowedUser[] };
+type Sort = 'activity' | 'name';
+
+interface Entry {
+  user: FollowedUser;
+  card: MemberCardDto | null;
+  presence: Presence;
+}
+
+const NO_USERS: FollowedUser[] = [];
+
+function formatErr(err: unknown): string {
+  if (err && typeof err === 'object' && 'message' in err) {
+    return String((err as { message: string }).message);
+  }
+  return String(err);
+}
 
 export function FriendsPage() {
-  const { t } = useT();
+  const { t, locale } = useT();
   const navigate = useNavigate();
+  const { profile } = useOutletContext<{ profile: ProfileDto }>();
+  const ownerId = profile.userId ?? profile.username;
   const { isOffline } = useOffline();
   const { openContextMenu } = useContextMenu();
-  const [state, setState] = useState<State>({ kind: 'loading' });
+  const { state, refresh, unfollow } = useFollowing(ownerId, isOffline);
+  const users = state.kind === 'ready' ? state.users : NO_USERS;
+  const userIds = useMemo(() => users.map((u) => u.userId), [users]);
+  const { cards, pending } = useMemberCards(ownerId, userIds, isOffline);
+  const now = useNow();
   const [search, setSearch] = useState('');
+  const [sort, setSort] = useState<Sort>('activity');
 
-  const reload = useCallback(async () => {
-    setState({ kind: 'loading' });
-    try {
-      const users = await ipc.getFollowing();
-      setState({ kind: 'ready', users });
-    } catch (err) {
-      setState({
-        kind: 'error',
-        message: err && typeof err === 'object' && 'message' in err
-          ? String((err as { message: string }).message)
-          : String(err),
-      });
-    }
-  }, []);
-
-  useEffect(() => {
-    reload();
-  }, [reload]);
+  const entries = useMemo<Entry[]>(
+    () =>
+      users.map((user) => {
+        const card = cards[user.userId] ?? null;
+        return { user, card, presence: presenceOf(card?.lastSeenTs, now) };
+      }),
+    [users, cards, now],
+  );
 
   const visible = useMemo(() => {
-    if (state.kind !== 'ready') return [];
-    const sorted = [...state.users].sort((a, b) =>
-      a.username.localeCompare(b.username, undefined, { sensitivity: 'base' }),
-    );
     const q = search.trim().toLowerCase();
-    if (!q) return sorted;
-    return sorted.filter((u) => u.username.toLowerCase().includes(q));
-  }, [state, search]);
+    const matches = (e: Entry) =>
+      [e.user.username, e.card?.customTitle ?? e.user.customTitle, e.card?.location ?? e.user.location].some(
+        (v) => v?.toLowerCase().includes(q),
+      );
+    const byName = (a: Entry, b: Entry) =>
+      a.user.username.localeCompare(b.user.username, undefined, { sensitivity: 'base' });
+    const byActivity = (a: Entry, b: Entry) =>
+      (b.card?.lastSeenTs ?? 0) - (a.card?.lastSeenTs ?? 0) || byName(a, b);
+    return [...(q ? entries.filter(matches) : entries)].sort(sort === 'name' ? byName : byActivity);
+  }, [entries, search, sort]);
+
+  const sections = useMemo(() => {
+    if (sort === 'name') return [{ id: 'all', title: null, items: visible }];
+    return [
+      { id: 'online', title: t('friends.group.online'), items: visible.filter((e) => e.presence === 'online') },
+      { id: 'today', title: t('friends.group.today'), items: visible.filter((e) => e.presence === 'today') },
+      {
+        id: 'others',
+        title: t('friends.group.others'),
+        items: visible.filter((e) => e.presence === 'away' || e.presence === 'unknown'),
+      },
+    ].filter((s) => s.items.length > 0);
+  }, [visible, sort, t]);
+
+  const onlineCount = entries.filter((e) => e.presence === 'online').length;
+  const neverLoaded = state.kind === 'ready' && state.savedAt === 0;
+
+  async function onUnfollow(user: FollowedUser) {
+    const ok = await dialog.confirm(t('friends.unfollow.confirm', { name: user.username }), {
+      kind: 'warning',
+      confirmLabel: t('friends.unfollow.action'),
+    });
+    if (!ok) return;
+    try {
+      if (!(await unfollow(user.userId))) {
+        await dialog.alert(t('friends.unfollow.stillFollowing', { name: user.username }), { kind: 'error' });
+      }
+    } catch (err) {
+      await dialog.alert(t('friends.unfollow.failed', { error: formatErr(err) }), { kind: 'error' });
+    }
+  }
 
   return (
-    <OfflineGate>
-    <div style={pageStyle}>
-      <header style={headerStyle}>
-        <div>
-          <h1 style={titleStyle}>{t('friends.title')}</h1>
-          {state.kind === 'ready' && state.users.length > 0 && (
-            <div style={subtitleStyle}>
-              {t('friends.subtitle', { count: state.users.length })}
-            </div>
-          )}
-        </div>
-        <button
-          onClick={reload}
-          disabled={state.kind === 'loading'}
-          style={refreshBtn}
-        >
-          {state.kind === 'loading' ? (
-            <span style={refreshingLabelStyle}>
-              <Spinner size="sm" />
-              {t('common.loading')}
-            </span>
-          ) : (
-            t('common.refresh')
-          )}
-        </button>
-      </header>
-
-      {state.kind === 'ready' && state.users.length > 0 && (
-        <input
-          type="text"
-          value={search}
-          placeholder={t('friends.searchPlaceholder')}
-          onChange={(e) => setSearch(e.target.value)}
-          style={searchInput}
-        />
-      )}
-
-      {state.kind === 'error' && <div style={errorBox}>{state.message}</div>}
-
-      {state.kind === 'loading' && <FriendCardGridSkeleton count={6} />}
-
-      {state.kind === 'ready' && state.users.length === 0 && (
-        <div style={emptyBox}>
-          <p style={{ margin: 0, color: 'var(--text-tertiary)', fontSize: 14 }}>
-            {t('friends.empty.title')}
-          </p>
-          <p style={{ marginTop: 8, color: 'var(--text-muted)', fontSize: 13 }}>
-            {t('friends.empty.hint')}
-          </p>
-        </div>
-      )}
-
-      {state.kind === 'ready' && state.users.length > 0 && (
-        <div style={gridStyle}>
-          {visible.map((u) => (
-            <button
-              key={u.userId}
-              className="friend-card"
-              onClick={() => navigate(`/friends/${u.userId}`)}
-              onContextMenu={(e) =>
-                openContextMenu(
-                  e,
-                  buildFriendsMenu(u, {
-                    isOffline,
-                    t,
-                    onViewProfile: () => navigate(`/friends/${u.userId}`),
-                  }),
-                )
-              }
-              style={cardStyle}
-              title={t('friends.viewProfile')}
-            >
-              <div style={avatarWrap}>
-                {u.avatarUrl ? (
-                  <img src={u.avatarUrl} alt={u.username} style={avatarImg} />
-                ) : (
-                  <span style={avatarFallback}>
-                    {u.username.slice(0, 1).toUpperCase()}
+    <OfflineGate allowReadOnly>
+      <div className="friends-page">
+        <header className="friends-header">
+          <div>
+            <h1 className="friends-title">{t('friends.title')}</h1>
+            {state.kind === 'ready' && users.length > 0 && (
+              <div className="friends-subtitle">
+                {t('friends.subtitle', { count: users.length })}
+                {onlineCount > 0 && (
+                  <span className="friends-subtitle-online">
+                    {' · '}
+                    {t('friends.onlineCount', { count: onlineCount })}
                   </span>
                 )}
               </div>
-              <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-                <div style={usernameStyle} title={u.username}>{u.username}</div>
-                {u.customTitle && (
-                  <div style={customTitleStyle} title={u.customTitle}>
-                    {u.customTitle}
-                  </div>
-                )}
-              </div>
+            )}
+          </div>
+          <div className="friends-header-actions">
+            {state.kind === 'ready' && state.refreshing && (
+              <span className="friends-updated">
+                <Spinner size="sm" />
+                {t('friends.refreshing')}
+              </span>
+            )}
+            {state.kind === 'ready' && !state.refreshing && state.savedAt > 0 && (
+              <span className="friends-updated">
+                {t('friends.updatedAt', { when: formatWhen(state.savedAt, locale, now) })}
+              </span>
+            )}
+            <button
+              type="button"
+              className="friends-btn"
+              onClick={() => void refresh()}
+              disabled={isOffline || state.kind === 'loading' || (state.kind === 'ready' && state.refreshing)}
+            >
+              {t('common.refresh')}
             </button>
-          ))}
-        </div>
-      )}
-    </div>
+          </div>
+        </header>
+
+        {state.kind === 'ready' && state.refreshError && (
+          <div className="friends-notice" role="status">
+            {t('friends.refreshFailed', { error: state.refreshError })}
+          </div>
+        )}
+
+        {state.kind === 'loading' && <FriendCardGridSkeleton count={6} />}
+
+        {state.kind === 'error' && (
+          <div className="friends-error">
+            <div>{t('friends.loadFailed', { error: state.message })}</div>
+            <button type="button" className="friends-btn" onClick={() => void refresh()}>
+              {t('common.refresh')}
+            </button>
+          </div>
+        )}
+
+        {state.kind === 'ready' && users.length === 0 && (
+          <div className="friends-empty">
+            {neverLoaded && isOffline ? (
+              <p className="friends-empty-title">{t('friends.offlineEmpty')}</p>
+            ) : (
+              <>
+                <p className="friends-empty-title">{t('friends.empty.title')}</p>
+                <p className="friends-empty-hint">{t('friends.empty.hint')}</p>
+                <button
+                  type="button"
+                  className="friends-btn friends-btn--accent"
+                  onClick={() => void openUrl('https://f95zone.to/members/')}
+                  disabled={isOffline}
+                >
+                  {t('friends.empty.browse')}
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
+        {state.kind === 'ready' && users.length > 0 && (
+          <>
+            <div className="friends-toolbar">
+              <input
+                type="search"
+                className="friends-search"
+                value={search}
+                placeholder={t('friends.searchPlaceholder')}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              <div className="friends-sort" role="group" aria-label={t('friends.sort.label')}>
+                {(['activity', 'name'] as const).map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    className={`friends-sort-btn${sort === s ? ' is-active' : ''}`}
+                    aria-pressed={sort === s}
+                    onClick={() => setSort(s)}
+                  >
+                    {t(`friends.sort.${s}`)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {visible.length === 0 && (
+              <div className="friends-empty">
+                <p className="friends-empty-hint">{t('friends.noMatch', { query: search.trim() })}</p>
+              </div>
+            )}
+
+            {sections.map((section) => (
+              <section key={section.id} className="friends-section">
+                {section.title && (
+                  <h2 className="friends-section-title">
+                    {section.title}
+                    <span className="friends-section-count">{section.items.length}</span>
+                  </h2>
+                )}
+                <div className="friends-grid">
+                  {section.items.map(({ user, card, presence }) => (
+                    <FriendCard
+                      key={user.userId}
+                      user={user}
+                      card={card}
+                      loadingCard={pending.has(user.userId)}
+                      presence={presence}
+                      now={now}
+                      onOpen={() => navigate(`/friends/${user.userId}`)}
+                      onContextMenu={(e) =>
+                        openContextMenu(
+                          e,
+                          buildFriendsMenu(user, {
+                            isOffline,
+                            t,
+                            onViewProfile: () => navigate(`/friends/${user.userId}`),
+                            onUnfollow: () => void onUnfollow(user),
+                          }),
+                        )
+                      }
+                    />
+                  ))}
+                </div>
+              </section>
+            ))}
+          </>
+        )}
+      </div>
     </OfflineGate>
   );
 }
-
-const pageStyle: React.CSSProperties = { padding: '20px 24px 40px' };
-const headerStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'flex-end',
-  justifyContent: 'space-between',
-  paddingBottom: 12,
-  borderBottom: '1px solid var(--border-faint)',
-  marginBottom: 16,
-};
-const titleStyle: React.CSSProperties = { fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', margin: 0 };
-const subtitleStyle: React.CSSProperties = {
-  marginTop: 4,
-  fontSize: 12,
-  color: 'var(--text-muted)',
-};
-const searchInput: React.CSSProperties = {
-  width: '100%',
-  boxSizing: 'border-box',
-  padding: '7px 10px',
-  background: 'var(--bg-elevated)',
-  border: '1px solid var(--border)',
-  borderRadius: 3,
-  color: 'var(--text-secondary)',
-  fontSize: 13,
-  outline: 'none',
-  marginBottom: 14,
-};
-const refreshBtn: React.CSSProperties = {
-  background: 'transparent',
-  color: 'var(--text-tertiary)',
-  border: '1px solid var(--border-strong)',
-  padding: '5px 12px',
-  borderRadius: 3,
-  fontSize: 12,
-  cursor: 'pointer',
-};
-const refreshingLabelStyle: React.CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 6,
-};
-const gridStyle: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-  gap: 10,
-};
-const cardStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 10,
-  background: 'var(--bg-elevated)',
-  border: '1px solid var(--border)',
-  borderRadius: 4,
-  padding: '10px 12px',
-  color: 'var(--text-secondary)',
-  cursor: 'pointer',
-  textAlign: 'left',
-  width: '100%',
-};
-const avatarWrap: React.CSSProperties = {
-  width: 44,
-  height: 44,
-  borderRadius: '50%',
-  background: 'var(--bg-sunken)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  overflow: 'hidden',
-  flexShrink: 0,
-};
-const avatarImg: React.CSSProperties = {
-  width: '100%',
-  height: '100%',
-  objectFit: 'cover',
-};
-const avatarFallback: React.CSSProperties = {
-  fontSize: 18,
-  color: 'var(--text-faint)',
-  fontWeight: 700,
-};
-const usernameStyle: React.CSSProperties = {
-  fontSize: 13,
-  fontWeight: 700,
-  color: 'var(--text-primary)',
-  whiteSpace: 'nowrap',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-};
-const customTitleStyle: React.CSSProperties = {
-  fontSize: 11,
-  color: 'var(--text-muted)',
-  marginTop: 2,
-  whiteSpace: 'nowrap',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-};
-const emptyBox: React.CSSProperties = {
-  textAlign: 'center',
-  padding: '40px 16px',
-  color: 'var(--text-muted)',
-  fontSize: 13,
-  background: 'var(--bg-elevated)',
-  border: '1px dashed var(--border)',
-  borderRadius: 4,
-};
-const errorBox: React.CSSProperties = {
-  background: 'var(--status-danger-bg)',
-  border: '1px solid var(--accent-strong)',
-  color: 'var(--status-danger-text)',
-  padding: '12px 16px',
-  borderRadius: 4,
-  marginBottom: 16,
-  fontSize: 13,
-};

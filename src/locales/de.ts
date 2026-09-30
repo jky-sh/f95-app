@@ -270,7 +270,7 @@ const de: Record<string, string> = {
   'friends.empty.title': 'Du folgst noch niemandem.',
   'friends.empty.hint': 'Öffne ein Profil auf F95Zone und klicke auf "Follow".',
   'friends.subtitle': 'Folgt {count}',
-  'friends.searchPlaceholder': 'Nach Name suchen…',
+  'friends.searchPlaceholder': 'Nach Name, Titel oder Ort suchen…',
   'friends.viewProfile': 'Profil ansehen',
 
   // ─── Profile ────────────────────────────────────────────────────────────
@@ -844,6 +844,28 @@ const de: Record<string, string> = {
   'friends.count': '{count} {count, plural}',
   'friends.count.one': 'Person',
   'friends.count.other': 'Personen',
+  'friends.onlineCount': '{count} online',
+  'friends.refreshing': 'Wird aktualisiert…',
+  'friends.updatedAt': 'Aktualisiert {when}',
+  'friends.refreshFailed': 'Liste konnte nicht aktualisiert werden ({error}). Die gespeicherte Liste wird angezeigt.',
+  'friends.offlineEmpty': 'Du bist offline und es gibt noch keine gespeicherte Liste. Verbinde dich, um deine Freunde zu laden.',
+  'friends.empty.browse': 'Mitglieder auf F95Zone durchsuchen',
+  'friends.sort.label': 'Sortieren',
+  'friends.sort.activity': 'Aktivität',
+  'friends.sort.name': 'Name',
+  'friends.noMatch': 'Keine Freunde passen zu „{query}“.',
+  'friends.group.online': 'Jetzt online',
+  'friends.group.today': 'Heute aktiv',
+  'friends.group.others': 'Weitere',
+  'friends.unfollow.confirm': '{name} nicht mehr folgen? Du kannst über das Profil wieder folgen.',
+  'friends.unfollow.action': 'Nicht mehr folgen',
+  'friends.unfollow.stillFollowing': 'F95Zone zeigt weiterhin, dass du {name} folgst. Versuche es erneut.',
+  'friends.unfollow.failed': 'Entfolgen fehlgeschlagen: {error}',
+  'social.presence.online': 'Jetzt online',
+  'social.presence.seenAgo': 'Zuletzt gesehen {when}',
+  'social.presence.seenOn': 'Zuletzt gesehen am {date}',
+  'social.role.staff': 'Staff',
+  'social.role.mod': 'Mod',
 
   // ─── Settings extras ────────────────────────────────────────────────────
   'settings.hosts.tokenActive': 'TOKEN AKTIV',
@@ -895,6 +917,7 @@ const de: Record<string, string> = {
   'contextMenu.viewProfile': 'Profil in der App ansehen',
   'contextMenu.openProfile': 'Profil auf F95 öffnen',
   'contextMenu.copyProfileLink': 'Profil-URL kopieren',
+  'contextMenu.unfollow': 'Nicht mehr folgen',
   'contextMenu.openLink': 'Link öffnen',
 
   // ─── Modals ─────────────────────────────────────────────────────────────

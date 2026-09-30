@@ -272,7 +272,7 @@ const pt: Record<string, string> = {
   'friends.empty.title': 'Você ainda não segue ninguém.',
   'friends.empty.hint': 'Abra um perfil no F95Zone e clique em "Follow".',
   'friends.subtitle': 'Seguindo {count}',
-  'friends.searchPlaceholder': 'Buscar por nome…',
+  'friends.searchPlaceholder': 'Buscar por nome, título ou local…',
   'friends.viewProfile': 'Ver perfil',
 
   // ─── Profile ────────────────────────────────────────────────────────────
@@ -849,6 +849,28 @@ const pt: Record<string, string> = {
   'friends.count': '{count} {count, plural}',
   'friends.count.one': 'pessoa',
   'friends.count.other': 'pessoas',
+  'friends.onlineCount': '{count} online',
+  'friends.refreshing': 'Atualizando…',
+  'friends.updatedAt': 'Atualizado {when}',
+  'friends.refreshFailed': 'Não foi possível atualizar a lista ({error}). Mostrando a lista salva.',
+  'friends.offlineEmpty': 'Você está offline e ainda não há uma lista salva. Conecte-se para carregar seus amigos.',
+  'friends.empty.browse': 'Procurar membros no F95Zone',
+  'friends.sort.label': 'Ordenar',
+  'friends.sort.activity': 'Atividade',
+  'friends.sort.name': 'Nome',
+  'friends.noMatch': 'Nenhum amigo corresponde a “{query}”.',
+  'friends.group.online': 'Online agora',
+  'friends.group.today': 'Ativos hoje',
+  'friends.group.others': 'Outros',
+  'friends.unfollow.confirm': 'Deixar de seguir {name}? Você pode seguir de novo pelo perfil.',
+  'friends.unfollow.action': 'Deixar de seguir',
+  'friends.unfollow.stillFollowing': 'O F95Zone ainda mostra que você segue {name}. Tente de novo.',
+  'friends.unfollow.failed': 'Não foi possível deixar de seguir: {error}',
+  'social.presence.online': 'Online agora',
+  'social.presence.seenAgo': 'Visto {when}',
+  'social.presence.seenOn': 'Visto em {date}',
+  'social.role.staff': 'Staff',
+  'social.role.mod': 'Mod',
 
   // ─── Settings extras ────────────────────────────────────────────────────
   'settings.hosts.tokenActive': 'TOKEN ATIVO',
@@ -900,6 +922,7 @@ const pt: Record<string, string> = {
   'contextMenu.viewProfile': 'Ver perfil no app',
   'contextMenu.openProfile': 'Abrir perfil no F95',
   'contextMenu.copyProfileLink': 'Copiar URL do perfil',
+  'contextMenu.unfollow': 'Deixar de seguir',
   'contextMenu.openLink': 'Abrir link',
 
   // ─── Modals ─────────────────────────────────────────────────────────────

@@ -3,11 +3,16 @@ import type { ContextMenuItem } from '../../components/contextMenu/types';
 import type { FollowedUser } from '../../types/social';
 import type { TranslateFn } from '../libraryGameActions';
 import { copyTextWithFeedback } from '../clipboard';
-import { item, offlineTitle } from './helpers';
+import { item, offlineTitle, sep } from './helpers';
 
 export function buildFriendsMenu(
   user: FollowedUser,
-  opts: { isOffline: boolean; t: TranslateFn; onViewProfile?: () => void },
+  opts: {
+    isOffline: boolean;
+    t: TranslateFn;
+    onViewProfile?: () => void;
+    onUnfollow?: () => void;
+  },
 ): ContextMenuItem[] {
   const off = offlineTitle(opts.isOffline, opts.t);
   const items: ContextMenuItem[] = [];
@@ -28,5 +33,15 @@ export function buildFriendsMenu(
       copyTextWithFeedback(user.profileUrl),
     ),
   );
+  if (opts.onUnfollow) {
+    items.push(
+      sep('sep-unfollow'),
+      item('unfollow', opts.t('contextMenu.unfollow'), opts.onUnfollow, {
+        disabled: opts.isOffline,
+        title: off,
+        danger: true,
+      }),
+    );
+  }
   return items;
 }

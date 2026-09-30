@@ -270,7 +270,7 @@ const ru: Record<string, string> = {
   'friends.empty.title': 'Вы пока ни на кого не подписаны.',
   'friends.empty.hint': 'Откройте профиль на F95Zone и нажмите «Follow».',
   'friends.subtitle': 'Подписки: {count}',
-  'friends.searchPlaceholder': 'Поиск по имени…',
+  'friends.searchPlaceholder': 'Поиск по имени, титулу или месту…',
   'friends.viewProfile': 'Открыть профиль',
 
   // ─── Profile ────────────────────────────────────────────────────────────
@@ -844,6 +844,28 @@ const ru: Record<string, string> = {
   'friends.count': '{count} {count, plural}',
   'friends.count.one': 'человек',
   'friends.count.other': 'людей',
+  'friends.onlineCount': '{count} в сети',
+  'friends.refreshing': 'Обновление…',
+  'friends.updatedAt': 'Обновлено {when}',
+  'friends.refreshFailed': 'Не удалось обновить список ({error}). Показан сохранённый список.',
+  'friends.offlineEmpty': 'Вы не в сети, а сохранённого списка ещё нет. Подключитесь, чтобы загрузить друзей.',
+  'friends.empty.browse': 'Найти участников на F95Zone',
+  'friends.sort.label': 'Сортировка',
+  'friends.sort.activity': 'Активность',
+  'friends.sort.name': 'Имя',
+  'friends.noMatch': 'Нет друзей по запросу «{query}».',
+  'friends.group.online': 'Сейчас в сети',
+  'friends.group.today': 'Были сегодня',
+  'friends.group.others': 'Остальные',
+  'friends.unfollow.confirm': 'Отписаться от {name}? Подписаться снова можно в профиле.',
+  'friends.unfollow.action': 'Отписаться',
+  'friends.unfollow.stillFollowing': 'F95Zone всё ещё показывает, что вы подписаны на {name}. Попробуйте ещё раз.',
+  'friends.unfollow.failed': 'Не удалось отписаться: {error}',
+  'social.presence.online': 'Сейчас в сети',
+  'social.presence.seenAgo': 'Был(а) {when}',
+  'social.presence.seenOn': 'Был(а) {date}',
+  'social.role.staff': 'Персонал',
+  'social.role.mod': 'Мод',
 
   // ─── Settings extras ────────────────────────────────────────────────────
   'settings.hosts.tokenActive': 'ТОКЕН АКТИВЕН',
@@ -895,6 +917,7 @@ const ru: Record<string, string> = {
   'contextMenu.viewProfile': 'Открыть профиль в приложении',
   'contextMenu.openProfile': 'Открыть профиль на F95',
   'contextMenu.copyProfileLink': 'Копировать URL профиля',
+  'contextMenu.unfollow': 'Отписаться',
   'contextMenu.openLink': 'Открыть ссылку',
 
   // ─── Modals ─────────────────────────────────────────────────────────────
