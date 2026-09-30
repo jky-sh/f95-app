@@ -91,6 +91,15 @@ async function versionRows(threadId: string): Promise<DbRow[]> {
   );
 }
 
+/** Disk used by every registered version of the game (bytes), or null if unknown. */
+export async function totalSize(threadId: string): Promise<number | null> {
+  const rows = await query<{ total: number | null }>(
+    `SELECT SUM(size_bytes) AS total FROM install_versions WHERE thread_id = ?`,
+    [threadId],
+  );
+  return rows[0]?.total ?? null;
+}
+
 /**
  * Registered install root that holds `path` (the path itself when it is a
  * root, or the root of the extraction it sits in), or `path` when none does.

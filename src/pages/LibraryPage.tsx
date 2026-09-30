@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { LibraryCategoryBar } from '../components/library/LibraryCategoryBar';
-import { LibraryCard } from '../components/library/LibraryCard';
+import {
+  LibraryCard,
+  LibraryCoverTile,
+  LibraryList,
+  LibraryListRow,
+} from '../components/library/LibraryGameViews';
+import { Icon } from '../components/ui/Icon';
+import { SearchBox } from '../components/ui/SearchBox';
+import { ViewModeSwitch, useViewMode } from '../components/ui/ViewModeSwitch';
 import { CollectionFolderCard } from '../components/library/CollectionFolderCard';
 import { ContinuePlayingRow } from '../components/library/ContinuePlayingRow';
 import { GameCardGridSkeleton } from '../components/ui/GameCardSkeleton';
@@ -102,6 +110,8 @@ export function LibraryPage() {
   const [memberships, setMemberships] = useState<CollectionMembership[]>([]);
   // Full library snapshot (all categories) feeding the folder mosaics.
   const [allGames, setAllGames] = useState<LibraryGame[]>([]);
+  // Counts come from that snapshot: hidden until it arrives instead of showing zeros.
+  const [countsReady, setCountsReady] = useState(false);
   const setCategory = useCallback(
     (next: SamCategory) => updateQuery({ category: next }),
     [updateQuery],
@@ -162,6 +172,7 @@ export function LibraryPage() {
           setCollections(cols);
           setMemberships(mems);
           setAllGames(all);
+          setCountsReady(true);
         }
       } catch (err) {
         console.warn('[collections] load failed', err);
@@ -196,14 +207,6 @@ export function LibraryPage() {
       .filter((card) => card.games.length > 0);
   }, [collections, memberships, allGames, category]);
 
-  const stats = useMemo(
-    () => ({
-      total: items.length,
-      installed: items.filter((g) => g.installStatus === 'installed').length,
-    }),
-    [items],
-  );
-
   // "Continue playing" rail: 4 games the user actually touched recently. We
   // require ANY playtime so a game added but never opened doesn't pollute
   // the row, then sort by last-played-at desc. Only shown on the default
@@ -222,44 +225,81 @@ export function LibraryPage() {
     onReload: reload,
   });
   const downloadsByThread = useDownloadsByThread();
+  const [view, setView] = useViewMode('library');
+
+  // Chip counts follow the category tab, whatever else is filtered.
+  const counts = useMemo(() => {
+    const out: Record<StatusFilter, number> = {
+      all: 0,
+      installed: 0,
+      not_installed: 0,
+      downloading: 0,
+      extracting: 0,
+      update_available: 0,
+      error: 0,
+    };
+    for (const g of allGames) {
+      if (g.category !== category) continue;
+      out.all += 1;
+      out[g.installStatus] += 1;
+    }
+    out.downloading += out.extracting;
+    return out;
+  }, [allGames, category]);
+
+  const itemProps = (g: LibraryGame) => ({
+    game: g,
+    onPrimaryAction: playOrStop,
+    onContextMenu: openLibraryContextMenu,
+    download: downloadsByThread.get(g.threadId),
+  });
 
   return (
-    <div style={pageStyle}>
-      <header style={headerStyle}>
-        <h1 style={titleStyle}>{t('library.title')}</h1>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
-          <div style={statsStyle}>
-            {stats.total === 1 ? t('library.stats.game', { count: stats.total }) : t('library.stats.games', { count: stats.total })}
+    <div className="lib-page">
+      <header className="lib-head">
+        <h1 className="lib-head-title">{t('library.title')}</h1>
+        {countsReady && (
+          <span className="lib-head-stats">
+            {counts.all === 1
+              ? t('library.stats.game', { count: counts.all })
+              : t('library.stats.games', { count: counts.all })}
             {' · '}
-            {t('library.stats.installed', { count: stats.installed })}
-          </div>
-          {/* Shared with News; runs in the background too. Results arrive as
-              library changes, which this page already follows. */}
-          <UpdateCheckControl
-            buttonStyle={updateBtn}
-            onShowUpdates={() => updateQuery({ status: 'update_available' })}
-          />
-        </div>
+            {t('library.stats.installed', { count: counts.installed + counts.update_available })}
+          </span>
+        )}
+        <span className="lib-head-spacer" />
+        {/* Shared with News; runs in the background too. Results arrive as
+            library changes, which this page already follows. */}
+        <UpdateCheckControl onShowUpdates={() => updateQuery({ status: 'update_available' })} />
       </header>
 
       <LibraryCategoryBar category={category} onCategory={setCategory} />
 
-      <div style={controlsStyle}>
+      <div className="ui-toolbar lib-toolbar">
         {/* In Steam mode the search lives in the left game-list panel. */}
         {!steamMode && (
-          <input
-            type="search"
-            value={searchInput}
-            placeholder={t('library.search')}
-            onChange={(e) => setSearchInput(e.target.value)}
-            style={searchInputStyle}
-          />
+          <SearchBox value={searchInput} onChange={setSearchInput} placeholder={t('library.search')} shortcut />
         )}
-
+        <div className="ui-chips" role="group" aria-label={t('library.filter.label')}>
+          {STATUS_FILTERS.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              className="ui-chip"
+              aria-pressed={status === f.id}
+              onClick={() => updateQuery({ status: f.id })}
+            >
+              {t(f.labelKey)}
+              {countsReady && <span className="ui-chip-count">{counts[f.id]}</span>}
+            </button>
+          ))}
+        </div>
+        <span className="ui-toolbar-spacer" />
         <select
+          className="ui-select"
           value={sort}
+          aria-label={t('library.sort.label')}
           onChange={(e) => updateQuery({ sort: e.target.value as LibrarySort })}
-          style={steamMode ? { ...selectStyle, marginLeft: 'auto' } : selectStyle}
         >
           {SORTS.map((s) => (
             <option key={s.id} value={s.id}>
@@ -267,36 +307,24 @@ export function LibraryPage() {
             </option>
           ))}
         </select>
+        <ViewModeSwitch value={view} onChange={setView} />
       </div>
 
-      <div style={pillsRow}>
-        {STATUS_FILTERS.map((f) => (
-          <button
-            key={f.id}
-            onClick={() => updateQuery({ status: f.id })}
-            style={{
-              ...pillBtn,
-              ...(status === f.id ? pillBtnActive : {}),
-            }}
-          >
-            {t(f.labelKey)}
-          </button>
-        ))}
-      </div>
-
-      {error && <div style={errorBox}>{error}</div>}
+      {error && <div className="store-error">{error}</div>}
 
       {/* Folder shelf — real folders, like Steam collections: click opens
           the collection page. Hidden while searching to keep results focused. */}
       {collectionCards.length > 0 && !search.trim() && (
-        <>
-          <h2 style={allGamesHeadingStyle}>{t('library.collections.manageTitle')}</h2>
+        <section className="lib-section">
+          <div className="ui-section-head">
+            <h2 className="ui-section-title">{t('library.collections.manageTitle')}</h2>
+          </div>
           <div className="collection-folder-grid">
             {collectionCards.map(({ collection, games }) => (
               <CollectionFolderCard key={collection.id} collection={collection} games={games} />
             ))}
           </div>
-        </>
+        </section>
       )}
 
       {loading && items.length === 0 ? (
@@ -322,21 +350,31 @@ export function LibraryPage() {
             />
           )}
 
-          {(continuePlaying.length > 0 || collectionCards.length > 0) && (
-            <h2 style={allGamesHeadingStyle}>{t('library.section.all')}</h2>
-          )}
-
-          <div style={gridStyle}>
-            {items.map((g) => (
-              <LibraryCard
-                key={g.threadId}
-                game={g}
-                onPrimaryAction={playOrStop}
-                onContextMenu={openLibraryContextMenu}
-                download={downloadsByThread.get(g.threadId)}
+          <section className="lib-section">
+            {(continuePlaying.length > 0 || collectionCards.length > 0) && (
+              <div className="ui-section-head">
+                <h2 className="ui-section-title">{t('library.section.all')}</h2>
+              </div>
+            )}
+            {view === 'list' ? (
+              <LibraryList
+                games={items}
+                sort={sort}
+                onSort={(next) => updateQuery({ sort: next })}
+                renderRow={(g) => <LibraryListRow key={g.threadId} {...itemProps(g)} />}
               />
-            ))}
-          </div>
+            ) : (
+              <div className={view === 'covers' ? 'lib-grid lib-grid--covers' : 'lib-grid'}>
+                {items.map((g) =>
+                  view === 'covers' ? (
+                    <LibraryCoverTile key={g.threadId} {...itemProps(g)} />
+                  ) : (
+                    <LibraryCard key={g.threadId} {...itemProps(g)} />
+                  ),
+                )}
+              </div>
+            )}
+          </section>
         </>
       )}
     </div>
@@ -358,11 +396,10 @@ function EmptyState({
   // Nothing matched the search: say so, instead of "your library is empty".
   if (search) {
     return (
-      <div style={emptyBox}>
-        <p style={{ margin: 0, color: 'var(--text-tertiary)', fontSize: 14 }}>
-          {t('library.empty.search', { query: search })}
-        </p>
-        <button type="button" onClick={onClear} style={{ ...pillBtn, marginTop: 12 }}>
+      <div className="ui-empty">
+        <Icon name="search" size={32} />
+        <p className="ui-empty-title">{t('library.empty.search', { query: search })}</p>
+        <button type="button" className="ui-btn ui-btn--secondary" onClick={onClear}>
           {t('library.empty.clearSearch')}
         </button>
       </div>
@@ -371,21 +408,27 @@ function EmptyState({
   if (status === 'all') {
     const catHint = t(`library.empty.${category}`);
     return (
-      <div style={emptyBox}>
-        <p style={{ margin: 0, color: 'var(--text-tertiary)', fontSize: 14 }}>
+      <div className="ui-empty">
+        <Icon name="library" size={32} />
+        <p className="ui-empty-title">
           {catHint !== `library.empty.${category}` ? catHint : t('library.empty.title')}
         </p>
-        <p style={{ marginTop: 8, color: 'var(--text-muted)', fontSize: 13 }}>
-          {t('library.empty.hint')}
-        </p>
+        <p className="ui-empty-text">{t('library.empty.hint')}</p>
+        <Link to="/store" className="ui-btn ui-btn--primary">
+          {t('library.empty.openStore')}
+        </Link>
       </div>
     );
   }
   return (
-    <div style={emptyBox}>
-      <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: 13 }}>
+    <div className="ui-empty">
+      <Icon name="filter" size={32} />
+      <p className="ui-empty-title">
         {t('library.empty.filter', { status: t(statusKey(status as InstallStatus)) })}
       </p>
+      <button type="button" className="ui-btn ui-btn--secondary" onClick={onClear}>
+        {t('library.empty.showAll')}
+      </button>
     </div>
   );
 }
@@ -396,122 +439,3 @@ function formatError(err: unknown): string {
   }
   return String(err);
 }
-
-const pageStyle: React.CSSProperties = {
-  padding: '20px 24px 40px',
-};
-
-const headerStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'baseline',
-  justifyContent: 'space-between',
-  marginBottom: 16,
-  paddingBottom: 12,
-  borderBottom: '1px solid var(--border-faint)',
-};
-
-const titleStyle: React.CSSProperties = {
-  fontSize: 22,
-  fontWeight: 700,
-  color: 'var(--text-primary)',
-  margin: 0,
-};
-
-const statsStyle: React.CSSProperties = {
-  fontSize: 12,
-  color: 'var(--text-muted)',
-};
-
-const updateBtn: React.CSSProperties = {
-  background: 'transparent',
-  color: 'var(--text-tertiary)',
-  border: '1px solid var(--border-strong)',
-  padding: '5px 12px',
-  borderRadius: 3,
-  fontSize: 12,
-  cursor: 'pointer',
-  fontWeight: 600,
-};
-
-const controlsStyle: React.CSSProperties = {
-  display: 'flex',
-  gap: 10,
-  marginBottom: 12,
-};
-
-const searchInputStyle: React.CSSProperties = {
-  flex: 1,
-  padding: '7px 10px',
-  background: 'var(--bg-elevated)',
-  border: '1px solid var(--border)',
-  borderRadius: 3,
-  color: 'var(--text-secondary)',
-  fontSize: 13,
-  outline: 'none',
-};
-
-const selectStyle: React.CSSProperties = {
-  padding: '7px 10px',
-  background: 'var(--bg-elevated)',
-  border: '1px solid var(--border)',
-  borderRadius: 3,
-  color: 'var(--text-secondary)',
-  fontSize: 13,
-  cursor: 'pointer',
-};
-
-const pillsRow: React.CSSProperties = {
-  display: 'flex',
-  gap: 6,
-  flexWrap: 'wrap',
-  marginBottom: 16,
-};
-
-const pillBtn: React.CSSProperties = {
-  padding: '4px 12px',
-  background: 'transparent',
-  color: 'var(--text-tertiary)',
-  border: '1px solid var(--border)',
-  borderRadius: 12,
-  fontSize: 12,
-  cursor: 'pointer',
-  fontWeight: 600,
-};
-
-const pillBtnActive: React.CSSProperties = {
-  background: 'var(--accent)',
-  color: 'var(--text-primary)',
-  borderColor: 'var(--accent)',
-};
-
-const gridStyle: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-  gap: 14,
-};
-
-const emptyBox: React.CSSProperties = {
-  textAlign: 'center',
-  padding: '60px 20px',
-  color: 'var(--text-muted)',
-  fontSize: 14,
-};
-
-const allGamesHeadingStyle: React.CSSProperties = {
-  fontSize: 14,
-  fontWeight: 800,
-  color: 'var(--text-tertiary)',
-  textTransform: 'uppercase',
-  letterSpacing: 1.2,
-  margin: '0 0 14px',
-};
-
-const errorBox: React.CSSProperties = {
-  background: 'var(--status-danger-bg)',
-  border: '1px solid var(--accent-strong)',
-  color: 'var(--status-danger-text)',
-  padding: '12px 16px',
-  borderRadius: 4,
-  marginBottom: 16,
-  fontSize: 13,
-};

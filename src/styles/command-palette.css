@@ -1,0 +1,83 @@
+/* Quick search (Ctrl+K) ------------------------------------------------------- */
+
+.cmdk-backdrop {
+  position: fixed; inset: 0; z-index: 2500;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 12vh 16px 16px; background: rgba(0, 0, 0, 0.55);
+  animation: cmdk-fade 0.12s ease-out;
+}
+.cmdk {
+  display: flex; flex-direction: column; width: min(600px, 100%); max-height: min(560px, 76vh);
+  background: var(--bg-elevated); border: 1px solid var(--border-strong); border-radius: var(--ui-radius-lg);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55); overflow: hidden;
+  animation: cmdk-pop 0.14s ease-out;
+}
+
+.cmdk-input-row { display: flex; align-items: center; gap: 10px; padding: 0 14px; border-bottom: 1px solid var(--border); }
+.cmdk-input-icon { flex-shrink: 0; color: var(--text-muted); }
+.cmdk-input {
+  flex: 1; min-width: 0; height: 50px; padding: 0; border: 0; outline: 0; background: transparent;
+  color: var(--text-primary); font: inherit; font-size: 15px;
+}
+.cmdk-input::placeholder { color: var(--text-faint); }
+.cmdk-kbd,
+.sidebar-search-kbd {
+  flex-shrink: 0; padding: 1px 5px; border: 1px solid var(--border-strong); border-bottom-width: 2px; border-radius: 4px;
+  background: var(--bg-sunken); color: var(--text-muted); font: inherit; font-size: 10px; font-weight: 700;
+}
+
+.cmdk-list { flex: 1; min-height: 0; overflow-y: auto; padding: 6px; }
+.cmdk-group-title {
+  padding: 10px 10px 4px; font-size: 10px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.cmdk-item {
+  display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 6px 10px;
+  border-radius: var(--ui-radius); color: var(--text-secondary); cursor: pointer;
+}
+.cmdk-item[aria-selected='true'] { background: var(--bg-hover); color: var(--text-primary); box-shadow: inset 3px 0 0 var(--accent); }
+.cmdk-item-art {
+  position: relative; flex: 0 0 64px; width: 64px; aspect-ratio: 16 / 9; border-radius: 3px; overflow: hidden;
+  background: var(--bg-sunken);
+}
+.cmdk-item-icon {
+  display: grid; place-items: center; flex: 0 0 28px; height: 28px; border-radius: 6px;
+  background: var(--bg-sunken); color: var(--text-tertiary);
+}
+.cmdk-item[aria-selected='true'] .cmdk-item-icon { color: var(--accent); }
+.cmdk-item-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; }
+.cmdk-item-hint { flex-shrink: 0; font-size: 12px; color: var(--text-muted); }
+.cmdk-empty { padding: 28px 16px; text-align: center; font-size: 13px; color: var(--text-muted); }
+.cmdk-foot { padding: 8px 14px; border-top: 1px solid var(--border); background: var(--bg-sunken); font-size: 11px; color: var(--text-muted); }
+
+@keyframes cmdk-fade { from { opacity: 0; } }
+@keyframes cmdk-pop { from { opacity: 0; transform: translateY(-6px) scale(0.98); } }
+@media (prefers-reduced-motion: reduce) {
+  .cmdk-backdrop, .cmdk { animation: none; }
+}
+
+/* Sidebar trigger: looks like a search field, opens the palette. */
+.sidebar-search {
+  display: flex; align-items: center; gap: 8px; width: calc(100% - 24px); margin: 10px 12px 2px; padding: 0 8px 0 10px;
+  height: 32px; border: 1px solid var(--border); border-radius: var(--ui-radius); background: var(--bg-sunken);
+  color: var(--text-muted); font: inherit; font-size: 12px; text-align: left; cursor: pointer;
+  transition: border-color 0.12s ease, color 0.12s ease;
+}
+.sidebar-search:hover { border-color: var(--border-strong); color: var(--text-secondary); }
+.sidebar-search:focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
+.sidebar-search-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Steam top bar trigger: same look as its other icon buttons. */
+button.steam-topnav-icon { border: 0; background: transparent; font: inherit; cursor: pointer; }
+
+/* Steam: square corners, the accent slab for the selected entry. */
+:root[data-skin='steam'] .cmdk { border-radius: 2px; border-color: var(--sk-border-dark); background: linear-gradient(180deg, var(--sk-panel-top), var(--sk-panel-bottom)); }
+:root[data-skin='steam'] .cmdk-item,
+:root[data-skin='steam'] .cmdk-item-icon,
+:root[data-skin='steam'] .sidebar-search { border-radius: 2px; }
+:root[data-skin='steam'] .cmdk-item[aria-selected='true'] {
+  background: linear-gradient(90deg, var(--sk-btn-accent-top), var(--sk-btn-accent-bottom));
+  color: var(--accent-text); box-shadow: none;
+}
+:root[data-skin='steam'] .cmdk-item[aria-selected='true'] .cmdk-item-hint,
+:root[data-skin='steam'] .cmdk-item[aria-selected='true'] .cmdk-item-icon { color: inherit; }

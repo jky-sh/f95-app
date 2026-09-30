@@ -22,6 +22,12 @@ import { runStartupUpdateCheck } from './lib/appUpdater';
 import { tStandalone } from './lib/i18n';
 import type { ProfileDto } from './types';
 import './App.css';
+import './styles/ui.css';
+// Page sheets that refine App.css rules: after it, so they win.
+import './styles/library.css';
+import './styles/game-page.css';
+import './styles/downloads.css';
+import './styles/settings.css';
 import './styles/steam-skin.css';
 import './styles/store-filter.css';
 import './styles/offline.css';
@@ -35,6 +41,8 @@ import './styles/custom-video-fullscreen.css';
 import './styles/collections.css';
 import './styles/profile.css';
 import './styles/achievements.css';
+import './styles/command-palette.css';
+import './styles/page-chrome.css';
 
 type AppWindowKind = 'login' | 'main' | 'overlay' | 'overlay-hint' | 'tray-menu';
 

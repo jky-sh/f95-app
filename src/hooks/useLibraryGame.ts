@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import * as installVersions from '../lib/installVersions';
 import * as libraries from '../lib/libraries';
 import * as library from '../lib/library';
 import * as sessions from '../lib/sessions';
@@ -29,6 +30,8 @@ export function useLibraryGame(threadId: string | undefined) {
   const [playSessions, setPlaySessions] = useState<LibraryGameSessions>({ recent: [], total: 0 });
   /** Install library that holds the game's folder (for "Move"). */
   const [libraryId, setLibraryId] = useState<number | undefined>(undefined);
+  /** Disk used by every installed version, when known. */
+  const [sizeBytes, setSizeBytes] = useState<number | null>(null);
   const seqRef = useRef(0);
 
   const refresh = useCallback(async () => {
@@ -41,14 +44,16 @@ export function useLibraryGame(threadId: string | undefined) {
         setState({ kind: 'missing' });
         return;
       }
-      const [recent, total, owning] = await Promise.all([
+      const [recent, total, owning, size] = await Promise.all([
         sessions.recent(threadId, RECENT_SESSIONS),
         sessions.count(threadId),
         game.installPath ? libraries.findContaining(game.installPath) : Promise.resolve(null),
+        installVersions.totalSize(threadId).catch(() => null),
       ]);
       if (seq !== seqRef.current) return;
       setPlaySessions({ recent, total });
       setLibraryId(owning?.id);
+      setSizeBytes(size);
       setState({ kind: 'ready', game });
     } catch (err) {
       if (seq !== seqRef.current) return;
@@ -79,5 +84,5 @@ export function useLibraryGame(threadId: string | undefined) {
     };
   }, [threadId, refresh]);
 
-  return { state, sessions: playSessions, libraryId, refresh };
+  return { state, sessions: playSessions, libraryId, sizeBytes, refresh };
 }

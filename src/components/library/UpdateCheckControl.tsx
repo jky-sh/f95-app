@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useOffline } from '../../contexts/Offline';
 import { useNow } from '../../hooks/useNow';
 import { useT } from '../../lib/i18n';
+import { Icon } from '../ui/Icon';
 import { formatWhen } from '../../lib/memberPresence';
 import {
   cancelUpdateCheck,
@@ -16,9 +17,12 @@ import {
  */
 export function UpdateCheckControl({
   buttonStyle,
+  buttonClassName = 'ui-btn ui-btn--secondary ui-btn--sm',
   onShowUpdates,
 }: {
   buttonStyle?: React.CSSProperties;
+  /** Ignored when `buttonStyle` is given (pages with their own inline look). */
+  buttonClassName?: string;
   /** Offered next to "N updates found" (e.g. filter the library to them). */
   onShowUpdates?: () => void;
 }) {
@@ -39,7 +43,12 @@ export function UpdateCheckControl({
         <span style={statusStyle} aria-live="polite">
           {progress}
         </span>
-        <button type="button" onClick={cancelUpdateCheck} style={buttonStyle}>
+        <button
+          type="button"
+          onClick={cancelUpdateCheck}
+          style={buttonStyle}
+          className={buttonStyle ? undefined : buttonClassName}
+        >
           {t('common.cancel')}
         </button>
       </div>
@@ -72,8 +81,10 @@ export function UpdateCheckControl({
         onClick={() => void runUpdateCheck()}
         disabled={isOffline}
         title={isOffline ? t('offline.actionBlocked') : undefined}
-        style={{ ...buttonStyle, ...(isOffline ? { opacity: 0.5, cursor: 'not-allowed' } : {}) }}
+        style={buttonStyle ? { ...buttonStyle, ...(isOffline ? { opacity: 0.5, cursor: 'not-allowed' } : {}) } : undefined}
+        className={buttonStyle ? undefined : buttonClassName}
       >
+        {!buttonStyle && <Icon name="refresh" size={13} />}
         {t('library.checkUpdates')}
       </button>
     </div>

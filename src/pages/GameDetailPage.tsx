@@ -35,6 +35,7 @@ import {
   PrefixPill,
 } from '../components/game/GameDetailLayout';
 import { OfflineGate } from '../components/OfflineGate';
+import { Icon } from '../components/ui/Icon';
 import { openGameDownloadModal } from '../lib/gameDownloadModal';
 import { useContextMenu } from '../components/contextMenu';
 import { useOffline } from '../contexts/Offline';
@@ -307,16 +308,19 @@ function GameDetailPageInner() {
                     latest: g.version ?? '?',
                   })}
                 >
+                  <Icon name="download" size={15} strokeWidth={2.4} />
                   {g.version
                     ? t('libdetail.action.update', { version: g.version })
                     : t('gamedetail.action.update')}
                 </GameDetailBtnPrimary>
                 <GameDetailBtnSecondary onClick={() => navigate(`/library/game/${g.threadId}`)}>
+                  <Icon name="library" size={15} />
                   {t('gamedetail.action.openInLibrary')}
                 </GameDetailBtnSecondary>
               </>
             ) : inLibrary ? (
               <GameDetailBtnPrimary as="a" to={`/library/game/${g.threadId}`}>
+                <Icon name="library" size={15} />
                 {t('gamedetail.action.openInLibrary')}
               </GameDetailBtnPrimary>
             ) : (
@@ -327,7 +331,7 @@ function GameDetailPageInner() {
                   onClick={onInstall}
                   title={t('gamedetail.action.install.title')}
                 >
-                  <DownloadIcon />
+                  <Icon name="download" size={15} strokeWidth={2.4} className="install-split-icon" />
                   <span className="install-split-label">
                     {t('gamedetail.action.install')}
                   </span>
@@ -339,7 +343,7 @@ function GameDetailPageInner() {
                   disabled={adding}
                   title={t('gamedetail.action.addToLibrary')}
                 >
-                  <PlusIcon />
+                  <Icon name="plus" size={15} strokeWidth={2.6} className="install-split-icon" />
                   <span className="install-split-label">
                     {adding
                       ? t('gamedetail.action.adding')
@@ -349,6 +353,7 @@ function GameDetailPageInner() {
               </div>
             )}
             <GameDetailBtnSecondary onClick={() => openUrl(g.threadUrl)}>
+              <Icon name="external" size={15} />
               {t('gamedetail.action.openThread')}
             </GameDetailBtnSecondary>
           </>
@@ -463,13 +468,22 @@ function HeroMeta({
         </GameDetailChip>
       )}
       {stats?.rating != null && stats.rating > 0 && (
-        <GameDetailChip title={t('gamedetail.meta.rating')}>★ {stats.rating.toFixed(1)}</GameDetailChip>
+        <GameDetailChip title={t('gamedetail.meta.rating')}>
+          <Icon name="star" size={12} className="game-detail-chip-icon" />
+          {stats.rating.toFixed(1)}
+        </GameDetailChip>
       )}
       {stats?.likes != null && (
-        <GameDetailChip title={t('gamedetail.meta.likes')}>♥ {formatCount(stats.likes)}</GameDetailChip>
+        <GameDetailChip title={t('gamedetail.meta.likes')}>
+          <Icon name="heart" size={12} className="game-detail-chip-icon" />
+          {formatCount(stats.likes)}
+        </GameDetailChip>
       )}
       {stats?.views != null && (
-        <GameDetailChip title={t('gamedetail.meta.views')}>👁 {formatCount(stats.views)}</GameDetailChip>
+        <GameDetailChip title={t('gamedetail.meta.views')}>
+          <Icon name="eye" size={12} className="game-detail-chip-icon" />
+          {formatCount(stats.views)}
+        </GameDetailChip>
       )}
     </>
   );
@@ -493,45 +507,4 @@ function normalizeDetailPrefixes(
     out.push(p);
   }
   return out;
-}
-
-/** Seta de download (traço + seta pra baixo), no tamanho do texto do botão. */
-function DownloadIcon() {
-  return (
-    <svg
-      className="install-split-icon"
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M12 3v12" />
-      <path d="m6 11 6 6 6-6" />
-      <path d="M4 21h16" />
-    </svg>
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg
-      className="install-split-icon"
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.6"
-      strokeLinecap="round"
-      aria-hidden
-    >
-      <path d="M12 5v14" />
-      <path d="M5 12h14" />
-    </svg>
-  );
 }

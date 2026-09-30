@@ -1,7 +1,8 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useStoreContextMenu } from '../../hooks/useStoreContextMenu';
 import { useT } from '../../lib/i18n';
-import { toF95OriginalUrl } from '../../lib/f95ImageUrl';
+import { toF95OriginalUrl, toF95PreviewUrl } from '../../lib/f95ImageUrl';
 import type { SamCategory, SamGameCard } from '../../types/sam';
 import type { LibraryEntry } from '../../hooks/useLibraryIndex';
 import { LibraryBadge, libraryBadgeKind } from './LibraryBadge';
@@ -27,6 +28,10 @@ export function FeaturedHero({ game, category, libraryEntry }: Props) {
   const { t } = useT();
   const { openStoreContextMenu } = useStoreContextMenu(category);
   const badge = libraryBadgeKind(libraryEntry, game.version);
+  // SAM covers are 400 px previews; stretched across the hero they blur.
+  // Show the preview at once and fade the original in once it loads.
+  const [originalReady, setOriginalReady] = useState(false);
+  useEffect(() => setOriginalReady(false), [game.thumbnailUrl]);
   return (
     <Link
       to={`/store/game/${game.threadId}?cat=${category}`}
@@ -36,15 +41,17 @@ export function FeaturedHero({ game, category, libraryEntry }: Props) {
       onContextMenu={(e) => void openStoreContextMenu(e, game)}
     >
       {game.thumbnailUrl ? (
-        // SAM covers are 400 px previews; stretched across the hero they
-        // blur, so this one image loads the original.
-        <img
-          src={toF95OriginalUrl(game.thumbnailUrl)}
-          alt={game.title}
-          style={bannerImg}
-          loading="eager"
-          decoding="async"
-        />
+        <>
+          <img src={toF95PreviewUrl(game.thumbnailUrl)} alt="" style={bannerImg} loading="eager" />
+          <img
+            src={toF95OriginalUrl(game.thumbnailUrl)}
+            alt={game.title}
+            style={{ ...bannerImg, opacity: originalReady ? 1 : 0, transition: 'opacity 0.35s ease' }}
+            loading="eager"
+            decoding="async"
+            onLoad={() => setOriginalReady(true)}
+          />
+        </>
       ) : (
         <div style={bannerFallback}>
           {game.title.slice(0, 1).toUpperCase()}

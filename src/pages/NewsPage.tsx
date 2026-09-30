@@ -10,6 +10,7 @@ import { useT } from '../lib/i18n';
 import { RssFeedSection } from '../components/news/RssFeedSection';
 import { NewsPageSkeleton } from '../components/ui/NewsPageSkeleton';
 import { Spinner } from '../components/ui/Spinner';
+import { Icon } from '../components/ui/Icon';
 import {
   UpdateCheckControl,
   useAfterUpdateCheck,
@@ -94,24 +95,19 @@ export function NewsPage() {
   useAfterUpdateCheck(() => void reload());
 
   return (
-    <div style={pageStyle}>
+    <div className="news-page">
       <header style={headerStyle}>
         <div>
-          <h1 style={titleStyle}>{t('news.title')}</h1>
+          <h1 className="news-title">{t('news.title')}</h1>
         </div>
         <button
+          type="button"
+          className="ui-btn ui-btn--secondary ui-btn--sm"
           onClick={() => reload(true)}
           disabled={refreshing}
-          style={{ ...refreshBtn, ...(refreshing ? disabledBtn : {}) }}
         >
-          {refreshing ? (
-            <span style={refreshingLabelStyle}>
-              <Spinner size="sm" />
-              {t('common.loading')}
-            </span>
-          ) : (
-            t('common.refresh')
-          )}
+          {refreshing ? <Spinner size="sm" /> : <Icon name="refresh" size={13} />}
+          {refreshing ? t('common.loading') : t('common.refresh')}
         </button>
       </header>
 
@@ -244,7 +240,6 @@ export function NewsPage() {
   );
 }
 
-const pageStyle: React.CSSProperties = { padding: '20px 24px 40px' };
 const headerStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'flex-end',
@@ -252,23 +247,6 @@ const headerStyle: React.CSSProperties = {
   paddingBottom: 12,
   borderBottom: '1px solid var(--border-faint)',
   marginBottom: 16,
-};
-const titleStyle: React.CSSProperties = { fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', margin: 0 };
-const refreshBtn: React.CSSProperties = {
-  background: 'transparent',
-  color: 'var(--text-tertiary)',
-  border: '1px solid var(--border-strong)',
-  padding: '5px 12px',
-  borderRadius: 3,
-  fontSize: 12,
-  cursor: 'pointer',
-  fontWeight: 600,
-};
-const disabledBtn: React.CSSProperties = { opacity: 0.55, cursor: 'wait' };
-const refreshingLabelStyle: React.CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 6,
 };
 const sectionStyle: React.CSSProperties = {
   background: 'var(--bg-elevated)',

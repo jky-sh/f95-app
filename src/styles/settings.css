@@ -1,0 +1,32 @@
+/**
+ * Settings: one section per page, picked in the left navigation. Refines the
+ * base rules in App.css (loaded after it).
+ */
+
+.settings-content { max-width: 960px; }
+
+.settings-nav .settings-nav-item {
+  display: flex; align-items: center; gap: 10px; padding-top: 9px; padding-bottom: 9px;
+}
+.settings-nav-icon { flex-shrink: 0; opacity: 0.7; }
+.settings-nav-item-active .settings-nav-icon { opacity: 1; color: var(--accent); }
+
+/* The section is the page now: its title reads as a heading, not a label. */
+.settings-section-head { margin-bottom: 16px; }
+.settings-section-title {
+  font-size: 20px; font-weight: 800; letter-spacing: 0; text-transform: none; color: var(--text-primary);
+}
+.settings-section-hint { font-size: 13px; }
+
+/* The version in the header opens About. */
+button.settings-version-badge { cursor: pointer; font-family: inherit; }
+button.settings-version-badge:hover { color: var(--text-primary); border-color: var(--border-strong); }
+
+.settings-locale-check { flex-shrink: 0; color: var(--accent); }
+
+@media (min-width: 901px) {
+  .settings-layout { grid-template-columns: 200px minmax(0, 1fr); gap: 32px; }
+}
+
+/* Steam: the active entry is already an accent slab, so its icon follows the text. */
+:root[data-skin='steam'] .settings-nav-item-active .settings-nav-icon { color: inherit; }

@@ -3,6 +3,9 @@ import { NotificationBell } from './NotificationBell';
 import { useOffline } from '../contexts/Offline';
 import { useT } from '../lib/i18n';
 import { useSectionHref } from '../lib/lastSearch';
+import { useNavCounts } from '../hooks/useNavCounts';
+import { openCommandPalette } from './CommandPalette';
+import { Icon } from './ui/Icon';
 import type { ProfileDto } from '../types';
 
 interface Props {
@@ -57,6 +60,16 @@ export function Sidebar({ profile }: Props) {
     '/store': useSectionHref('/store'),
     '/library': useSectionHref('/library'),
   };
+  // Work waiting for the user: downloads in progress, games with an update.
+  const counts = useNavCounts();
+  const navCount: Record<string, { n: number; tone: 'accent' | 'info'; title: string } | undefined> = {
+    '/downloads': counts.downloads
+      ? { n: counts.downloads, tone: 'accent', title: t('nav.count.downloads', { count: counts.downloads }) }
+      : undefined,
+    '/library': counts.updates
+      ? { n: counts.updates, tone: 'info', title: t('nav.count.updates', { count: counts.updates }) }
+      : undefined,
+  };
   return (
     <aside style={sidebarStyle} className="app-sidebar">
       <div style={userBoxStyle}>
@@ -88,6 +101,18 @@ export function Sidebar({ profile }: Props) {
         <NotificationBell />
       </div>
 
+      <button
+        type="button"
+        className="sidebar-search"
+        onClick={openCommandPalette}
+        title={t('palette.title')}
+        aria-keyshortcuts="Control+K"
+      >
+        <Icon name="search" size={14} />
+        <span className="sidebar-search-label">{t('palette.open')}</span>
+        <kbd className="sidebar-search-kbd">Ctrl K</kbd>
+      </button>
+
       <nav style={navStyle}>
         {NAV_SECTIONS.map((section, sectionIdx) => (
           <div key={section.titleKey} style={sectionStyle(sectionIdx === 0)}>
@@ -104,6 +129,14 @@ export function Sidebar({ profile }: Props) {
               >
                 <span style={navIconStyle}>{item.icon}</span>
                 <span>{t(item.key)}</span>
+                {navCount[item.to] && (
+                  <span
+                    className={`nav-count nav-count--${navCount[item.to]!.tone}`}
+                    title={navCount[item.to]!.title}
+                  >
+                    {navCount[item.to]!.n}
+                  </span>
+                )}
               </NavLink>
             ))}
           </div>
