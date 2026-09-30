@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { requestGridPreview } from '../../lib/gridPreviewQueue';
-import { instantPreviewUrl, toF95ThumbUrl } from '../../lib/f95ImageUrl';
+import { requestRemotePreview } from '../../lib/gridPreviewQueue';
+import { instantPreviewUrl } from '../../lib/f95ImageUrl';
 
-export type LazyRemoteUpgrade = 'none' | 'grid';
+export type LazyRemoteUpgrade = 'none' | 'grid' | 'cover';
 
 interface Props {
   src: string;
   previewSrc?: string;
-  /** none = só preview leve; grid = thumb → ~720px em cache */
+  /** none = só o preview leve; grid = preview 400px em cache; cover = original em 720px, em cache */
   upgrade?: LazyRemoteUpgrade;
   priority?: number;
   alt?: string;
@@ -26,7 +26,7 @@ export function LazyRemoteImage({
 }: Props) {
   const ref = useRef<HTMLSpanElement>(null);
   const [displaySrc, setDisplaySrc] = useState<string | null>(null);
-  const preview = previewSrc ?? instantPreviewUrl(src) ?? toF95ThumbUrl(src);
+  const preview = previewSrc ?? instantPreviewUrl(src) ?? src;
 
   useEffect(() => {
     setDisplaySrc(null);
@@ -39,9 +39,9 @@ export function LazyRemoteImage({
       if (cancelled) return;
       if (preview) setDisplaySrc(preview);
 
-      if (upgrade !== 'grid') return;
+      if (upgrade === 'none') return;
 
-      void requestGridPreview(src, priority).then((url) => {
+      void requestRemotePreview(src, { variant: upgrade, priority }).then((url) => {
         if (!cancelled) setDisplaySrc(url);
       });
     };

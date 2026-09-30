@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useStoreContextMenu } from '../../hooks/useStoreContextMenu';
 import { useT } from '../../lib/i18n';
+import { toF95OriginalUrl } from '../../lib/f95ImageUrl';
 import type { SamCategory, SamGameCard } from '../../types/sam';
 import type { LibraryEntry } from '../../hooks/useLibraryIndex';
 import { LibraryBadge, libraryBadgeKind } from './LibraryBadge';
@@ -35,11 +36,14 @@ export function FeaturedHero({ game, category, libraryEntry }: Props) {
       onContextMenu={(e) => void openStoreContextMenu(e, game)}
     >
       {game.thumbnailUrl ? (
+        // SAM covers are 400 px previews; stretched across the hero they
+        // blur, so this one image loads the original.
         <img
-          src={game.thumbnailUrl}
+          src={toF95OriginalUrl(game.thumbnailUrl)}
           alt={game.title}
           style={bannerImg}
           loading="eager"
+          decoding="async"
         />
       ) : (
         <div style={bannerFallback}>

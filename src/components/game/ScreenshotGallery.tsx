@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useT } from '../../lib/i18n';
-import { toF95ThumbUrl } from '../../lib/f95ImageUrl';
+import { toF95PreviewUrl } from '../../lib/f95ImageUrl';
 import { prefetchRemoteImage } from '../../lib/remoteImageQueue';
 import { LazyRemoteImage } from './LazyRemoteImage';
 import '../../styles/game-description.css';
@@ -49,7 +49,7 @@ export function ScreenshotGallery({ images }: Props) {
           >
             <LazyRemoteImage
               src={src}
-              previewSrc={toF95ThumbUrl(src)}
+              previewSrc={toF95PreviewUrl(src)}
               upgrade="grid"
               className="game-detail-screenshot-img"
               rootMargin="80px 0px"

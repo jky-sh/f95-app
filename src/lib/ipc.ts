@@ -254,7 +254,8 @@ export async function resolveMediaPreview(args: {
 
 export async function resolveRemoteImagePreview(args: {
   url: string;
-  variant: 'grid';
+  /** grid: F95's 400 px preview; cover: the original resized to 720 px. */
+  variant: 'grid' | 'cover';
 }): Promise<string> {
   return invoke<string>('resolve_remote_image_preview', args);
 }
