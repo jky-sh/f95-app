@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { FilterSidebar, type StoreSearchMode } from '../components/store/FilterSidebar';
+import {
+  FilterSidebar,
+  dateRangeLabel,
+  type StoreSearchMode,
+} from '../components/store/FilterSidebar';
+import { StoreCoverTile, StoreList, StoreListRow } from '../components/store/StoreGameViews';
+import { Icon } from '../components/ui/Icon';
+import { ViewModeSwitch, useViewMode } from '../components/ui/ViewModeSwitch';
+import { usePrefixCatalog } from '../contexts/PrefixCatalogContext';
 import { GameCard } from '../components/store/GameCard';
 import { FeaturedHero } from '../components/store/FeaturedHero';
 import { StorePagination } from '../components/store/StorePagination';
@@ -25,11 +33,21 @@ import type { PrefixFilterMode, SamCategory, SamSort, SamTag, SamTagMode } from 
 /** Typing pause before a search reaches the URL and F95. */
 const SEARCH_DEBOUNCE_MS = 350;
 
+const SORTS: { id: SamSort; labelKey: string }[] = [
+  { id: 'date', labelKey: 'filter.sort.date' },
+  { id: 'likes', labelKey: 'filter.sort.likes' },
+  { id: 'views', labelKey: 'filter.sort.views' },
+  { id: 'rating', labelKey: 'filter.sort.rating' },
+  { id: 'title', labelKey: 'filter.sort.name' },
+];
+
 export function StorePage() {
   const { t } = useT();
   const { settings: storeSettings, loading: storeSettingsLoading } = useStoreSettings();
   const infiniteScroll = storeSettings.scrollMode === 'infinite';
   const { resolve: resolveTag } = useTagCatalog();
+  const { resolve: resolvePrefix } = usePrefixCatalog();
+  const [view, setView] = useViewMode('store');
   const libraryIndex = useLibraryIndex();
   const now = useNow();
 
@@ -175,6 +193,7 @@ export function StorePage() {
     includePrefixes.length === 0 &&
     excludePrefixes.length === 0 &&
     (infiniteScroll || page <= 1) &&
+    view !== 'list' &&
     items.length > 0;
 
   const gridItems = useMemo(() => (showFeatured ? items.slice(1) : items), [items, showFeatured]);
@@ -233,8 +252,6 @@ export function StorePage() {
           onSearch={setSearchInput}
           searchMode={searchMode}
           onSearchMode={changeSearchMode}
-          sort={sort}
-          onSort={(next: SamSort) => updateQuery({ sort: next })}
           date={query.date}
           onDate={(days: number) => updateQuery({ date: days })}
           prefixFilter={prefixFilter}
@@ -257,8 +274,8 @@ export function StorePage() {
 
         <section className="store-main">
           <header className="store-main-head">
-            <h1 className="store-main-title">{t('store.title')}</h1>
-            <div className="store-main-tools">
+            <div className="store-main-heading">
+              <h1 className="store-main-title">{t('store.title')}</h1>
               <div className="store-main-stats">
                 {totalRows > 0 && (
                   <span>{t('store.results', { count: totalRows.toLocaleString() })}</span>
@@ -269,19 +286,105 @@ export function StorePage() {
                   </span>
                 )}
               </div>
+            </div>
+            <div className="store-main-tools">
+              <select
+                className="ui-select"
+                value={sort}
+                aria-label={t('filter.section.sort')}
+                onChange={(e) => updateQuery({ sort: e.target.value as SamSort })}
+              >
+                {SORTS.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {t(s.labelKey)}
+                  </option>
+                ))}
+              </select>
+              <ViewModeSwitch value={view} onChange={setView} />
               {/* Results are cached for a few minutes; this fetches them again. */}
               <button
                 type="button"
-                className="store-retry-btn store-refresh-btn"
+                className="ui-btn ui-btn--secondary ui-btn--sm"
                 onClick={reload}
                 disabled={loading}
                 title={t('store.refresh.title')}
               >
-                <RefreshIcon />
+                <Icon name="refresh" size={13} />
                 {t('common.refresh')}
               </button>
             </div>
           </header>
+
+          {hasActiveFilters && (
+            <div className="store-active-filters" role="group" aria-label={t('store.activeFilters')}>
+              {query.search.trim() && (
+                <ActiveFilter
+                  label={`“${query.search.trim()}”`}
+                  onRemove={() => {
+                    setSearchInput('');
+                    pushedSearchRef.current = '';
+                    updateQuery({ search: '' });
+                  }}
+                />
+              )}
+              {query.creator.trim() && (
+                <ActiveFilter
+                  label={t('store.filter.developer', { name: query.creator.trim() })}
+                  onRemove={() => {
+                    setSearchInput('');
+                    pushedSearchRef.current = '';
+                    updateQuery({ creator: '' });
+                  }}
+                />
+              )}
+              {query.date > 0 && (
+                <ActiveFilter label={dateRangeLabel(query.date, t)} onRemove={() => updateQuery({ date: 0 })} />
+              )}
+              {includePrefixes.map((id) => (
+                <ActiveFilter
+                  key={`pi${id}`}
+                  label={resolvePrefix(id)?.name ?? `#${id}`}
+                  onRemove={() => {
+                    const next = { ...prefixFilter };
+                    delete next[id];
+                    updateQuery({ prefixFilter: next });
+                  }}
+                />
+              ))}
+              {excludePrefixes.map((id) => (
+                <ActiveFilter
+                  key={`px${id}`}
+                  exclude
+                  label={resolvePrefix(id)?.name ?? `#${id}`}
+                  onRemove={() => {
+                    const next = { ...prefixFilter };
+                    delete next[id];
+                    updateQuery({ prefixFilter: next });
+                  }}
+                />
+              ))}
+              {selectedTags.map((tag) => (
+                <ActiveFilter
+                  key={`t${tag.id}`}
+                  label={tag.name}
+                  onRemove={() => updateQuery({ tagIds: query.tagIds.filter((id) => id !== tag.id) })}
+                />
+              ))}
+              {excludedTags.map((tag) => (
+                <ActiveFilter
+                  key={`tx${tag.id}`}
+                  exclude
+                  label={tag.name}
+                  onRemove={() =>
+                    updateQuery({ excludedTagIds: query.excludedTagIds.filter((id) => id !== tag.id) })
+                  }
+                />
+              ))}
+              <button type="button" className="store-active-clear" onClick={clearAllFilters}>
+                {t('filter.clearAll')}
+              </button>
+            </div>
+          )}
 
           {error != null && items.length === 0 && <StoreError error={error} onRetry={retry} />}
 
@@ -301,17 +404,43 @@ export function StorePage() {
 
           {showFeatured && <h2 className="store-section-title">{t('store.section.more')}</h2>}
 
-          <div className="store-grid">
-            {gridItems.map((game) => (
-              <GameCard
-                key={game.threadId}
-                game={game}
-                category={category}
-                libraryEntry={libraryIndex.get(game.threadId)}
-                now={now}
-              />
-            ))}
-          </div>
+          {view === 'list' ? (
+            items.length > 0 && (
+              <StoreList sort={sort} onSort={(next) => updateQuery({ sort: next })}>
+                {items.map((game) => (
+                  <StoreListRow
+                    key={game.threadId}
+                    game={game}
+                    category={category}
+                    libraryEntry={libraryIndex.get(game.threadId)}
+                    now={now}
+                  />
+                ))}
+              </StoreList>
+            )
+          ) : (
+            <div className={view === 'covers' ? 'lib-grid lib-grid--covers store-grid--covers' : 'store-grid'}>
+              {gridItems.map((game) =>
+                view === 'covers' ? (
+                  <StoreCoverTile
+                    key={game.threadId}
+                    game={game}
+                    category={category}
+                    libraryEntry={libraryIndex.get(game.threadId)}
+                    now={now}
+                  />
+                ) : (
+                  <GameCard
+                    key={game.threadId}
+                    game={game}
+                    category={category}
+                    libraryEntry={libraryIndex.get(game.threadId)}
+                    now={now}
+                  />
+                ),
+              )}
+            </div>
+          )}
 
           {/* A failed "next page" keeps what is already on screen and waits for a retry. */}
           {error != null && items.length > 0 && <StoreError error={error} onRetry={retry} />}
@@ -339,22 +468,25 @@ export function StorePage() {
   );
 }
 
-function RefreshIcon() {
+/** One active filter above the results; × removes it. */
+function ActiveFilter({
+  label,
+  exclude = false,
+  onRemove,
+}: {
+  label: string;
+  exclude?: boolean;
+  onRemove: () => void;
+}) {
+  const { t } = useT();
   return (
-    <svg
-      width="13"
-      height="13"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-      <path d="M21 3v6h-6" />
-    </svg>
+    <span className={`store-active-filter${exclude ? ' store-active-filter--exclude' : ''}`}>
+      {exclude && <span aria-hidden>−</span>}
+      {label}
+      <button type="button" aria-label={t('filter.tags.remove', { name: label })} onClick={onRemove}>
+        <Icon name="x" size={12} />
+      </button>
+    </span>
   );
 }
 

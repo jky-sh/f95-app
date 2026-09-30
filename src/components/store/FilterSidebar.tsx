@@ -19,7 +19,6 @@ import {
   type PrefixFilterMode,
   type SamCategory,
   type SamPrefixGroup,
-  type SamSort,
   type SamTag,
   type SamTagMode,
 } from '../../types/sam';
@@ -44,8 +43,6 @@ interface Props {
   onSearch: (s: string) => void;
   searchMode: StoreSearchMode;
   onSearchMode: (mode: StoreSearchMode) => void;
-  sort: SamSort;
-  onSort: (s: SamSort) => void;
   /** Updated within this many days; 0 = any time. */
   date: number;
   onDate: (days: number) => void;
@@ -60,13 +57,6 @@ interface Props {
   hasActiveFilters: boolean;
 }
 
-const SORTS: { id: SamSort; labelKey: string }[] = [
-  { id: 'date', labelKey: 'filter.sort.date' },
-  { id: 'likes', labelKey: 'filter.sort.likes' },
-  { id: 'views', labelKey: 'filter.sort.views' },
-  { id: 'rating', labelKey: 'filter.sort.rating' },
-  { id: 'title', labelKey: 'filter.sort.name' },
-];
 
 export function FilterSidebar(props: Props) {
   const { t } = useT();
@@ -77,8 +67,6 @@ export function FilterSidebar(props: Props) {
     onSearch,
     searchMode,
     onSearchMode,
-    sort,
-    onSort,
     date,
     onDate,
     prefixFilter,
@@ -204,22 +192,6 @@ export function FilterSidebar(props: Props) {
         </div>
       </FilterSection>
 
-      <FilterSection title={t('filter.section.sort')}>
-        <div className="store-filter-select-wrap">
-          <select
-            className="store-filter-select"
-            value={sort}
-            onChange={(e) => onSort(e.target.value as SamSort)}
-          >
-            {SORTS.map((s) => (
-              <option key={s.id} value={s.id}>
-                {t(s.labelKey)}
-              </option>
-            ))}
-          </select>
-        </div>
-      </FilterSection>
-
       <FilterSection title={t('filter.section.updated')}>
         <div className="store-filter-select-wrap">
           <select
@@ -295,7 +267,7 @@ export function FilterSidebar(props: Props) {
   );
 }
 
-function dateRangeLabel(days: number, t: TFunction): string {
+export function dateRangeLabel(days: number, t: TFunction): string {
   if (days === 0) return t('filter.updated.any');
   if (days === 1) return t('filter.updated.today');
   return t('filter.updated.days', { n: days });

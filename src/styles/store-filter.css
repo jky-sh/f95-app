@@ -150,3 +150,28 @@
     border-bottom: 1px solid var(--border-faint);
   }
 }
+
+/* Header: title and results on the left; sort, view and refresh on the right. */
+.store-main-head { align-items: center; gap: 16px; flex-wrap: wrap; }
+.store-main-heading { display: flex; align-items: baseline; gap: 14px; min-width: 0; }
+.store-main-heading .store-main-stats { flex-direction: row; align-items: baseline; gap: 10px; }
+.store-main-tools { gap: 10px; }
+
+/* Active filters above the results, each removable. */
+.store-active-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: -8px 0 18px; }
+.store-active-filter {
+  display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 4px 0 10px;
+  border-radius: 999px; border: 1px solid var(--accent); background: var(--accent-soft-bg);
+  color: var(--text-primary); font-size: 12px; font-weight: 600; max-width: 260px;
+}
+.store-active-filter--exclude { border-color: var(--status-danger); background: var(--status-danger-bg); color: var(--status-danger-text); }
+.store-active-filter button {
+  display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px;
+  border: 0; border-radius: 50%; background: transparent; color: inherit; cursor: pointer; opacity: 0.75;
+}
+.store-active-filter button:hover { opacity: 1; background: rgba(255, 255, 255, 0.08); }
+.store-active-clear {
+  margin-left: 4px; border: 0; background: none; padding: 4px 6px; border-radius: 4px;
+  color: var(--text-muted); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.store-active-clear:hover { color: var(--text-primary); background: var(--bg-hover); }

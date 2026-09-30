@@ -14,7 +14,16 @@ const TALL_RATIO = 1.25;
  * (3:1 logos are common on F95) show whole over a blurred copy of themselves
  * instead of losing their title to the crop.
  */
-export function LibraryCover({ url, title }: { url: string | null; title: string }) {
+export function LibraryCover({
+  url,
+  title,
+  quality = 'full',
+}: {
+  url: string | null;
+  title: string;
+  /** preview: only F95's 400 px image (store grids browse hundreds of games). */
+  quality?: 'full' | 'preview';
+}) {
   const [backdrop, setBackdrop] = useState<string | null>(null);
   const onLoad = useCallback((img: HTMLImageElement) => {
     const ratio = img.naturalWidth / Math.max(1, img.naturalHeight);
@@ -35,7 +44,7 @@ export function LibraryCover({ url, title }: { url: string | null; title: string
     >
       <LazyRemoteImage
         src={url}
-        upgrade="cover"
+        upgrade={quality === 'full' ? 'cover' : 'none'}
         priority={3}
         rootMargin="240px 0px"
         alt={title}
