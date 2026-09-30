@@ -6,7 +6,6 @@ import type { LibraryGame } from '../../types/library';
 import { formatPlaytime } from '../../types/library';
 import { LibraryCover } from './LibraryCover';
 import { LibraryPrimaryAction, LibraryStatusBadge } from './LibraryGameViews';
-import '../../styles/library.css';
 
 interface Props {
   games: LibraryGame[];

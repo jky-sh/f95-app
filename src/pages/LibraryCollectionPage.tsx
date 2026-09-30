@@ -26,7 +26,6 @@ import { useT } from '../lib/i18n';
 import { useSectionHref } from '../lib/lastSearch';
 import * as library from '../lib/library';
 import type { LibraryGame, LibrarySort } from '../types/library';
-import '../styles/library.css';
 
 const COLLATOR = new Intl.Collator(undefined, { sensitivity: 'base' });
 

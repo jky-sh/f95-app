@@ -9,7 +9,6 @@ import { LibraryCover } from '../library/LibraryCover';
 import { Icon } from '../ui/Icon';
 import { formatCount } from './GameCard';
 import { LibraryBadge, libraryBadgeKind } from './LibraryBadge';
-import '../../styles/library.css';
 
 /** What every store view needs to render one listing. */
 export interface StoreItemProps {

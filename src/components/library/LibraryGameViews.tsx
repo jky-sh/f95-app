@@ -10,7 +10,6 @@ import { formatPlaytime, type LibraryGame, type LibrarySort } from '../../types/
 import { Icon, type IconName } from '../ui/Icon';
 import { LibraryCover } from './LibraryCover';
 import { PlayTimer } from './PlayTimer';
-import '../../styles/library.css';
 
 /** What every library view needs to render and act on one game. */
 export interface LibraryItemProps {

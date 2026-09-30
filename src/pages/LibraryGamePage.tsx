@@ -14,7 +14,6 @@ import { Icon } from '../components/ui/Icon';
 import { Tabs } from '../components/ui/Tabs';
 import { formatBytes } from '../types/download';
 import { formatWhen } from '../lib/memberPresence';
-import '../styles/library.css';
 import { useOffline } from '../contexts/Offline';
 import { InstallLocationModal } from '../components/InstallLocationModal';
 import { MoveProgressModal } from '../components/MoveProgressModal';
