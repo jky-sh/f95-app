@@ -4,6 +4,8 @@ import { useOffline } from '../contexts/Offline';
 import { useT } from '../lib/i18n';
 import { useSectionHref } from '../lib/lastSearch';
 import { useNavCounts } from '../hooks/useNavCounts';
+import { openCommandPalette } from './CommandPalette';
+import { Icon } from './ui/Icon';
 import type { ProfileDto } from '../types';
 
 interface Props {
@@ -98,6 +100,18 @@ export function Sidebar({ profile }: Props) {
         </div>
         <NotificationBell />
       </div>
+
+      <button
+        type="button"
+        className="sidebar-search"
+        onClick={openCommandPalette}
+        title={t('palette.title')}
+        aria-keyshortcuts="Control+K"
+      >
+        <Icon name="search" size={14} />
+        <span className="sidebar-search-label">{t('palette.open')}</span>
+        <kbd className="sidebar-search-kbd">Ctrl K</kbd>
+      </button>
 
       <nav style={navStyle}>
         {NAV_SECTIONS.map((section, sectionIdx) => (

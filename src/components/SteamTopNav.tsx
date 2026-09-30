@@ -4,6 +4,8 @@ import { useOffline } from '../contexts/Offline';
 import { useT } from '../lib/i18n';
 import { useSectionHref } from '../lib/lastSearch';
 import { useNavCounts } from '../hooks/useNavCounts';
+import { openCommandPalette } from './CommandPalette';
+import { Icon } from './ui/Icon';
 import type { ProfileDto } from '../types';
 
 interface Props {
@@ -50,6 +52,16 @@ export function SteamTopNav({ profile }: Props) {
       </div>
 
       <div className="steam-topnav-side">
+        <button
+          type="button"
+          className="steam-topnav-icon"
+          onClick={openCommandPalette}
+          title={`${t('palette.title')} (Ctrl+K)`}
+          aria-label={t('palette.title')}
+          aria-keyshortcuts="Control+K"
+        >
+          <Icon name="search" size={16} />
+        </button>
         <NavLink
           to="/downloads"
           className="steam-topnav-icon"
