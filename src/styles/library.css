@@ -188,3 +188,22 @@
 }
 /* Store tiles stop at F95's 400 px previews: keep them near that width. */
 .store-grid--covers { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+
+/* Store cards and tiles: screenshots while hovered (ScreenCycle) ----------------- */
+.screen-cycle { position: absolute; inset: 0; pointer-events: none; }
+.screen-cycle-img {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  opacity: 0; transition: opacity 0.35s ease;
+}
+.screen-cycle-img.is-shown { opacity: 1; }
+/* A thin segmented line along the bottom edge, clear of the badges. */
+.screen-cycle-bar {
+  position: absolute; left: 0; right: 0; bottom: 0; display: flex; gap: 2px;
+  opacity: 0; transition: opacity 0.15s ease;
+}
+.screen-cycle.is-active .screen-cycle-bar { opacity: 1; }
+.screen-cycle-bar span { flex: 1; height: 3px; background: rgba(255, 255, 255, 0.3); }
+.screen-cycle-bar span.is-shown { background: var(--accent); }
+@media (prefers-reduced-motion: reduce) {
+  .screen-cycle-img, .screen-cycle-bar { transition: none; }
+}

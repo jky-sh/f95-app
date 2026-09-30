@@ -9,6 +9,7 @@ import { LibraryCover } from '../library/LibraryCover';
 import { Icon } from '../ui/Icon';
 import { formatCount } from './GameCard';
 import { LibraryBadge, libraryBadgeKind } from './LibraryBadge';
+import { ScreenCycle } from './ScreenCycle';
 
 /** What every store view needs to render one listing. */
 export interface StoreItemProps {
@@ -55,9 +56,14 @@ export const StoreCoverTile = memo(function StoreCoverTile({ game, category, lib
   const { openStoreContextMenu } = useStoreContextMenu(category);
   const updated = updatedText(game, locale, now);
   return (
-    <article className="lib-tile store-tile" onContextMenu={(e) => void openStoreContextMenu(e, game)}>
+    <article
+      className="lib-tile store-tile"
+      data-screen-host
+      onContextMenu={(e) => void openStoreContextMenu(e, game)}
+    >
       <Link to={href(game, category)} state={{ card: game }} className="lib-tile-cover" aria-label={game.title}>
         <LibraryCover url={game.thumbnailUrl} title={game.title} quality="preview" />
+        <ScreenCycle screens={game.screens} cover={game.thumbnailUrl} />
         <span className="lib-tile-scrim" aria-hidden />
         <span className="lib-tile-info">
           <span className="lib-tile-title">{game.title}</span>

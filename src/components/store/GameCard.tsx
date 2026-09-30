@@ -7,6 +7,8 @@ import type { LibraryEntry } from '../../hooks/useLibraryIndex';
 import { LibraryBadge, libraryBadgeKind } from './LibraryBadge';
 import { ContentTagPills } from './ContentTagPills';
 import { PrefixPills } from './PrefixPills';
+import { ScreenCycle } from './ScreenCycle';
+import { Icon, type IconName } from '../ui/Icon';
 
 interface Props {
   game: SamGameCard;
@@ -28,6 +30,7 @@ export function GameCard({ game, category, libraryEntry, now }: Props) {
       // The game page shows the card's rating, likes and views.
       state={{ card: game }}
       className="store-card"
+      data-screen-host
       onContextMenu={(e) => void openStoreContextMenu(e, game)}
     >
       {/* padding-top reserves the 16:9 box before the image loads, so
@@ -45,6 +48,7 @@ export function GameCard({ game, category, libraryEntry, now }: Props) {
         ) : (
           <div className="store-card-thumb-fallback">{game.title.slice(0, 1).toUpperCase()}</div>
         )}
+        <ScreenCycle screens={game.screens} cover={game.thumbnailUrl} />
         {game.version && <div className="store-card-version">{game.version}</div>}
         {badge && libraryEntry && (
           <LibraryBadge kind={badge} entry={libraryEntry} storeVersion={game.version} />
@@ -97,20 +101,24 @@ export function GameCard({ game, category, libraryEntry, now }: Props) {
         <div className="store-card-meta">
           {/* SAM reports unrated games as 0. */}
           {game.rating !== null && game.rating > 0 && (
-            <Meta label="★" value={game.rating.toFixed(1)} />
+            <Meta icon="star" label={t('gamedetail.meta.rating')} value={game.rating.toFixed(1)} />
           )}
-          {game.likes !== null && <Meta label="♥" value={formatCount(game.likes)} />}
-          {game.views !== null && <Meta label="👁" value={formatCount(game.views)} />}
+          {game.likes !== null && (
+            <Meta icon="heart" label={t('gamedetail.meta.likes')} value={formatCount(game.likes)} />
+          )}
+          {game.views !== null && (
+            <Meta icon="eye" label={t('gamedetail.meta.views')} value={formatCount(game.views)} />
+          )}
         </div>
       </div>
     </Link>
   );
 }
 
-function Meta({ label, value }: { label: string; value: string }) {
+function Meta({ icon, label, value }: { icon: IconName; label: string; value: string }) {
   return (
-    <span className="store-card-meta-item">
-      <span className="store-card-meta-label">{label}</span>
+    <span className="store-card-meta-item" title={label}>
+      <Icon name={icon} size={11} className="store-card-meta-label" />
       <span>{value}</span>
     </span>
   );
