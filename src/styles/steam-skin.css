@@ -222,15 +222,38 @@
 /* Member profile pieces (own profile + friend profiles). */
 :root[data-skin='steam'] .member-hero,
 :root[data-skin='steam'] .member-section,
+:root[data-skin='steam'] .member-error,
 :root[data-skin='steam'] .member-profile-skeleton-hero,
+:root[data-skin='steam'] .member-profile-skeleton-stats,
 :root[data-skin='steam'] .member-profile-skeleton-block {
   border-radius: 3px;
 }
 
 :root[data-skin='steam'] .member-stat,
 :root[data-skin='steam'] .member-hero-avatar,
-:root[data-skin='steam'] .member-hero-banner {
+:root[data-skin='steam'] .member-hero-banner,
+:root[data-skin='steam'] .member-btn,
+:root[data-skin='steam'] .member-follow-item,
+:root[data-skin='steam'] .member-activity-meta,
+:root[data-skin='steam'] .profile-most-played,
+:root[data-skin='steam'] .profile-recent-thumb {
   border-radius: 2px;
+}
+
+/* Friends page: squared cards and avatars, Steam-style glow on hover. */
+:root[data-skin='steam'] .friend-card,
+:root[data-skin='steam'] .friends-empty {
+  border-radius: 3px;
+}
+
+:root[data-skin='steam'] .friend-card-avatar,
+:root[data-skin='steam'] .friend-card-skeleton-avatar,
+:root[data-skin='steam'] .member-role-badge {
+  border-radius: 2px;
+}
+
+:root[data-skin='steam'] .friend-card:hover {
+  box-shadow: 0 0 12px var(--sk-accent-glow);
 }
 
 /* Store & library cards use inline styles → !important required. The

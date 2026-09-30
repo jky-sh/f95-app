@@ -13,8 +13,22 @@ import {
   type F95AlertsListResult,
   type F95AlertsPopupResult,
 } from './alerts';
+import { findAvatarSrc } from './html';
+import {
+  parseActivityRows,
+  parseMemberAbout,
+  parseMemberHeader,
+  parseMemberUsername,
+  type ActivityItem,
+  type MemberAboutDto,
+  type MemberHeaderInfo,
+} from './member';
+import { fetchMemberPage, forgetCsrf, memberUrl, rememberCsrf } from './pages';
 
 export type { F95Alert, F95AlertsListResult, F95AlertsPopupResult };
+export type { ActivityItem };
+
+export type MemberActivityKind = 'latest' | 'postings';
 
 const BASE = F95_BASE;
 const LOGIN_PAGE = `${BASE}/login/`;
@@ -23,31 +37,12 @@ const ACCOUNT_PAGE = `${BASE}/account/`;
 const LOGOUT_POST = `${BASE}/logout/`;
 const UA = USER_AGENT;
 
-export interface ActivityItem {
-  avatarUrl: string | null;
-  title: string;
-  snippet: string | null;
-  date: string | null;
-  url: string | null;
-}
-
-export interface ProfileDto {
+export interface ProfileDto extends MemberHeaderInfo {
   username: string;
-  avatarUrl: string | null;
   alerts: number;
   conversations: number;
   userId: string | null;
   profileUrl: string | null;
-  userBanner: string | null;
-  customTitle: string | null;
-  joinedAt: string | null;
-  lastSeen: string | null;
-  messagesCount: number | null;
-  reactionScore: number | null;
-  trophyPoints: number | null;
-  points: number | null;
-  ratingsReceived: number | null;
-  extraStats: Record<string, string>;
   activity: ActivityItem[];
 }
 
@@ -186,6 +181,7 @@ export class F95Client {
         const memberRes = await this.client.get(base.profileUrl);
         assertNotCloudflareChallenge(memberRes.body, memberRes.headers);
         if (memberRes.status === 200) {
+          rememberCsrf(memberRes.body);
           const header = parseMemberHeader(memberRes.body);
           // Override the navbar avatar with the larger member-page avatar when present.
           const avatarUrl = header.avatarUrl ?? base.avatarUrl;
@@ -199,20 +195,8 @@ export class F95Client {
         log('member page fetch failed:', (err as Error).message);
       }
     }
-    return {
-      ...base,
-      userBanner: null,
-      customTitle: null,
-      joinedAt: null,
-      lastSeen: null,
-      messagesCount: null,
-      reactionScore: null,
-      trophyPoints: null,
-      points: null,
-      ratingsReceived: null,
-      extraStats: {},
-      activity: [],
-    };
+    // Member page unavailable: every header field empty, navbar data kept.
+    return { ...parseMemberHeader(''), ...base, activity: [] };
   }
 
   /**
@@ -221,34 +205,42 @@ export class F95Client {
    * member page itself (the navbar only knows the logged-in user).
    */
   async getMemberProfile(userId: string): Promise<MemberProfileDto> {
-    const profileUrl = `${BASE}/members/${encodeURIComponent(userId)}/`;
-    const res = await this.client.get(profileUrl);
-    assertNotCloudflareChallenge(res.body, res.headers);
-    if (res.url.includes('/login')) {
-      throw new RpcError(RPC_ERROR.NOT_INITIALIZED, 'not logged in');
-    }
-    if (res.status !== 200) {
-      throw new RpcError(RPC_ERROR.INTERNAL, `member page HTTP ${res.status}`);
-    }
-    const username = parseMemberUsername(res.body);
+    const profileUrl = memberUrl(userId);
+    const html = await fetchMemberPage(this.client, userId);
+    const username = parseMemberUsername(html);
     if (!username) {
       throw new RpcError(
         RPC_ERROR.INTERNAL,
         'could not parse member profile (username not found)',
       );
     }
-    const header = parseMemberHeader(res.body);
+    const header = parseMemberHeader(html);
     const activity = await this.fetchActivity(profileUrl);
     return { userId, username, profileUrl, ...header, activity };
   }
 
+  /** A member's "Latest activity" feed or "Postings" tab. */
+  async getMemberActivity(userId: string, kind: MemberActivityKind): Promise<ActivityItem[]> {
+    const tab = kind === 'postings' ? 'recent-content' : 'latest-activity';
+    return parseActivityRows(await fetchMemberPage(this.client, userId, tab));
+  }
+
+  /** A member's About tab: bio, custom fields, signature, follow lists. */
+  async getMemberAbout(userId: string): Promise<MemberAboutDto> {
+    return parseMemberAbout(await fetchMemberPage(this.client, userId, 'about'));
+  }
+
+  /**
+   * "Latest activity" feed (replies, reactions, new threads…). Best-effort:
+   * the profile still renders without it.
+   */
   private async fetchActivity(profileUrl: string): Promise<ActivityItem[]> {
-    const url = profileUrl.replace(/\/?$/, '/') + 'recent-content';
+    const url = profileUrl.replace(/\/?$/, '/') + 'latest-activity';
     try {
       const res = await this.client.get(url);
       assertNotCloudflareChallenge(res.body, res.headers);
       if (res.status !== 200) return [];
-      return parseActivity(res.body);
+      return parseActivityRows(res.body);
     } catch (err) {
       if (err instanceof RpcError && err.code === RPC_ERROR.CLOUDFLARE_CHALLENGE) {
         throw err;
@@ -305,6 +297,7 @@ export class F95Client {
   /** Drop persisted cookies/session so `isLoggedIn()` is false immediately. */
   private async resetLocalSession(): Promise<void> {
     await this.client.close();
+    forgetCsrf();
     const filePath = path.join(this._sessionDir, `${this._sessionId}.json`);
     try {
       await fs.unlink(filePath);
@@ -374,194 +367,11 @@ function parseNavbar(html: string): NavbarInfo {
   };
 }
 
-interface MemberHeaderInfo {
-  avatarUrl: string | null;
-  userBanner: string | null;
-  customTitle: string | null;
-  joinedAt: string | null;
-  lastSeen: string | null;
-  messagesCount: number | null;
-  reactionScore: number | null;
-  trophyPoints: number | null;
-  points: number | null;
-  ratingsReceived: number | null;
-  extraStats: Record<string, string>;
-}
-
-/** Public profile of any member — `getProfile` minus the navbar badges. */
 export interface MemberProfileDto extends MemberHeaderInfo {
   userId: string;
   username: string;
   profileUrl: string;
   activity: ActivityItem[];
-}
-
-function parseMemberUsername(html: string): string | null {
-  const $ = cheerio.load(html);
-  const name =
-    cleanText($('.memberHeader-name .username').first().text()) ||
-    cleanText($('.memberHeader-name').first().text());
-  return name || null;
-}
-
-function parseMemberHeader(html: string): MemberHeaderInfo {
-  const $ = cheerio.load(html);
-
-  // The big avatar lives at .memberHeader-avatar > .avatarWrapper > a.avatar--l.
-  // The <a>'s href is the original-size image; the inner <img> is the large
-  // (l) size. Prefer the <a>'s href, fall back to the <img>.
-  const avatarA = $('.memberHeader-avatar a.avatar, .memberHeader a.avatar--l').first();
-  const aHref = avatarA.attr('href');
-  let avatarUrl: string | null = null;
-  if (aHref && isLikelyImageUrl(aHref)) {
-    avatarUrl = absoluteUrl(aHref);
-  } else {
-    avatarUrl = findAvatarSrc($, $('.memberHeader-avatar img').first());
-  }
-
-  // f95zone uses .userTitle (not .userBanner) for the rank badge ("New Member").
-  // Both fields end up holding the same string for users with no custom title,
-  // which the UI handles by not double-rendering.
-  const titleText =
-    cleanText($('.memberHeader-blurb .userTitle').first().text()) ||
-    cleanText($('.memberHeader .userTitle').first().text()) ||
-    null;
-  const userBanner = titleText;
-  const customTitle = titleText;
-
-  const stats = collectPairs($, '.memberHeader-stats dl.pairs');
-
-  const messagesCount = pickStat(stats, ['messages', 'mensagens']);
-  const reactionScore = pickStat(stats, ['reaction score', 'pontos de reação']);
-  const points = pickStat(stats, ['points', 'pontos']);
-  const trophyPoints = pickStat(stats, ['trophy points', 'troféus', 'trofeus']);
-  const ratingsReceived = pickStat(stats, [
-    'ratings received',
-    'ratings',
-    'avaliações recebidas',
-  ]);
-
-  const inlinePairs = collectPairs($, 'dl.pairs--inline');
-  const joinedAtRaw = inlinePairs['Joined'] ?? inlinePairs['Inscrito em'] ?? null;
-  const lastSeenRaw =
-    inlinePairs['Last seen'] ??
-    inlinePairs['Visto pela última vez'] ??
-    inlinePairs['Última visita'] ??
-    null;
-
-  // Trim "· Viewing member profile X" noise from the last-seen text.
-  const joinedAt = stripMemberProfileNoise(joinedAtRaw);
-  const lastSeen = stripMemberProfileNoise(lastSeenRaw);
-
-  const known = new Set([
-    'messages', 'mensagens',
-    'reaction score', 'pontos de reação',
-    'points', 'pontos',
-    'trophy points', 'troféus', 'trofeus',
-    'ratings received', 'ratings', 'avaliações recebidas',
-    'joined', 'inscrito em',
-    'last seen', 'visto pela última vez', 'última visita',
-  ]);
-  const extraStats: Record<string, string> = {};
-  for (const [k, v] of Object.entries({ ...stats, ...inlinePairs })) {
-    if (!known.has(k.toLowerCase())) extraStats[k] = v;
-  }
-
-  return {
-    avatarUrl,
-    userBanner,
-    customTitle,
-    joinedAt,
-    lastSeen,
-    messagesCount,
-    reactionScore,
-    trophyPoints,
-    points,
-    ratingsReceived,
-    extraStats,
-  };
-}
-
-function collectPairs(
-  $: cheerio.CheerioAPI,
-  selector: string,
-): Record<string, string> {
-  const out: Record<string, string> = {};
-  $(selector).each((_, el) => {
-    const $el = $(el);
-    const label = cleanText($el.find('dt').first().text());
-    const value = cleanText($el.find('dd').first().text());
-    if (label && value) out[label] = value;
-  });
-  return out;
-}
-
-function stripMemberProfileNoise(s: string | null): string | null {
-  if (!s) return s;
-  // "A moment ago · Viewing member profile X" → "A moment ago"
-  // "Jul 27, 2018 at 2:58 PM" passes through unchanged.
-  const idx = s.indexOf(' · ');
-  if (idx >= 0) return s.slice(0, idx).trim();
-  return s.trim();
-}
-
-function isLikelyImageUrl(url: string): boolean {
-  return /\.(jpe?g|png|gif|webp|avif)(\?|$)/i.test(url);
-}
-
-function pickStat(
-  pairs: Record<string, string>,
-  labels: string[],
-): number | null {
-  for (const want of labels) {
-    for (const [k, v] of Object.entries(pairs)) {
-      if (k.toLowerCase() === want.toLowerCase()) {
-        const n = parseInt(v.replace(/[^\d-]/g, ''), 10);
-        if (Number.isFinite(n)) return n;
-      }
-    }
-  }
-  return null;
-}
-
-function parseActivity(html: string): ActivityItem[] {
-  const $ = cheerio.load(html);
-  const items: ActivityItem[] = [];
-
-  // f95zone's recent-content page lists entries as bare .contentRow divs.
-  // We pick those and skip anything nested inside another row to avoid dupes.
-  const rows = $('.contentRow').toArray();
-  for (const el of rows) {
-    if ($(el).parents('.contentRow').length > 0) continue;
-    const $el = $(el);
-
-    const avatarImg = $el.find('.contentRow-figure img').first();
-    const avatarUrl = findAvatarSrc($, avatarImg);
-
-    const titleEl = $el.find('.contentRow-title').first();
-    const title = cleanText(titleEl.text());
-    if (!title) continue;
-
-    const snippet =
-      cleanText($el.find('.contentRow-snippet').first().text()) ||
-      cleanText($el.find('blockquote').first().text()) ||
-      null;
-
-    const dateEl = $el.find('.contentRow-minor time').first();
-    const date =
-      cleanText(dateEl.attr('data-date-string') ?? '') ||
-      cleanText(dateEl.attr('title') ?? '') ||
-      cleanText(dateEl.text()) ||
-      cleanText($el.find('.contentRow-minor').first().text()) ||
-      null;
-
-    const linkEl = titleEl.find('a').last();
-    const href = linkEl.attr('href') ?? null;
-    const url = href ? absoluteUrl(href) : null;
-
-    items.push({ avatarUrl, title, snippet, date, url });
-  }
-  return items;
 }
 
 function extractXfTokens(html: string): {
@@ -597,41 +407,6 @@ function isAccountPageLoggedIn(html: string): boolean {
   return $('.p-navgroup-link--user').length > 0;
 }
 
-function findAvatarSrc(
-  $: cheerio.CheerioAPI,
-  img: cheerio.Cheerio<any>,
-): string | null {
-  if (img.length === 0) return null;
-  // XF lazy-loads avatars; the real URL lives in data-src while src may be a
-  // 1x1 placeholder. Prefer data-src when present.
-  const candidates = [
-    img.attr('data-src'),
-    img.attr('src'),
-    img.attr('data-original'),
-  ];
-  for (const c of candidates) {
-    if (c && !isPlaceholder(c)) return absoluteUrl(c);
-  }
-  // fall back to the first candidate even if it looks like a placeholder
-  for (const c of candidates) {
-    if (c) return absoluteUrl(c);
-  }
-  return null;
-}
-
-function isPlaceholder(src: string): boolean {
-  return (
-    src.startsWith('data:image/gif') ||
-    src.includes('blank.gif') ||
-    src.endsWith('/blank.png')
-  );
-}
-
-function cleanText(s: string | null | undefined): string {
-  if (!s) return '';
-  return s.replace(/\s+/g, ' ').trim();
-}
-
 function readBadge(
   $: cheerio.CheerioAPI,
   selector: string,
@@ -642,19 +417,8 @@ function readBadge(
   return Number.isFinite(n) ? n : 0;
 }
 
-function extractUserIdFromHref(href: string): string | null {
-  const m = href.match(/members\/[^/]*?(\d+)\/?$/);
-  return m ? m[1] : null;
-}
-
 function extractUserIdFromAvatarClass(cls: string): string | null {
   const m = cls.match(/avatar-u(\d+)-/);
   return m ? m[1] : null;
 }
-
-function absoluteUrl(src: string): string {
-  if (src.startsWith('http://') || src.startsWith('https://')) return src;
-  if (src.startsWith('//')) return `https:${src}`;
-  if (src.startsWith('/')) return `${BASE}${src}`;
-  return `${BASE}/${src}`;
-}
+
