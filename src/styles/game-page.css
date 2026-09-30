@@ -12,3 +12,6 @@
 @media (max-width: 900px) {
   .game-detail-actions { width: auto; }
 }
+
+/* Rating, likes and views chips: the icon takes the chip's text color. */
+.game-detail-chip-icon { flex-shrink: 0; opacity: 0.8; }
