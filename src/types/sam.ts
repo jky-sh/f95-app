@@ -76,9 +76,9 @@ export interface SamPage {
   endpoint: string;
 }
 
-// Curated subset of well-known F95Zone prefix IDs used for the filter sidebar
-// in the first store iteration. Verified via community catalog; refinements
-// can come from a live `samPrefixes` RPC later.
+// Games prefixes as SAM defines them (latest_alpha `latestUpdates.prefixes`,
+// checked 2026-09-30). Only a fallback: the sidebar and the pills use the
+// live catalog from `sam_options` whenever it loads.
 export interface PrefixOption {
   id: number;
   name: string;
@@ -91,25 +91,26 @@ export const KNOWN_PREFIXES: PrefixOption[] = [
   { id: 7, name: "Ren'Py", group: 'engine', color: 'var(--status-purple)' },
   { id: 3, name: 'Unity', group: 'engine', color: 'var(--text-faint)' },
   { id: 2, name: 'RPGM', group: 'engine', color: 'var(--status-info)' },
-  { id: 8, name: 'Unreal Engine', group: 'engine', color: 'var(--border-faint)' },
-  { id: 15, name: 'HTML', group: 'engine', color: '#d97a3a' },
-  { id: 1, name: 'Flash', group: 'engine', color: 'var(--accent-strong)' },
-  { id: 16, name: 'QSP', group: 'engine', color: '#586e75' },
-  { id: 17, name: 'Java', group: 'engine', color: '#b07219' },
-  { id: 18, name: 'Tads', group: 'engine', color: '#6f7e8a' },
-  { id: 32, name: 'Wolf RPG', group: 'engine', color: '#7a3a9c' },
-  { id: 24, name: 'Others', group: 'engine', color: 'var(--text-faint)' },
-  { id: 26, name: 'ADRIFT', group: 'engine', color: '#5a8a6a' },
-  { id: 19, name: 'RAGS', group: 'engine', color: '#8a5a6a' },
-  { id: 31, name: 'WebGL', group: 'engine', color: '#4a9aaa' },
+  { id: 31, name: 'Unreal Engine', group: 'engine', color: 'var(--border-faint)' },
+  { id: 4, name: 'HTML', group: 'engine', color: '#d97a3a' },
+  { id: 8, name: 'Flash', group: 'engine', color: 'var(--accent-strong)' },
+  { id: 116, name: 'Godot', group: 'engine', color: '#478cbf' },
+  { id: 1, name: 'QSP', group: 'engine', color: '#586e75' },
+  { id: 6, name: 'Java', group: 'engine', color: '#b07219' },
+  { id: 17, name: 'Tads', group: 'engine', color: '#6f7e8a' },
+  { id: 30, name: 'Wolf RPG', group: 'engine', color: '#7a3a9c' },
+  { id: 14, name: 'Others', group: 'engine', color: 'var(--text-faint)' },
+  { id: 12, name: 'ADRIFT', group: 'engine', color: '#5a8a6a' },
+  { id: 5, name: 'RAGS', group: 'engine', color: '#8a5a6a' },
+  { id: 47, name: 'WebGL', group: 'engine', color: '#4a9aaa' },
   // Statuses
-  { id: 22, name: 'Completed', group: 'status', color: 'var(--status-success)' },
-  { id: 23, name: 'On Hold', group: 'status', color: 'var(--status-warning)' },
-  { id: 21, name: 'Abandoned', group: 'status', color: '#9c3a3a' },
+  { id: 18, name: 'Completed', group: 'status', color: 'var(--status-success)' },
+  { id: 20, name: 'Onhold', group: 'status', color: 'var(--status-warning)' },
+  { id: 22, name: 'Abandoned', group: 'status', color: '#9c3a3a' },
   // Other
   { id: 13, name: 'VN', group: 'other', color: 'var(--status-info)' },
-  { id: 25, name: 'Collection', group: 'other', color: 'var(--text-faint)' },
-  { id: 27, name: 'SiteRip', group: 'other', color: 'var(--text-muted)' },
+  { id: 19, name: 'Collection', group: 'other', color: 'var(--text-faint)' },
+  { id: 23, name: 'SiteRip', group: 'other', color: 'var(--text-muted)' },
 ];
 
 export function prefixById(id: number): PrefixOption | undefined {
