@@ -1,4 +1,4 @@
-import * as ipc from './ipc';
+import { loadGameDetail } from './gameDetailCache';
 import * as library from './library';
 import type { GameDetail } from '../types/game';
 import type { LibraryGame } from '../types/library';
@@ -29,7 +29,8 @@ export async function checkOne(game: LibraryGame): Promise<UpdateCheckResult> {
   };
   let detail: GameDetail;
   try {
-    detail = await ipc.gameDetail(game.threadId);
+    // Fresh on purpose; the result also refreshes what the game pages show.
+    detail = await loadGameDetail(game.threadId, { fresh: true });
   } catch (err) {
     result.error = err && typeof err === 'object' && 'message' in err
       ? String((err as { message: string }).message)

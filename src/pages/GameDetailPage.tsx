@@ -4,7 +4,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { parseSamCategory } from '../constants/samCategories';
 import DOMPurify from 'dompurify';
 import { openUrl } from '@tauri-apps/plugin-opener';
-import { gameDetail } from '../lib/ipc';
+import { cachedGameDetail, loadGameDetail } from '../lib/gameDetailCache';
 import { dialog } from '../lib/dialog';
 import * as library from '../lib/library';
 import { GameDescription } from '../components/game/GameDescription';
@@ -80,7 +80,12 @@ function GameDetailPageInner() {
   const { isOffline } = useOffline();
   const { openMenuAt } = useContextMenu();
   const storeHref = useStoreHref();
-  const [state, setState] = useState<State>({ kind: 'loading' });
+  // Details seen a moment ago (Back from the library page, the download
+  // modal) render in the first frame instead of a loading screen.
+  const [state, setState] = useState<State>(() => {
+    const hit = threadId ? cachedGameDetail(threadId) : null;
+    return hit ? { kind: 'ready', data: hit } : { kind: 'loading' };
+  });
   /** Bumped by the Retry button to run the fetch again. */
   const [attempt, setAttempt] = useState(0);
   const [inLibrary, setInLibrary] = useState(false);
@@ -121,16 +126,22 @@ function GameDetailPageInner() {
   useEffect(() => {
     if (!threadId) return;
     let cancelled = false;
-    setState({ kind: 'loading' });
-    gameDetail(threadId)
-      .then((data) => {
-        if (cancelled) return;
-        setState({ kind: 'ready', data });
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setState({ kind: 'error', error: err });
-      });
+    // Retry skips the cache; otherwise details seen a moment ago are reused.
+    const hit = attempt === 0 ? cachedGameDetail(threadId) : null;
+    if (hit) {
+      setState((prev) =>
+        prev.kind === 'ready' && prev.data === hit ? prev : { kind: 'ready', data: hit },
+      );
+    } else {
+      setState({ kind: 'loading' });
+      loadGameDetail(threadId, { fresh: attempt > 0 })
+        .then((data) => {
+          if (!cancelled) setState({ kind: 'ready', data });
+        })
+        .catch((err) => {
+          if (!cancelled) setState({ kind: 'error', error: err });
+        });
+    }
     library
       .isInLibrary(threadId)
       .then((v) => {

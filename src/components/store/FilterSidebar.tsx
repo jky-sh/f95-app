@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { createPortal } from 'react-dom';
 import { SAM_CATEGORIES } from '../../constants/samCategories';
 import * as ipc from '../../lib/ipc';
+import { loadSamOptions } from '../../lib/samOptionsCache';
 import { usePrefixCatalog } from '../../contexts/PrefixCatalogContext';
 import { useTagCatalog } from '../../contexts/TagCatalogContext';
 import { useT } from '../../lib/i18n';
@@ -85,8 +86,7 @@ export function FilterSidebar(props: Props) {
   useEffect(() => {
     let cancelled = false;
     setPrefixLoading(true);
-    ipc
-      .samOptions(category)
+    loadSamOptions(category)
       .then((result) => {
         if (cancelled) return;
         const next = resolvePrefixGroups(result.prefixGroups, category);

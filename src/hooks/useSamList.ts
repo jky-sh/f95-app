@@ -252,44 +252,44 @@ function dedup(items: SamGameCard[]): SamGameCard[] {
   return out;
 }
 
+/** One statement for the whole page instead of an IPC round trip per card. */
 async function cacheItems(items: SamGameCard[]): Promise<void> {
   if (items.length === 0) return;
-  for (const it of items) {
-    await execute(
-      `INSERT INTO games_cache (
-         thread_id, title, version, thumbnail_url, thread_url,
-         engine, status, rating, views, likes, updated_at,
-         prefixes_json, tags_json, cached_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-       ON CONFLICT(thread_id) DO UPDATE SET
-         title=excluded.title,
-         version=excluded.version,
-         thumbnail_url=excluded.thumbnail_url,
-         thread_url=excluded.thread_url,
-         engine=excluded.engine,
-         status=excluded.status,
-         rating=excluded.rating,
-         views=excluded.views,
-         likes=excluded.likes,
-         updated_at=excluded.updated_at,
-         prefixes_json=excluded.prefixes_json,
-         tags_json=excluded.tags_json,
-         cached_at=excluded.cached_at`,
-      [
-        it.threadId,
-        it.title,
-        it.version,
-        it.thumbnailUrl,
-        it.threadUrl,
-        null,
-        null,
-        it.rating,
-        it.views,
-        it.likes,
-        it.updatedAt,
-        JSON.stringify(it.prefixIds),
-        JSON.stringify(it.tagIds),
-      ],
-    );
-  }
+  const rows = items.map(() => `(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`);
+  await execute(
+    `INSERT INTO games_cache (
+       thread_id, title, version, thumbnail_url, thread_url,
+       engine, status, rating, views, likes, updated_at,
+       prefixes_json, tags_json, cached_at
+     ) VALUES ${rows.join(', ')}
+     ON CONFLICT(thread_id) DO UPDATE SET
+       title=excluded.title,
+       version=excluded.version,
+       thumbnail_url=excluded.thumbnail_url,
+       thread_url=excluded.thread_url,
+       engine=excluded.engine,
+       status=excluded.status,
+       rating=excluded.rating,
+       views=excluded.views,
+       likes=excluded.likes,
+       updated_at=excluded.updated_at,
+       prefixes_json=excluded.prefixes_json,
+       tags_json=excluded.tags_json,
+       cached_at=excluded.cached_at`,
+    items.flatMap((it) => [
+      it.threadId,
+      it.title,
+      it.version,
+      it.thumbnailUrl,
+      it.threadUrl,
+      null,
+      null,
+      it.rating,
+      it.views,
+      it.likes,
+      it.updatedAt,
+      JSON.stringify(it.prefixIds),
+      JSON.stringify(it.tagIds),
+    ]),
+  );
 }

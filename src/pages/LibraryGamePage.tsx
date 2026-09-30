@@ -5,6 +5,7 @@ import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
 import { dialog } from '../lib/dialog';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import * as ipc from '../lib/ipc';
+import { loadGameDetail } from '../lib/gameDetailCache';
 import * as library from '../lib/library';
 import * as libraries from '../lib/libraries';
 import * as sessions from '../lib/sessions';
@@ -123,8 +124,7 @@ export function LibraryGamePage() {
   useEffect(() => {
     if (!threadId || state.kind !== 'ready') return;
     let cancelled = false;
-    ipc
-      .gameDetail(threadId)
+    loadGameDetail(threadId)
       .then((detail) => {
         if (!cancelled) setStoreDetail(detail);
       })
