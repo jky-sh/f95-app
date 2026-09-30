@@ -304,6 +304,20 @@ function sortClause(s: LibrarySort): string {
       return `(last_played_at IS NULL), last_played_at DESC, added_at DESC`;
     case 'playtime':
       return `total_playtime_seconds DESC, added_at DESC`;
+    case 'size':
+      // Every installed version counts: that is what uninstalling frees.
+      return `(SELECT SUM(size_bytes) FROM install_versions iv
+                 WHERE iv.thread_id = library_games.thread_id) IS NULL,
+               (SELECT SUM(size_bytes) FROM install_versions iv
+                 WHERE iv.thread_id = library_games.thread_id) DESC,
+               added_at DESC`;
+    case 'rating':
+      // Ratings come from the store list (games_cache); unrated/unknown last.
+      return `(SELECT rating FROM games_cache gc
+                 WHERE gc.thread_id = library_games.thread_id AND gc.rating > 0) IS NULL,
+               (SELECT rating FROM games_cache gc
+                 WHERE gc.thread_id = library_games.thread_id) DESC,
+               LOWER(title) ASC`;
     case 'added':
     default:
       return `added_at DESC`;

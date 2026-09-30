@@ -1,4 +1,4 @@
-import { useLocation } from 'react-router-dom';
+import { rememberSearch, useSectionHref } from './lastSearch';
 import { parseSamCategory } from '../constants/samCategories';
 import {
   SAM_DATE_RANGES,
@@ -95,20 +95,12 @@ export function storeLink(patch: Partial<StoreQuery>): string {
   return qs ? `/store?${qs}` : '/store';
 }
 
-/** Query string of the store list last shown (`?cat=mods…` or ''). */
-let lastStoreSearch = '';
-
+/** Called by the store whenever its URL query changes (`?cat=mods…` or ''). */
 export function rememberStoreSearch(search: string): void {
-  lastStoreSearch = search;
+  rememberSearch('/store', search);
 }
 
-/**
- * Link back to the store as the user left it. Reads the location so nav
- * links holding it re-render after every navigation (on the store itself
- * the remembered query is one render behind, so use the live one).
- */
+/** Link back to the store as the user left it. */
 export function useStoreHref(): string {
-  const location = useLocation();
-  if (location.pathname === '/store') return `/store${location.search}`;
-  return `/store${lastStoreSearch}`;
+  return useSectionHref('/store');
 }

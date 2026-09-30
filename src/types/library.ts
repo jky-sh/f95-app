@@ -40,7 +40,15 @@ export interface LibraryFilter {
   sort?: LibrarySort;
 }
 
-export type LibrarySort = 'added' | 'title' | 'last_played' | 'playtime';
+export type LibrarySort =
+  | 'added'
+  | 'title'
+  | 'last_played'
+  | 'playtime'
+  /** Disk used by every installed version. */
+  | 'size'
+  /** F95 rating last seen in the store. */
+  | 'rating';
 
 /**
  * Translation key for an install status. Callers pass the result through

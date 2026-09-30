@@ -50,6 +50,7 @@ import { useLibraryGame } from '../hooks/useLibraryGame';
 import { useStoreDetail } from '../hooks/useStoreDetail';
 import { useStoreLinks } from '../hooks/useStoreLinks';
 import { describeIpcError, formatIpcError } from '../lib/ipcError';
+import { useSectionHref } from '../lib/lastSearch';
 import { openGameDownloadModal } from '../lib/gameDownloadModal';
 import { useT } from '../lib/i18n';
 import { parseDbTime } from '../lib/dbTime';
@@ -813,11 +814,12 @@ function Shell({
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useT();
+  const libraryHref = useSectionHref('/library');
   return (
     <GameDetailShell onContextMenu={onContextMenu}>
       <GameDetailBackBar
-        onBack={() => (location.key !== 'default' ? navigate(-1) : navigate('/library'))}
-        breadcrumbTo="/library"
+        onBack={() => (location.key !== 'default' ? navigate(-1) : navigate(libraryHref))}
+        breadcrumbTo={libraryHref}
         breadcrumbLabel={t('nav.library')}
       />
       {children}
