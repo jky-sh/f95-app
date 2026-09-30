@@ -331,16 +331,3 @@ export function MemberActivityList({ items, now }: { items: ActivityItem[]; now:
     </ul>
   );
 }
-
-export function MemberAboutList({ rows }: { rows: [string, string][] }) {
-  return (
-    <dl className="member-about">
-      {rows.map(([k, v]) => (
-        <div key={k} className="member-about-row">
-          <dt className="member-about-key">{k}</dt>
-          <dd className="member-about-val">{v}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}

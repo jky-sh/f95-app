@@ -387,35 +387,6 @@
   font-size: 13px;
 }
 
-.member-about {
-  margin: 0;
-  padding: 6px 0;
-}
-
-.member-about-row {
-  display: grid;
-  grid-template-columns: 200px 1fr;
-  gap: 12px;
-  padding: 9px 18px;
-  border-bottom: 1px solid var(--border-faint);
-  font-size: 13px;
-}
-
-.member-about-row:last-child {
-  border-bottom: none;
-}
-
-.member-about-key {
-  color: var(--text-muted);
-  margin: 0;
-}
-
-.member-about-val {
-  color: var(--text-secondary);
-  margin: 0;
-  word-break: break-word;
-}
-
 /* ── Tabs ─────────────────────────────────────────────────────────────── */
 
 .member-tabs-bar {
@@ -1063,4 +1034,162 @@
 .member-profile-skeleton-block {
   height: 260px;
   border-radius: 8px;
+}
+
+/* ── Own profile ──────────────────────────────────────────────────────── */
+
+.profile-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  align-items: start;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+@media (max-width: 980px) {
+  .profile-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.profile-main > .member-section:first-child,
+.profile-side > .member-section {
+  margin-top: 0;
+}
+
+.profile-side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.profile-side-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px 16px;
+}
+
+.profile-side-empty {
+  padding: 16px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.profile-side-body .profile-side-empty {
+  padding: 0;
+}
+
+.profile-side-link {
+  align-self: flex-start;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.profile-most-played {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.profile-most-played:hover {
+  border-color: var(--accent);
+}
+
+.profile-most-played-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.profile-most-played-title {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-recent-list {
+  margin: 0;
+  padding: 6px 0;
+  list-style: none;
+}
+
+.profile-recent-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 16px;
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.profile-recent-row:hover {
+  background: var(--bg-hover);
+}
+
+.profile-recent-thumb {
+  flex-shrink: 0;
+  width: 64px;
+  height: 36px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--bg-sunken);
+}
+
+.profile-recent-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-recent-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.profile-recent-title {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-recent-meta {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.profile-friends-summary {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.member-follow-item--online {
+  border-color: var(--status-success);
 }

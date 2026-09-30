@@ -234,7 +234,9 @@
 :root[data-skin='steam'] .member-hero-banner,
 :root[data-skin='steam'] .member-btn,
 :root[data-skin='steam'] .member-follow-item,
-:root[data-skin='steam'] .member-activity-meta {
+:root[data-skin='steam'] .member-activity-meta,
+:root[data-skin='steam'] .profile-most-played,
+:root[data-skin='steam'] .profile-recent-thumb {
   border-radius: 2px;
 }
 
