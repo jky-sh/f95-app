@@ -16,6 +16,7 @@ import {
   MemberStatsRow,
 } from './profile/MemberProfileParts';
 import { ProfileAchievements } from './profile/ProfileAchievements';
+import { useNow } from '../hooks/useNow';
 
 interface Props {
   profile: ProfileDto;
@@ -38,6 +39,7 @@ export function ProfileView({ profile, onLoggedOut: _onLoggedOut }: Props) {
   const { t } = useT();
   const [working, setWorking] = useState(false);
   const [libStats, setLibStats] = useState<LibraryStats | null>(null);
+  const now = useNow();
 
   // Local library aggregates (SQLite) — available even offline.
   useEffect(() => {
@@ -88,12 +90,8 @@ export function ProfileView({ profile, onLoggedOut: _onLoggedOut }: Props) {
   return (
     <div style={page}>
       <MemberHero
-        avatarUrl={profile.avatarUrl}
-        username={profile.username}
-        userBanner={profile.userBanner}
-        customTitle={profile.customTitle}
-        joinedAt={profile.joinedAt}
-        lastSeen={profile.lastSeen}
+        member={profile}
+        now={now}
         actions={
           <>
             {profile.profileUrl && (
@@ -116,8 +114,7 @@ export function ProfileView({ profile, onLoggedOut: _onLoggedOut }: Props) {
         stats={[
           { label: t('profile.field.messages'), value: profile.messagesCount },
           { label: t('profile.field.reactions'), value: profile.reactionScore },
-          { label: t('profile.field.points'), value: profile.points },
-          { label: t('profile.field.trophies'), value: profile.trophyPoints },
+          { label: t('profile.field.points'), value: profile.points ?? profile.trophyPoints },
           { label: t('profile.field.ratings'), value: profile.ratingsReceived },
         ]}
       />
@@ -146,7 +143,7 @@ export function ProfileView({ profile, onLoggedOut: _onLoggedOut }: Props) {
       <ProfileAchievements />
 
       <MemberSection title={t('profile.tab.activity')}>
-        <MemberActivityList items={profile.activity} />
+        <MemberActivityList items={profile.activity} now={now} />
       </MemberSection>
 
       <MemberSection title={t('profile.section.about')}>
@@ -161,7 +158,7 @@ function aboutRows(profile: ProfileDto, t: TFunction): [string, string][] {
   if (profile.userId) rows.push([t('profile.field.userId'), `#${profile.userId}`]);
   if (profile.joinedAt) rows.push([t('profile.field.joinedAt'), profile.joinedAt]);
   if (profile.lastSeen) rows.push([t('profile.field.lastSeen'), profile.lastSeen]);
-  if (profile.userBanner) rows.push([t('profile.field.title'), profile.userBanner]);
+  if (profile.customTitle) rows.push([t('profile.field.title'), profile.customTitle]);
   for (const [k, v] of Object.entries(profile.extraStats)) {
     rows.push([k, v]);
   }

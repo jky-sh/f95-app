@@ -1,31 +1,90 @@
 /* Member profile shared pieces (own Profile page + friend profiles) and
  * the Friends page cards. Colors come from theme variables. */
 
+/* ── Page ─────────────────────────────────────────────────────────────── */
+
+.member-page {
+  padding: 20px 24px 40px;
+}
+
+.member-page-content {
+  max-width: 1040px;
+  margin: 16px auto 0;
+}
+
+.member-error {
+  padding: 16px 18px;
+  border: 1px solid var(--accent-strong);
+  border-radius: 6px;
+  background: var(--status-danger-bg);
+  color: var(--status-danger-text);
+  font-size: 13px;
+}
+
+.member-error-detail {
+  margin: 6px 0 12px;
+  font-size: 12px;
+  opacity: 0.85;
+  word-break: break-word;
+}
+
 /* ── Hero ─────────────────────────────────────────────────────────────── */
 
 .member-hero {
-  display: flex;
-  gap: 20px;
-  align-items: flex-start;
-  padding: 22px 24px;
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--accent) 10%, var(--bg-elevated)) 0%,
-    var(--bg-elevated) 55%
-  );
+  overflow: hidden;
+  background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: 8px;
 }
 
+.member-hero-cover {
+  position: relative;
+  height: 150px;
+  background-size: cover;
+  background-position-x: center;
+}
+
+.member-hero-cover::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 35%, var(--bg-elevated) 100%);
+}
+
+.member-hero-cover--empty {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent) 24%, var(--bg-elevated)) 0%,
+    var(--bg-elevated) 75%
+  );
+}
+
+/* Only the avatar climbs onto the cover; the text starts below it so a
+ * bright cover never hurts legibility. */
+.member-hero-main {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px 20px;
+  padding: 0 24px 20px;
+}
+
+.member-hero-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+  margin-top: -60px;
+}
+
 .member-hero-avatar {
-  width: 112px;
-  height: 112px;
-  border-radius: 6px;
+  display: block;
+  width: 120px;
+  height: 120px;
+  box-sizing: border-box;
+  border: 4px solid var(--bg-elevated);
+  border-radius: 8px;
   object-fit: cover;
   background: var(--bg-sunken);
-  border: 1px solid var(--border-strong);
-  flex-shrink: 0;
-  box-sizing: border-box;
 }
 
 .member-hero-avatar--fallback {
@@ -37,62 +96,141 @@
   color: var(--text-faint);
 }
 
+.presence-dot--lg {
+  right: -4px;
+  bottom: -4px;
+  width: 22px;
+  height: 22px;
+  border-width: 4px;
+}
+
 .member-hero-body {
   flex: 1;
+  min-width: 220px;
+  padding-top: 12px;
+}
+
+.member-hero-name-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   min-width: 0;
 }
 
 .member-hero-name {
+  overflow: hidden;
   margin: 0;
   font-size: 26px;
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.2px;
-  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.member-hero-banner {
-  display: inline-block;
+.member-hero-banners {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
   margin-top: 8px;
-  padding: 3px 10px;
+}
+
+.member-hero-banner {
+  padding: 2px 9px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
   border-radius: 3px;
   background: var(--accent-soft-bg);
-  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
   color: var(--accent);
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 700;
   letter-spacing: 0.3px;
 }
 
 .member-hero-subtitle {
-  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 8px;
   color: var(--text-tertiary);
   font-size: 13px;
+}
+
+.member-hero-location {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
 }
 
 .member-hero-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
-  margin-top: 14px;
+  gap: 6px 16px;
+  margin-top: 10px;
   font-size: 12.5px;
   color: var(--text-muted);
 }
 
-.member-hero-meta-label {
-  color: var(--text-faint);
+.member-hero-presence--online {
+  color: var(--status-success);
   font-weight: 600;
-  margin-right: 4px;
 }
 
 .member-hero-actions {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 8px;
-  flex-shrink: 0;
+  margin-left: auto;
+  padding-top: 14px;
+}
+
+.member-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.member-btn:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+.member-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.member-btn--primary,
+.member-btn--primary:hover:not(:disabled) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.member-btn--primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.member-btn--following {
+  color: var(--status-success);
+  border-color: color-mix(in srgb, var(--status-success) 50%, var(--border));
+}
+
+/* Hovering "Following" previews the unfollow it triggers. */
+.member-btn--following:hover:not(:disabled) {
+  color: var(--status-danger);
+  border-color: color-mix(in srgb, var(--status-danger) 50%, var(--border));
 }
 
 /* ── Stat cards ───────────────────────────────────────────────────────── */
@@ -224,10 +362,22 @@
   overflow: hidden;
 }
 
-.member-activity-date {
-  margin-top: 5px;
+.member-activity-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin-top: 6px;
   color: var(--text-faint);
   font-size: 11.5px;
+}
+
+.member-activity-meta {
+  padding: 1px 7px;
+  border: 1px solid var(--border-faint);
+  border-radius: 3px;
+  background: var(--bg-sunken);
+  color: var(--text-muted);
 }
 
 .member-activity-empty {
@@ -264,6 +414,193 @@
   color: var(--text-secondary);
   margin: 0;
   word-break: break-word;
+}
+
+/* ── Tabs ─────────────────────────────────────────────────────────────── */
+
+.member-tabs-bar {
+  display: flex;
+  gap: 4px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border-faint);
+}
+
+.member-tab {
+  margin-bottom: -1px;
+  padding: 12px 12px 10px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.member-tab:hover {
+  color: var(--text-secondary);
+}
+
+.member-tab.is-active {
+  color: var(--text-primary);
+  border-bottom-color: var(--accent);
+}
+
+.member-tab-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 36px 18px;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+/* ── About tab ────────────────────────────────────────────────────────── */
+
+.member-about-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 24px;
+  padding: 18px;
+}
+
+@media (max-width: 860px) {
+  .member-about-panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.member-about-heading {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.member-about-empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-style: italic;
+}
+
+.member-bb .game-description {
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.member-signature {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-faint);
+}
+
+.member-signature-toggle {
+  margin-bottom: 8px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.member-about-side {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+.member-info-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 0;
+  font-size: 12.5px;
+}
+
+.member-info-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.member-info-row dt {
+  color: var(--text-muted);
+}
+
+.member-info-row dd {
+  margin: 0;
+  color: var(--text-secondary);
+  text-align: right;
+  word-break: break-word;
+}
+
+.member-follow-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.member-follow-total {
+  color: var(--text-faint);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.member-follow-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
+  gap: 6px;
+}
+
+.member-follow-item {
+  aspect-ratio: 1;
+  padding: 0;
+  overflow: hidden;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-faint);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.12s ease;
+}
+
+.member-follow-item:hover {
+  border-color: var(--accent);
+}
+
+.member-follow-avatar {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.member-follow-avatar--fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.member-follow-more {
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 /* ── Role badges (Staff / Mod) ────────────────────────────────────────── */
@@ -714,11 +1051,16 @@
 }
 
 .member-profile-skeleton-hero {
-  height: 160px;
+  height: 256px;
   border-radius: 8px;
 }
 
+.member-profile-skeleton-stats {
+  height: 64px;
+  border-radius: 6px;
+}
+
 .member-profile-skeleton-block {
-  height: 220px;
+  height: 260px;
   border-radius: 8px;
 }

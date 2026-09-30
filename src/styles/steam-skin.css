@@ -222,14 +222,19 @@
 /* Member profile pieces (own profile + friend profiles). */
 :root[data-skin='steam'] .member-hero,
 :root[data-skin='steam'] .member-section,
+:root[data-skin='steam'] .member-error,
 :root[data-skin='steam'] .member-profile-skeleton-hero,
+:root[data-skin='steam'] .member-profile-skeleton-stats,
 :root[data-skin='steam'] .member-profile-skeleton-block {
   border-radius: 3px;
 }
 
 :root[data-skin='steam'] .member-stat,
 :root[data-skin='steam'] .member-hero-avatar,
-:root[data-skin='steam'] .member-hero-banner {
+:root[data-skin='steam'] .member-hero-banner,
+:root[data-skin='steam'] .member-btn,
+:root[data-skin='steam'] .member-follow-item,
+:root[data-skin='steam'] .member-activity-meta {
   border-radius: 2px;
 }
 

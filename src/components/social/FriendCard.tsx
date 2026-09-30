@@ -1,7 +1,7 @@
 import { useT } from '../../lib/i18n';
 import { lastSeenLabel, type Presence } from '../../lib/memberPresence';
 import type { FollowedUser, MemberCardDto } from '../../types/social';
-import { MemberAvatar, MemberRoleBadges } from '../profile/MemberProfileParts';
+import { MemberAvatar, MemberRoleBadges, PinIcon } from '../profile/MemberProfileParts';
 
 interface Props {
   user: FollowedUser;
@@ -108,15 +108,6 @@ function HeartIcon() {
   return (
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z" />
-    </svg>
-  );
-}
-
-function PinIcon() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" />
-      <circle cx="12" cy="9.5" r="2.5" />
     </svg>
   );
 }
