@@ -75,8 +75,6 @@
 /* Typography details                                                  */
 /* ------------------------------------------------------------------ */
 
-:root[data-skin='steam'] .settings-title,
-:root[data-skin='steam'] .downloads-title,
 :root[data-skin='steam'] .game-detail-title {
   font-weight: 500;
   letter-spacing: 0.3px;
