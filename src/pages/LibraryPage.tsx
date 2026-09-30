@@ -5,12 +5,11 @@ import { LibraryCard } from '../components/library/LibraryCard';
 import { CollectionFolderCard } from '../components/library/CollectionFolderCard';
 import { ContinuePlayingRow } from '../components/library/ContinuePlayingRow';
 import { GameCardGridSkeleton } from '../components/ui/GameCardSkeleton';
-import { useOffline } from '../contexts/Offline';
 import { useLibraryGameActions } from '../hooks/useLibraryGameActions';
 import { useDownloadsByThread } from '../hooks/useDownloadsByThread';
+import { UpdateCheckControl } from '../components/library/UpdateCheckControl';
 import { useSkin } from '../hooks/useSkin';
 import { useT } from '../lib/i18n';
-import { dialog } from '../lib/dialog';
 import * as library from '../lib/library';
 import {
   COLLECTIONS_CHANGE_EVENT,
@@ -19,7 +18,6 @@ import {
   type CollectionMembership,
   type LibraryCollection,
 } from '../lib/collections';
-import * as updates from '../lib/updates';
 import { rememberSearch } from '../lib/lastSearch';
 import {
   readLibraryQuery,
@@ -100,7 +98,6 @@ export function LibraryPage() {
   const [items, setItems] = useState<LibraryGame[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [checking, setChecking] = useState<{ done: number; total: number } | null>(null);
   const [collections, setCollections] = useState<LibraryCollection[]>([]);
   const [memberships, setMemberships] = useState<CollectionMembership[]>([]);
   // Full library snapshot (all categories) feeding the folder mosaics.
@@ -226,53 +223,6 @@ export function LibraryPage() {
   });
   const downloadsByThread = useDownloadsByThread();
 
-  function formatErr(err: unknown): string {
-    if (err && typeof err === 'object' && 'message' in err) {
-      return String((err as { message: string }).message);
-    }
-    return String(err);
-  }
-
-  const { isOffline } = useOffline();
-
-  async function onCheckUpdates() {
-    if (isOffline) {
-      await dialog.alert(t('offline.actionBlocked'), { kind: 'info' });
-      return;
-    }
-    // Pull a fresh full list (independent of current filter) so users see
-    // updates for games hidden by the active status filter too.
-    let games: LibraryGame[];
-    try {
-      games = await library.list({});
-    } catch (err) {
-      await dialog.alert(formatErr(err), { kind: 'error' });
-      return;
-    }
-    if (games.length === 0) return;
-    setChecking({ done: 0, total: games.length });
-    let foundUpdates = 0;
-    try {
-      await updates.checkAll(games, {
-        delayMs: 800,
-        onProgress: (done, total, r) => {
-          setChecking({ done, total });
-          if (r.hasUpdate) foundUpdates += 1;
-        },
-      });
-    } finally {
-      setChecking(null);
-      await reload();
-      if (foundUpdates > 0) {
-        await dialog.alert(t('library.updates.found', { count: foundUpdates }), {
-          kind: 'success',
-        });
-      } else {
-        await dialog.alert(t('library.updates.none'), { kind: 'info' });
-      }
-    }
-  }
-
   return (
     <div style={pageStyle}>
       <header style={headerStyle}>
@@ -283,18 +233,12 @@ export function LibraryPage() {
             {' · '}
             {t('library.stats.installed', { count: stats.installed })}
           </div>
-          <button
-            onClick={onCheckUpdates}
-            disabled={checking !== null}
-            style={{
-              ...updateBtn,
-              ...(checking !== null ? { opacity: 0.6, cursor: 'wait' } : {}),
-            }}
-          >
-            {checking
-              ? t('library.checking', { done: checking.done, total: checking.total })
-              : t('library.checkUpdates')}
-          </button>
+          {/* Shared with News; runs in the background too. Results arrive as
+              library changes, which this page already follows. */}
+          <UpdateCheckControl
+            buttonStyle={updateBtn}
+            onShowUpdates={() => updateQuery({ status: 'update_available' })}
+          />
         </div>
       </header>
 

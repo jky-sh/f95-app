@@ -39,26 +39,31 @@ export async function checkOne(game: LibraryGame): Promise<UpdateCheckResult> {
   }
   const latest = (detail.version ?? '').trim() || null;
   result.latestVersion = latest;
-  const hasInstall = !!(game.exePath || game.installPath);
-  result.hasUpdate =
-    !!latest &&
-    (game.currentVersion
-      ? !versionsEqual(latest, game.currentVersion)
-      : hasInstall);
+  result.hasUpdate = await applyLatestVersion(game, latest);
+  return result;
+}
 
+/**
+ * Record what F95 advertises for a library game: flags an update when the
+ * version differs from the installed one (or the game is installed without
+ * a known version), and clears a stale notice otherwise. Returns hasUpdate.
+ */
+export async function applyLatestVersion(
+  game: LibraryGame,
+  latestVersion: string | null,
+): Promise<boolean> {
+  const latest = latestVersion?.trim() || null;
+  const hasInstall = !!(game.exePath || game.installPath);
+  const hasUpdate =
+    !!latest && (game.currentVersion ? !versionsEqual(latest, game.currentVersion) : hasInstall);
   try {
-    if (latest && result.hasUpdate) {
-      await library.setAvailableVersion(game.threadId, latest);
-    } else {
-      // Either no version info, no current install version, or same. Either
-      // way we clear any previously stored "available" so a stale notice
-      // doesn't linger after the user updates manually outside the app.
-      await library.setAvailableVersion(game.threadId, null);
-    }
+    // No version info, no install version, or the same one: clear any old
+    // notice so it doesn't linger after a manual update outside the app.
+    await library.setAvailableVersion(game.threadId, hasUpdate ? latest : null);
   } catch (err) {
     console.warn('[updates] failed to write available_version', err);
   }
-  return result;
+  return hasUpdate;
 }
 
 /**
