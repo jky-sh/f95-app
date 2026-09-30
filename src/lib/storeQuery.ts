@@ -89,6 +89,12 @@ export function writeStoreQuery(query: StoreQuery): URLSearchParams {
   return params;
 }
 
+/** A fresh store list with only these filters (links from game pages). */
+export function storeLink(patch: Partial<StoreQuery>): string {
+  const qs = writeStoreQuery({ ...readStoreQuery(new URLSearchParams()), ...patch }).toString();
+  return qs ? `/store?${qs}` : '/store';
+}
+
 /** Query string of the store list last shown (`?cat=mods…` or ''). */
 let lastStoreSearch = '';
 

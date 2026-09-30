@@ -22,6 +22,8 @@ export interface GameDetail {
   screenshots: string[];
   /** OP body HTML, normalized: lazy `data-src` → `src`, spoilers → <details>. */
   descriptionHtml: string;
+  /** The OP's changelog block, normalized like the description (and left out of it). */
+  changelogHtml: string | null;
   prefixes: GamePrefix[];
   fields: Record<string, string>;
   tags: GameTag[];
@@ -67,6 +69,21 @@ const FIELD_LABELS = new Set([
   'tags',
 ]);
 
+/** Labels that open a new OP section, ending the one before them. */
+const SECTION_LABELS = new Set([
+  ...FIELD_LABELS,
+  'developer notes',
+  'dev notes',
+  'download',
+  'downloads',
+  'extras',
+  'mods',
+  'other games',
+  'fan signatures',
+]);
+
+const CHANGELOG_LABEL = /^change-?log$/i;
+
 export class GameClient {
   constructor(private readonly http: BrowserClient) {}
 
@@ -99,7 +116,7 @@ function normalizeThreadUrl(input: string): string {
   return `${BASE}/threads/${s}/`;
 }
 
-function parseThread(html: string, finalUrl: string): GameDetail {
+export function parseThread(html: string, finalUrl: string): GameDetail {
   const $ = cheerio.load(html);
   const threadId = extractThreadId(finalUrl);
 
@@ -168,6 +185,10 @@ function parseThread(html: string, finalUrl: string): GameDetail {
   // -- Links: split into downloads vs social --
   const { downloads, social } = collectLinks($, opBody);
 
+  // -- Changelog: own section, taken out of the OP before the description --
+  const changelog = takeChangelog($, opBody);
+  const changelogHtml = changelog ? normalizeOpHtml($, changelog, new Set(images)) : null;
+
   // -- Description: normalized HTML (sem repetir imagens já na galeria/banner) --
   const descriptionHtml = normalizeOpHtml($, opBody, new Set(images));
 
@@ -181,12 +202,70 @@ function parseThread(html: string, finalUrl: string): GameDetail {
     bannerUrl,
     screenshots,
     descriptionHtml,
+    changelogHtml,
     prefixes,
     fields,
     tags,
     downloads,
     social,
   };
+}
+
+/**
+ * Detach the OP's changelog: the spoiler (or plain lines) after a
+ * "Changelog:" label, or a spoiler titled "Changelog". Returns it in a
+ * wrapper for normalizing, or null when the OP has none.
+ */
+function takeChangelog(
+  $: cheerio.CheerioAPI,
+  opBody: cheerio.Cheerio<Element>,
+): cheerio.Cheerio<Element> | null {
+  const consumed: AnyNode[] = [];
+  let html = '';
+
+  const label = opBody
+    .find('b')
+    .filter((_, el) => CHANGELOG_LABEL.test(cleanText($(el).text()).replace(/:\s*$/, '')))
+    .first();
+  if (label.length > 0) {
+    consumed.push(label[0]);
+    let n: AnyNode | null = label[0].next ?? null;
+    // Skip the ":" and line breaks between the label and the block.
+    while (n && ((isText(n) && /^[\s:]*$/.test(n.data)) || (isElement(n) && n.tagName === 'br'))) {
+      consumed.push(n);
+      n = n.next ?? null;
+    }
+    if (n && isElement(n) && $(n).hasClass('bbCodeSpoiler')) {
+      html = $(n).find('.bbCodeSpoiler-content').first().html() ?? '';
+      consumed.push(n);
+    } else {
+      // Plain lines up to the next section label.
+      while (n) {
+        if (isElement(n) && n.tagName === 'b') {
+          const key = cleanText($(n).text()).toLowerCase().replace(/:\s*$/, '');
+          if (SECTION_LABELS.has(key)) break;
+        }
+        html += $.html(n);
+        consumed.push(n);
+        n = n.next ?? null;
+      }
+    }
+  } else {
+    const spoiler = opBody
+      .find('.bbCodeSpoiler')
+      .filter((_, el) =>
+        CHANGELOG_LABEL.test(cleanText($(el).find('.bbCodeSpoiler-button-title').first().text())),
+      )
+      .first();
+    if (spoiler.length === 0) return null;
+    html = spoiler.find('.bbCodeSpoiler-content').first().html() ?? '';
+    consumed.push(spoiler[0]);
+  }
+
+  const wrapper = $('<div></div>').html(html.trim().replace(/^(<br\s*\/?>\s*)+|(<br\s*\/?>\s*)+$/gi, ''));
+  if (!cleanText(wrapper.text())) return null;
+  for (const node of consumed) $(node).remove();
+  return wrapper as cheerio.Cheerio<Element>;
 }
 
 function extractThreadId(url: string): string {

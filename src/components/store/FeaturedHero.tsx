@@ -29,6 +29,7 @@ export function FeaturedHero({ game, category, libraryEntry }: Props) {
   return (
     <Link
       to={`/store/game/${game.threadId}?cat=${category}`}
+      state={{ card: game }}
       style={cardStyle}
       className="store-featured"
       onContextMenu={(e) => void openStoreContextMenu(e, game)}

@@ -25,6 +25,8 @@ export function GameCard({ game, category, libraryEntry, now }: Props) {
   return (
     <Link
       to={`/store/game/${game.threadId}?cat=${category}`}
+      // The game page shows the card's rating, likes and views.
+      state={{ card: game }}
       className="store-card"
       onContextMenu={(e) => void openStoreContextMenu(e, game)}
     >
@@ -114,7 +116,7 @@ function Meta({ label, value }: { label: string; value: string }) {
   );
 }
 
-function formatCount(n: number): string {
+export function formatCount(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
   return String(n);

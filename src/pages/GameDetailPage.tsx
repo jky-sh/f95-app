@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { cacheThreadPrefixNames } from '../lib/prefixDisplayCache';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { parseSamCategory } from '../constants/samCategories';
 import DOMPurify from 'dompurify';
 import { openUrl } from '@tauri-apps/plugin-opener';
@@ -25,8 +25,6 @@ import {
   GameDetailMain,
   GameDetailShell,
   GameDetailSection,
-  GameDetailStat,
-  GameDetailStatGrid,
   GameDetailTag,
   GameDetailTagList,
   GameDetailAside,
@@ -44,7 +42,12 @@ import { describeIpcError, formatIpcError } from '../lib/ipcError';
 import { useStoreHref } from '../lib/storeQuery';
 import { useLibraryIndex } from '../hooks/useLibraryIndex';
 import { LibraryBadge, libraryBadgeKind } from '../components/store/LibraryBadge';
+import { formatCount } from '../components/store/GameCard';
+import { useStoreLinks } from '../hooks/useStoreLinks';
+import { activityRoute } from '../lib/memberLinks';
+import { formatAgo, formatDay } from '../lib/memberPresence';
 import type { GameDetail, GamePrefix } from '../types/game';
+import type { SamGameCard } from '../types/sam';
 
 type State =
   | { kind: 'loading' }
@@ -78,8 +81,13 @@ function GameDetailPageInner() {
   const [searchParams] = useSearchParams();
   const category = parseSamCategory(searchParams.get('cat'));
   const navigate = useNavigate();
-  const { t } = useT();
+  const location = useLocation();
+  const { t, locale } = useT();
   const { isOffline } = useOffline();
+  const storeLinks = useStoreLinks(category);
+  // Opened from a store card: its rating, likes and views (the thread page has none).
+  const stateCard = (location.state as { card?: SamGameCard } | null)?.card;
+  const cardStats = stateCard && stateCard.threadId === threadId ? stateCard : null;
   const { openMenuAt } = useContextMenu();
   const storeHref = useStoreHref();
   // Details seen a moment ago (Back from the library page, the download
@@ -253,11 +261,43 @@ function GameDetailPageInner() {
     ADD_TAGS: ['details', 'summary'],
     ADD_ATTR: ['target', 'rel', 'loading'],
   });
+  const changelog = g.changelogHtml
+    ? DOMPurify.sanitize(g.changelogHtml, {
+        ADD_TAGS: ['details', 'summary'],
+        ADD_ATTR: ['target', 'rel', 'loading'],
+      })
+    : '';
 
   const orderedFields = FIELD_ORDER.filter((k) => g.fields[k]);
   const extraFields = Object.entries(g.fields).filter(
     ([k]) => !FIELD_ORDER.includes(k) && !SKIP_FIELDS.has(k),
   );
+
+  /** Links in the OP: F95 threads and members open in the app, the rest in the browser. */
+  function onContentClick(e: React.MouseEvent) {
+    const anchor = (e.target as HTMLElement).closest('a');
+    const href = anchor?.getAttribute('href');
+    if (!anchor || !href) return;
+    e.preventDefault();
+    if (!/^https?:/i.test(href)) return;
+    const route = activityRoute(href);
+    if (route) navigate(route);
+    else void openUrl(href);
+  }
+
+  function fieldValue(key: string, value: string): ReactNode {
+    if (key === 'Developer' || key === 'Publisher') {
+      const to = storeLinks.developer(value);
+      if (to) {
+        return (
+          <Link to={to} className="game-detail-field-link" title={t('gamedetail.moreFrom', { name: value })}>
+            {value}
+          </Link>
+        );
+      }
+    }
+    return formatFieldDate(value, locale) ?? value;
+  }
 
   return (
     <GameDetailShell onContextMenu={openDetailContextMenu}>
@@ -280,13 +320,32 @@ function GameDetailPageInner() {
                 inline
               />
             )}
-            {displayPrefixes.map((p) => (
-              <PrefixPill key={p.name} name={p.name} cssClass={p.cssClass} />
-            ))}
+            {displayPrefixes.map((p) => {
+              const to = storeLinks.prefix(p.name);
+              const pill = <PrefixPill name={p.name} cssClass={p.cssClass} />;
+              return to ? (
+                <Link
+                  key={p.name}
+                  to={to}
+                  className="game-detail-prefix-link"
+                  title={t('gamedetail.moreWith', { name: p.name })}
+                >
+                  {pill}
+                </Link>
+              ) : (
+                <span key={p.name}>{pill}</span>
+              );
+            })}
           </>
         }
         title={g.title}
-        meta={buildHeroMeta(g, t)}
+        meta={
+          <HeroMeta
+            detail={g}
+            stats={cardStats}
+            developerTo={g.developer ? storeLinks.developer(g.developer) : null}
+          />
+        }
         actions={
           <>
             {libraryBadge === 'update' ? (
@@ -347,37 +406,6 @@ function GameDetailPageInner() {
         }
       />
 
-      <GameDetailStatGrid>
-        {g.fields['Developer'] && (
-          <GameDetailStat label={t('gamedetail.field.developer')} value={g.fields['Developer']} />
-        )}
-        {g.fields['Publisher'] && (
-          <GameDetailStat label={t('gamedetail.field.publisher')} value={g.fields['Publisher']} />
-        )}
-        {g.version && (
-          <GameDetailStat label={t('gamedetail.field.version')} value={g.version} highlight />
-        )}
-        {g.fields['Thread Updated'] && (
-          <GameDetailStat
-            label={t('gamedetail.field.updated')}
-            value={g.fields['Thread Updated']}
-          />
-        )}
-        {g.fields['OS'] && (
-          <GameDetailStat
-            label={t('gamedetail.field.os')}
-            value={g.fields['OS']}
-            className="game-detail-stat-wide"
-          />
-        )}
-        {g.downloads.length > 0 && (
-          <GameDetailStat
-            label={t('gamedetail.field.downloads')}
-            value={t('gamedetail.field.downloadsCount', { count: g.downloads.length })}
-          />
-        )}
-      </GameDetailStatGrid>
-
       <GameDetailBody>
         <GameDetailMain>
           {g.screenshots.length > 0 && (
@@ -389,19 +417,41 @@ function GameDetailPageInner() {
           {g.tags.length > 0 && (
             <GameDetailSection title={t('gamedetail.section.tags')}>
               <GameDetailTagList>
-                {g.tags.map((tag) => (
-                  <GameDetailTag key={tag.slug}>{tag.name}</GameDetailTag>
-                ))}
+                {g.tags.map((tag) => {
+                  const to = storeLinks.tag(tag.name);
+                  return to ? (
+                    <Link
+                      key={tag.slug}
+                      to={to}
+                      className="game-detail-tag game-detail-tag-link"
+                      title={t('gamedetail.moreWith', { name: tag.name })}
+                    >
+                      {tag.name}
+                    </Link>
+                  ) : (
+                    <GameDetailTag key={tag.slug}>{tag.name}</GameDetailTag>
+                  );
+                })}
               </GameDetailTagList>
             </GameDetailSection>
           )}
 
           <GameDetailSection title={t('gamedetail.section.about')}>
-            <GameDescription
-              html={sanitized}
-              style={{ fontSize: 13.5, lineHeight: 1.65, wordBreak: 'break-word' }}
-            />
+            <div onClick={onContentClick}>
+              <GameDescription
+                html={sanitized}
+                style={{ fontSize: 13.5, lineHeight: 1.65, wordBreak: 'break-word' }}
+              />
+            </div>
           </GameDetailSection>
+
+          {changelog && (
+            <GameDetailSection title={t('gamedetail.section.changelog')}>
+              <div onClick={onContentClick}>
+                <CollapsibleHtml html={changelog} />
+              </div>
+            </GameDetailSection>
+          )}
 
           {category === 'games' && <StoreAchievementsSection detail={g} />}
         </GameDetailMain>
@@ -410,7 +460,11 @@ function GameDetailPageInner() {
           <GameDetailSection title={t('gamedetail.section.info')}>
             <GameDetailFields>
               {orderedFields.map((k) => (
-                <GameDetailField key={k} label={k} value={g.fields[k]} />
+                <GameDetailField
+                  key={k}
+                  label={FIELD_LABEL_KEYS[k] ? t(FIELD_LABEL_KEYS[k]) : k}
+                  value={fieldValue(k, g.fields[k])}
+                />
               ))}
               {extraFields.map(([k, v]) => (
                 <GameDetailField key={k} label={k} value={v} />
@@ -439,80 +493,120 @@ function GameDetailPageInner() {
   );
 }
 
-function normMetaKey(value: string): string {
-  return value.trim().toLowerCase().replace(/\s+/g, ' ');
+/** F95 field labels with a translation; others show as F95 writes them. */
+const FIELD_LABEL_KEYS: Record<string, string> = {
+  Developer: 'gamedetail.field.developer',
+  Publisher: 'gamedetail.field.publisher',
+  Version: 'gamedetail.field.version',
+  'Release Date': 'gamedetail.meta.releaseDate',
+  'Thread Updated': 'gamedetail.field.updated',
+  OS: 'gamedetail.field.os',
+  Language: 'gamedetail.field.language',
+  Censored: 'gamedetail.field.censored',
+  Censorship: 'gamedetail.field.censored',
+};
+
+/** F95 writes dates as YYYY-MM-DD; show them in the user's format. */
+function formatFieldDate(value: string, locale: string): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value.trim())) return null;
+  const d = new Date(`${value.trim()}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-/** Avoid showing the same text twice (e.g. version in Release Date field). */
-function metaValuesMatch(a: string, b: string): boolean {
-  const ka = normMetaKey(a);
-  const kb = normMetaKey(b);
-  if (!ka || !kb) return false;
-  if (ka === kb) return true;
-  if (ka.includes(kb) || kb.includes(ka)) {
-    if (/\d{4}-\d{2}-\d{2}/.test(ka) || /\d{4}-\d{2}-\d{2}/.test(kb)) return true;
-    if (ka.replace(/^v\.?/, '') === kb.replace(/^v\.?/, '')) return true;
-  }
-  return false;
+/**
+ * One row under the title: developer (opens their games in the store),
+ * version, when the thread was updated, and the card's rating, likes and
+ * views when the page was opened from the store list. Platform, release
+ * date and the rest stay in the Information panel.
+ */
+function HeroMeta({
+  detail,
+  stats,
+  developerTo,
+}: {
+  detail: GameDetail;
+  stats: SamGameCard | null;
+  developerTo: string | null;
+}) {
+  const { t, locale } = useT();
+  const updated = detail.fields['Thread Updated']?.trim() ?? '';
+  const updatedMs = /^\d{4}-\d{2}-\d{2}$/.test(updated)
+    ? new Date(`${updated}T00:00:00`).getTime()
+    : null;
+  const ago = updatedMs ? formatAgo(updatedMs, locale) : null;
+  return (
+    <>
+      {detail.developer &&
+        (developerTo ? (
+          <Link
+            to={developerTo}
+            className="game-detail-chip game-detail-chip-link"
+            title={t('gamedetail.moreFrom', { name: detail.developer })}
+          >
+            {detail.developer}
+          </Link>
+        ) : (
+          <GameDetailChip title={t('gamedetail.meta.developer')}>{detail.developer}</GameDetailChip>
+        ))}
+      {detail.version && (
+        <GameDetailChip accent title={t('gamedetail.meta.version')}>
+          {detail.version}
+        </GameDetailChip>
+      )}
+      {updatedMs && (
+        <GameDetailChip title={new Date(updatedMs).toLocaleDateString(locale)}>
+          {ago
+            ? t('gamedetail.meta.updatedAgo', { when: ago })
+            : t('gamedetail.meta.updatedOn', { date: formatDay(updatedMs, locale) })}
+        </GameDetailChip>
+      )}
+      {stats?.rating != null && stats.rating > 0 && (
+        <GameDetailChip title={t('gamedetail.meta.rating')}>★ {stats.rating.toFixed(1)}</GameDetailChip>
+      )}
+      {stats?.likes != null && (
+        <GameDetailChip title={t('gamedetail.meta.likes')}>♥ {formatCount(stats.likes)}</GameDetailChip>
+      )}
+      {stats?.views != null && (
+        <GameDetailChip title={t('gamedetail.meta.views')}>👁 {formatCount(stats.views)}</GameDetailChip>
+      )}
+    </>
+  );
 }
 
-function truncateChip(text: string, max = 52): string {
-  const s = text.trim();
-  if (s.length <= max) return s;
-  return `${s.slice(0, max - 1)}…`;
-}
-
-function buildHeroMeta(
-  g: GameDetail,
-  t: (key: string, vars?: Record<string, string | number>) => string,
-) {
-  const seen = new Set<string>();
-  const chips: ReactNode[] = [];
-
-  const push = (key: string, node: ReactNode) => {
-    if (seen.has(key)) return;
-    seen.add(key);
-    chips.push(node);
-  };
-
-  if (g.developer) {
-    push(
-      normMetaKey(g.developer),
-      <GameDetailChip title={t('gamedetail.meta.developer')}>{g.developer}</GameDetailChip>,
-    );
-  }
-
-  if (g.version) {
-    push(
-      normMetaKey(g.version),
-      <GameDetailChip accent title={t('gamedetail.meta.version')}>
-        {g.version}
-      </GameDetailChip>,
-    );
-  }
-
-  const release = g.fields['Release Date']?.trim();
-  if (release && !metaValuesMatch(release, g.version ?? '')) {
-    const updated = g.fields['Thread Updated']?.trim() ?? '';
-    if (!updated || !metaValuesMatch(release, updated)) {
-      push(
-        normMetaKey(release),
-        <GameDetailChip title={t('gamedetail.meta.releaseDate')}>{release}</GameDetailChip>,
-      );
-    }
-  }
-
-  const os = g.fields['OS']?.trim();
-  if (os) {
-    push(
-      normMetaKey(os),
-      <GameDetailChip title={os} className="game-detail-chip-truncate">
-        {truncateChip(os)}
-      </GameDetailChip>,
-    );
-  }
-
-  return <>{chips}</>;
+/** Long HTML (the changelog) folded to a few lines, with Show more / less. */
+function CollapsibleHtml({ html }: { html: string }) {
+  const { t } = useT();
+  const [open, setOpen] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    setOpen(false);
+    const el = bodyRef.current;
+    if (el) setOverflows(el.scrollHeight > el.clientHeight + 8);
+  }, [html]);
+  return (
+    <>
+      <div
+        ref={bodyRef}
+        className={`game-detail-collapsible${open ? ' game-detail-collapsible--open' : ''}${
+          overflows && !open ? ' game-detail-collapsible--clipped' : ''
+        }`}
+      >
+        <GameDescription html={html} style={{ fontSize: 13, lineHeight: 1.6, wordBreak: 'break-word' }} />
+      </div>
+      {overflows && (
+        <button
+          type="button"
+          className="game-detail-collapsible-toggle"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+        >
+          {open ? t('common.showLess') : t('common.showMore')}
+        </button>
+      )}
+    </>
+  );
 }
 
 function normalizeDetailPrefixes(

@@ -202,7 +202,7 @@ export function GameDetailField({
   onAction,
 }: {
   label: string;
-  value: string;
+  value: React.ReactNode;
   actionLabel?: string;
   onAction?: () => void;
 }) {
