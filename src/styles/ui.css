@@ -147,3 +147,15 @@
   border-radius: 2px; background: var(--accent);
 }
 .ui-tab-count { margin-left: 6px; color: var(--text-faint); font-weight: 600; }
+
+/* Counts next to navigation links (downloads in progress, updates). */
+.nav-count {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px;
+  margin-left: auto; border-radius: 9px; font-size: 11px; font-weight: 800; line-height: 1;
+  background: var(--bg-hover); color: var(--text-secondary);
+}
+.nav-count--accent { background: var(--accent); color: var(--accent-text); }
+.nav-count--info { background: var(--status-info); color: #fff; }
+.steam-topnav-link .nav-count { margin-left: 6px; vertical-align: 2px; }
+.nav-count--corner { position: absolute; top: -4px; right: -6px; min-width: 16px; height: 16px; font-size: 10px; padding: 0 4px; }
+.steam-topnav-icon { position: relative; }

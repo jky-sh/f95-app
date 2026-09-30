@@ -3,6 +3,7 @@ import { NotificationBell } from './NotificationBell';
 import { useOffline } from '../contexts/Offline';
 import { useT } from '../lib/i18n';
 import { useSectionHref } from '../lib/lastSearch';
+import { useNavCounts } from '../hooks/useNavCounts';
 import type { ProfileDto } from '../types';
 
 interface Props {
@@ -21,6 +22,10 @@ export function SteamTopNav({ profile }: Props) {
   const { isOffline } = useOffline();
   const storeHref = useSectionHref('/store');
   const libraryHref = useSectionHref('/library');
+  const counts = useNavCounts();
+  const downloadsLabel = counts.downloads
+    ? `${t('nav.downloads')} · ${t('nav.count.downloads', { count: counts.downloads })}`
+    : t('nav.downloads');
 
   return (
     <nav className="steam-topnav">
@@ -30,6 +35,11 @@ export function SteamTopNav({ profile }: Props) {
         </NavLink>
         <NavLink to={libraryHref} className="steam-topnav-link">
           {t('nav.library')}
+          {counts.updates > 0 && (
+            <span className="nav-count nav-count--info" title={t('nav.count.updates', { count: counts.updates })}>
+              {counts.updates}
+            </span>
+          )}
         </NavLink>
         <NavLink to="/news" className="steam-topnav-link">
           {t('nav.news')}
@@ -43,10 +53,15 @@ export function SteamTopNav({ profile }: Props) {
         <NavLink
           to="/downloads"
           className="steam-topnav-icon"
-          title={t('nav.downloads')}
-          aria-label={t('nav.downloads')}
+          title={downloadsLabel}
+          aria-label={downloadsLabel}
         >
           <IconDownload />
+          {counts.downloads > 0 && (
+            <span className="nav-count nav-count--accent nav-count--corner" aria-hidden>
+              {counts.downloads}
+            </span>
+          )}
         </NavLink>
         <NotificationBell placement="below" />
         <NavLink

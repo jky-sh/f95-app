@@ -9,6 +9,8 @@ const de: Record<string, string> = {
   'nav.profile': 'Profil',
   'nav.alerts': 'Benachrichtigungen',
   'nav.settings': 'Einstellungen',
+  'nav.count.downloads': 'Laufende Downloads: {count}',
+  'nav.count.updates': 'Spiele mit Update: {count}',
   'nav.online': 'Online',
   'nav.offline': 'Offline',
   'nav.section.discover': 'Entdecken',

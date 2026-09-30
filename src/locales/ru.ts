@@ -9,6 +9,8 @@ const ru: Record<string, string> = {
   'nav.profile': 'Профиль',
   'nav.alerts': 'Уведомления',
   'nav.settings': 'Настройки',
+  'nav.count.downloads': 'Загрузок идёт: {count}',
+  'nav.count.updates': 'Игр с обновлением: {count}',
   'nav.online': 'Онлайн',
   'nav.offline': 'Офлайн',
   'nav.section.discover': 'Обзор',

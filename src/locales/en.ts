@@ -11,6 +11,8 @@ const en: Record<string, string> = {
   'nav.profile': 'Profile',
   'nav.alerts': 'Alerts',
   'nav.settings': 'Settings',
+  'nav.count.downloads': 'Downloads in progress: {count}',
+  'nav.count.updates': 'Games with an update: {count}',
   'nav.online': 'Online',
   'nav.offline': 'Offline',
   'nav.section.discover': 'Discover',
