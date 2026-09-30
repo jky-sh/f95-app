@@ -81,12 +81,14 @@ function ContinuePlayingCard({
           <span style={playtimeStyle}>{formatPlaytime(game.totalPlaytimeSeconds)}</span>
           {lastPlayed && <span style={lastPlayedStyle}>· {lastPlayed}</span>}
         </div>
+        {/* onPlay stops a running game and asks for the exe when there is
+            none, so every state stays clickable. */}
         <button
+          type="button"
           style={{
             ...playButtonStyle,
-            ...(playable && !isRunning ? {} : disabledPlayStyle),
+            ...(isRunning ? stopButtonStyle : playable ? {} : pickExeButtonStyle),
           }}
-          disabled={!playable || isRunning}
           onClick={() => onPlay(game)}
         >
           {isRunning
@@ -239,8 +241,13 @@ const playButtonStyle: React.CSSProperties = {
   cursor: 'pointer',
 };
 
-const disabledPlayStyle: React.CSSProperties = {
+const stopButtonStyle: React.CSSProperties = {
+  background: 'var(--status-danger-bg)',
+  color: 'var(--status-danger-text)',
+  boxShadow: 'inset 0 0 0 1px var(--accent-strong)',
+};
+
+const pickExeButtonStyle: React.CSSProperties = {
   background: 'var(--border-strong)',
-  color: 'var(--text-muted)',
-  cursor: 'not-allowed',
+  color: 'var(--text-secondary)',
 };
