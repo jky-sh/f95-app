@@ -110,6 +110,8 @@ export function LibraryPage() {
   const [memberships, setMemberships] = useState<CollectionMembership[]>([]);
   // Full library snapshot (all categories) feeding the folder mosaics.
   const [allGames, setAllGames] = useState<LibraryGame[]>([]);
+  // Counts come from that snapshot: hidden until it arrives instead of showing zeros.
+  const [countsReady, setCountsReady] = useState(false);
   const setCategory = useCallback(
     (next: SamCategory) => updateQuery({ category: next }),
     [updateQuery],
@@ -170,6 +172,7 @@ export function LibraryPage() {
           setCollections(cols);
           setMemberships(mems);
           setAllGames(all);
+          setCountsReady(true);
         }
       } catch (err) {
         console.warn('[collections] load failed', err);
@@ -255,13 +258,15 @@ export function LibraryPage() {
     <div className="lib-page">
       <header className="lib-head">
         <h1 className="lib-head-title">{t('library.title')}</h1>
-        <span className="lib-head-stats">
-          {counts.all === 1
-            ? t('library.stats.game', { count: counts.all })
-            : t('library.stats.games', { count: counts.all })}
-          {' · '}
-          {t('library.stats.installed', { count: counts.installed + counts.update_available })}
-        </span>
+        {countsReady && (
+          <span className="lib-head-stats">
+            {counts.all === 1
+              ? t('library.stats.game', { count: counts.all })
+              : t('library.stats.games', { count: counts.all })}
+            {' · '}
+            {t('library.stats.installed', { count: counts.installed + counts.update_available })}
+          </span>
+        )}
         <span className="lib-head-spacer" />
         {/* Shared with News; runs in the background too. Results arrive as
             library changes, which this page already follows. */}
@@ -285,7 +290,7 @@ export function LibraryPage() {
               onClick={() => updateQuery({ status: f.id })}
             >
               {t(f.labelKey)}
-              <span className="ui-chip-count">{counts[f.id]}</span>
+              {countsReady && <span className="ui-chip-count">{counts[f.id]}</span>}
             </button>
           ))}
         </div>
