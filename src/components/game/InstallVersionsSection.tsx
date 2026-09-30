@@ -100,7 +100,11 @@ export function InstallVersionsSection({ game, onChanged }: Props) {
       await load();
       await onChanged();
     } catch (err) {
-      await dialog.alert(formatErr(err), { kind: 'error' });
+      const message =
+        err instanceof installVersions.ActiveInstallError
+          ? t('libdetail.versions.delete.blockedActive')
+          : formatErr(err);
+      await dialog.alert(message, { kind: 'error' });
     } finally {
       setBusyId(null);
     }

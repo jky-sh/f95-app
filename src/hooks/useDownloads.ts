@@ -6,6 +6,7 @@ import * as libraries from '../lib/libraries';
 import * as installVersions from '../lib/installVersions';
 import { engineLabel } from '../lib/installVersions';
 import * as ipc from '../lib/ipc';
+import { pathsOverlap } from '../lib/paths';
 import { loadDownloadSettings } from '../lib/downloadSettings';
 import {
   archiveParentDir,
@@ -78,8 +79,10 @@ export async function runExtraction(
     });
     const cat = game.category ?? 'games';
     const mediaOnly = cat === 'comics' || cat === 'animations' || cat === 'assets';
+    // Re-extracting into the same folder (older rows pointed at the exe's
+    // subfolder of it) is not an update: nothing to keep, migrate or delete.
     const isUpdate =
-      wasInstalled && !!previousInstallDir && previousInstallDir !== result.destDir;
+      wasInstalled && !!previousInstallDir && !pathsOverlap(previousInstallDir, result.destDir);
 
     // Garante que a instalação ANTERIOR tenha registro de versão antes de a
     // linha do jogo apontar para a nova — senão o rótulo/exe dela se perdem.
@@ -100,7 +103,7 @@ export async function runExtraction(
 
     await library.setInstallPath(threadId, result.destDir);
     if (result.exePath) {
-      await library.setExe(threadId, result.exePath);
+      await library.setExe(threadId, result.exePath, result.destDir);
     } else if (mediaOnly) {
       await library.markInstalled(threadId, result.destDir);
     } else if (cat === 'mods') {
@@ -183,17 +186,19 @@ export async function runExtraction(
         );
       } else {
         try {
+          // Delete the whole previous extraction, never a folder that
+          // overlaps the fresh install.
+          const previousRoot = await installVersions.installRootFor(threadId, previousInstallDir);
           const safeRoots = await libraries.allPaths();
-          const deleted = await ipc.deleteInstallDir({
-            path: previousInstallDir,
-            safeRoots,
-          });
+          const deleted =
+            !pathsOverlap(previousRoot, result.destDir) &&
+            (await ipc.deleteInstallDir({ path: previousRoot, safeRoots }));
           if (deleted) {
-            await installVersions.forgetByPath(previousInstallDir);
+            await installVersions.forgetByPath(previousRoot);
           } else {
             console.warn(
-              '[update] previous install was outside every install library; left in place',
-              previousInstallDir,
+              '[update] previous install overlaps the new one or is outside every install library; left in place',
+              previousRoot,
             );
           }
         } catch (err) {

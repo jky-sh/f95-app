@@ -1,5 +1,6 @@
 import { parseSamCategory } from '../constants/samCategories';
 import { execute, query } from './db';
+import { isPathInside, parentDir } from './paths';
 import type {
   InstallStatus,
   LibraryFilter,
@@ -248,10 +249,27 @@ function sortClause(s: LibrarySort): string {
   }
 }
 
-export async function setExe(threadId: string, exePath: string): Promise<void> {
-  // Derive install_path from exe_path's parent directory. Cross-platform: take
-  // everything before the last slash or backslash.
-  const installPath = exePath.replace(/[/\\][^/\\]+$/, '');
+/**
+ * Point the game at `exePath`. `installRoot` is the folder the install lives
+ * in; without it, the current install folder is kept when the exe sits inside
+ * it (archives usually wrap the game in a subfolder) and the exe's own folder
+ * is used otherwise. Narrowing the install to the exe's folder would make the
+ * real root look like a separate, deletable version.
+ */
+export async function setExe(
+  threadId: string,
+  exePath: string,
+  installRoot?: string,
+): Promise<void> {
+  let installPath = installRoot ?? null;
+  if (!installPath) {
+    const rows = await query<{ install_path: string | null }>(
+      `SELECT install_path FROM library_games WHERE thread_id = ?`,
+      [threadId],
+    );
+    const current = rows[0]?.install_path ?? null;
+    installPath = current && isPathInside(exePath, current) ? current : parentDir(exePath);
+  }
   await execute(
     `UPDATE library_games
         SET exe_path = ?, install_path = ?, install_status = 'installed'
