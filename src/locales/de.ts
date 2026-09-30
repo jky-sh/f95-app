@@ -628,6 +628,9 @@ const de: Record<string, string> = {
 
   // ─── Library detail ─────────────────────────────────────────────────────
   'libdetail.running': '▶ Läuft jetzt',
+  'libdetail.quickExit.title': 'Das Spiel wurde beendet',
+  'libdetail.quickExit': '{title} wurde {seconds} s nach dem Start beendet (Exit-Code {code}). Möglicherweise fehlen Dateien oder die gewählte .exe ist die falsche.',
+  'libdetail.quickExit.error': '{title} wurde unerwartet beendet: {error}',
   'libdetail.lastPlayed': '· zuletzt: {when}',
   'libdetail.action.stop': 'Stoppen',
   'libdetail.action.update': 'Aktualisieren → {version}',

@@ -633,6 +633,9 @@ const pt: Record<string, string> = {
 
   // ─── Library detail ─────────────────────────────────────────────────────
   'libdetail.running': '▶ Jogando agora',
+  'libdetail.quickExit.title': 'O jogo fechou',
+  'libdetail.quickExit': '{title} fechou {seconds} s depois de abrir (código de saída {code}). Podem faltar arquivos, ou o .exe escolhido pode ser o errado.',
+  'libdetail.quickExit.error': '{title} parou inesperadamente: {error}',
   'libdetail.lastPlayed': '· última: {when}',
   'libdetail.action.stop': 'Parar',
   'libdetail.action.update': 'Atualizar → {version}',

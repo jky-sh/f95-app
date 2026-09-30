@@ -12,6 +12,9 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import * as ipc from '../lib/ipc';
 import * as library from '../lib/library';
 import * as sessions from '../lib/sessions';
+import { dialog } from '../lib/dialog';
+import { consumeUserStop } from '../lib/gameStops';
+import { tStandalone } from '../lib/i18n';
 import {
   clearOverlayHintSession,
   syncOverlayForLaunch,
@@ -81,6 +84,9 @@ const Ctx = createContext<RunningGamesValue>({
 });
 
 const LAUNCH_TIMEOUT_MS = 30_000;
+
+/** A non-zero exit this soon after launch is a failed start, not a normal quit. */
+const QUICK_EXIT_SECONDS = 10;
 
 /** Minimum visible duration of the launching overlay. Rust fires
  *  `game:started` ~200-500ms after spawn — well before the user can see
@@ -244,6 +250,28 @@ export function RunningGamesProvider({ children }: { children: ReactNode }) {
           await library.bumpPlaytime(e.payload.threadId, e.payload.durationSeconds);
         } catch (err) {
           console.error('[running-games] failed to close session', err);
+        }
+
+        // Tell the user when a game dies right after starting (missing
+        // files, wrong exe) instead of it silently disappearing.
+        const stoppedByUser = consumeUserStop(e.payload.threadId);
+        const failedStart =
+          e.payload.error != null ||
+          (e.payload.exitCode !== 0 && e.payload.durationSeconds < QUICK_EXIT_SECONDS);
+        if (!stoppedByUser && failedStart) {
+          void library.get(e.payload.threadId).then((game) => {
+            const title = game?.title ?? e.payload.threadId;
+            void dialog.alert(
+              e.payload.error
+                ? tStandalone('libdetail.quickExit.error', { title, error: e.payload.error })
+                : tStandalone('libdetail.quickExit', {
+                    title,
+                    seconds: e.payload.durationSeconds,
+                    code: e.payload.exitCode,
+                  }),
+              { title: tStandalone('libdetail.quickExit.title'), kind: 'warning' },
+            );
+          });
         }
 
         setRunning((prev) => {

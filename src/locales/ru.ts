@@ -628,6 +628,9 @@ const ru: Record<string, string> = {
 
   // ─── Library detail ─────────────────────────────────────────────────────
   'libdetail.running': '▶ Сейчас запущено',
+  'libdetail.quickExit.title': 'Игра закрылась',
+  'libdetail.quickExit': '{title} закрылась через {seconds} с после запуска (код выхода {code}). Возможно, не хватает файлов или выбран не тот .exe.',
+  'libdetail.quickExit.error': '{title} неожиданно остановилась: {error}',
   'libdetail.lastPlayed': '· последний раз: {when}',
   'libdetail.action.stop': 'Остановить',
   'libdetail.action.update': 'Обновить → {version}',

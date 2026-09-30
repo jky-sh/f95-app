@@ -634,6 +634,9 @@ const en: Record<string, string> = {
 
   // ─── Library game detail page ───────────────────────────────────────────
   'libdetail.running': '▶ Playing now',
+  'libdetail.quickExit.title': 'The game closed',
+  'libdetail.quickExit': '{title} closed {seconds} s after starting (exit code {code}). Files may be missing, or the chosen .exe may be the wrong one.',
+  'libdetail.quickExit.error': '{title} stopped unexpectedly: {error}',
   'libdetail.lastPlayed': '· last: {when}',
   'libdetail.action.stop': 'Stop',
   'libdetail.action.update': 'Update → {version}',
