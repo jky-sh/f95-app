@@ -32,6 +32,8 @@ export interface GameDetail {
   bannerUrl: string | null;
   screenshots: string[];
   descriptionHtml: string;
+  /** The OP's changelog, cut out of the description; null when there is none. */
+  changelogHtml: string | null;
   prefixes: GamePrefix[];
   fields: Record<string, string>;
   tags: GameTag[];

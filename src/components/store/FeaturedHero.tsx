@@ -1,13 +1,18 @@
 import { Link } from 'react-router-dom';
 import { useStoreContextMenu } from '../../hooks/useStoreContextMenu';
 import { useT } from '../../lib/i18n';
+import { toF95OriginalUrl } from '../../lib/f95ImageUrl';
 import type { SamCategory, SamGameCard } from '../../types/sam';
+import type { LibraryEntry } from '../../hooks/useLibraryIndex';
+import { LibraryBadge, libraryBadgeKind } from './LibraryBadge';
 import { ContentTagPills } from './ContentTagPills';
 import { PrefixPills } from './PrefixPills';
 
 interface Props {
   game: SamGameCard;
   category: SamCategory;
+  /** The game's library row, when it is in the library. */
+  libraryEntry?: LibraryEntry;
 }
 
 /**
@@ -18,22 +23,27 @@ interface Props {
  * Renders a cleaner "no thumbnail" fallback if the game has no banner so we
  * never end up with an empty grey box up top.
  */
-export function FeaturedHero({ game, category }: Props) {
+export function FeaturedHero({ game, category, libraryEntry }: Props) {
   const { t } = useT();
   const { openStoreContextMenu } = useStoreContextMenu(category);
+  const badge = libraryBadgeKind(libraryEntry, game.version);
   return (
     <Link
       to={`/store/game/${game.threadId}?cat=${category}`}
+      state={{ card: game }}
       style={cardStyle}
       className="store-featured"
       onContextMenu={(e) => void openStoreContextMenu(e, game)}
     >
       {game.thumbnailUrl ? (
+        // SAM covers are 400 px previews; stretched across the hero they
+        // blur, so this one image loads the original.
         <img
-          src={game.thumbnailUrl}
+          src={toF95OriginalUrl(game.thumbnailUrl)}
           alt={game.title}
           style={bannerImg}
           loading="eager"
+          decoding="async"
         />
       ) : (
         <div style={bannerFallback}>
@@ -48,9 +58,12 @@ export function FeaturedHero({ game, category }: Props) {
         <h2 style={titleStyle}>{game.title}</h2>
 
         <div style={metaRow}>
+          {badge && libraryEntry && (
+            <LibraryBadge kind={badge} entry={libraryEntry} storeVersion={game.version} inline />
+          )}
           {game.creator && <span style={creatorStyle}>{game.creator}</span>}
           {game.version && <span style={versionBadge}>{game.version}</span>}
-          {game.rating !== null && (
+          {game.rating !== null && game.rating > 0 && (
             <span style={statBadge}>
               <span style={statIcon}>★</span> {game.rating.toFixed(1)}
             </span>

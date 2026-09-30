@@ -1,8 +1,11 @@
 import { Link } from 'react-router-dom';
-import { useIsRunning } from '../../contexts/RunningGames';
+import { useIsRunning, useRunningSince } from '../../contexts/RunningGames';
+import { PlayTimer } from './PlayTimer';
+import { LibraryCover } from './LibraryCover';
 import { useT } from '../../lib/i18n';
 import type { LibraryGame } from '../../types/library';
 import { formatPlaytime } from '../../types/library';
+import { parseDbTime } from '../../lib/dbTime';
 
 interface Props {
   games: LibraryGame[];
@@ -51,9 +54,8 @@ function ContinuePlayingCard({
 }) {
   const { t } = useT();
   const isRunning = useIsRunning(game.threadId);
-  const lastPlayed = game.lastPlayedAt
-    ? new Date(game.lastPlayedAt).toLocaleDateString()
-    : null;
+  const runningSince = useRunningSince(game.threadId);
+  const lastPlayed = parseDbTime(game.lastPlayedAt)?.toLocaleDateString() ?? null;
   const playable = !!game.exePath;
 
   return (
@@ -63,13 +65,19 @@ function ContinuePlayingCard({
       onContextMenu={onContextMenu ? (e) => onContextMenu(e, game) : undefined}
     >
       <Link to={`/library/game/${game.threadId}`} style={thumbLinkStyle}>
-        {game.thumbnailUrl ? (
-          <img src={game.thumbnailUrl} alt={game.title} style={thumbImg} loading="lazy" />
-        ) : (
-          <div style={thumbFallback}>{game.title.slice(0, 1).toUpperCase()}</div>
-        )}
+        <LibraryCover url={game.thumbnailUrl} title={game.title} />
         <div style={overlayStyle} />
-        {isRunning && <div style={runningPillStyle}>{t('libcard.playing')}</div>}
+        {isRunning && (
+          <div style={runningPillStyle}>
+            {t('libcard.playing')}
+            {runningSince != null && (
+              <>
+                {' · '}
+                <PlayTimer since={runningSince} />
+              </>
+            )}
+          </div>
+        )}
       </Link>
 
       <div style={infoStyle}>
@@ -82,12 +90,14 @@ function ContinuePlayingCard({
           <span style={playtimeStyle}>{formatPlaytime(game.totalPlaytimeSeconds)}</span>
           {lastPlayed && <span style={lastPlayedStyle}>· {lastPlayed}</span>}
         </div>
+        {/* onPlay stops a running game and asks for the exe when there is
+            none, so every state stays clickable. */}
         <button
+          type="button"
           style={{
             ...playButtonStyle,
-            ...(playable && !isRunning ? {} : disabledPlayStyle),
+            ...(isRunning ? stopButtonStyle : playable ? {} : pickExeButtonStyle),
           }}
-          disabled={!playable || isRunning}
           onClick={() => onPlay(game)}
         >
           {isRunning
@@ -148,25 +158,6 @@ const thumbLinkStyle: React.CSSProperties = {
   paddingTop: '46%', // a bit wider than 16:9 for a more cinematic strip
   background: 'var(--bg-sunken)',
   overflow: 'hidden',
-};
-
-const thumbImg: React.CSSProperties = {
-  position: 'absolute',
-  inset: 0,
-  width: '100%',
-  height: '100%',
-  objectFit: 'cover',
-};
-
-const thumbFallback: React.CSSProperties = {
-  position: 'absolute',
-  inset: 0,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  fontSize: 48,
-  color: 'var(--text-faint)',
-  fontWeight: 800,
 };
 
 const overlayStyle: React.CSSProperties = {
@@ -240,8 +231,13 @@ const playButtonStyle: React.CSSProperties = {
   cursor: 'pointer',
 };
 
-const disabledPlayStyle: React.CSSProperties = {
+const stopButtonStyle: React.CSSProperties = {
+  background: 'var(--status-danger-bg)',
+  color: 'var(--status-danger-text)',
+  boxShadow: 'inset 0 0 0 1px var(--accent-strong)',
+};
+
+const pickExeButtonStyle: React.CSSProperties = {
   background: 'var(--border-strong)',
-  color: 'var(--text-muted)',
-  cursor: 'not-allowed',
+  color: 'var(--text-secondary)',
 };

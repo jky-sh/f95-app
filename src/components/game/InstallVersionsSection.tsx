@@ -8,6 +8,7 @@ import { useRunningGames } from '../../contexts/RunningGames';
 import { useT } from '../../lib/i18n';
 import { formatBytes } from '../../types/download';
 import { GameDetailSection } from './GameDetailLayout';
+import { parseDbTime } from '../../lib/dbTime';
 import type { LibraryGame } from '../../types/library';
 
 interface Props {
@@ -132,7 +133,7 @@ export function InstallVersionsSection({ game, onChanged }: Props) {
                 {v.sizeBytes != null && v.sizeBytes > 0 && (
                   <span>{formatBytes(v.sizeBytes)}</span>
                 )}
-                <span>{new Date(v.installedAt).toLocaleDateString()}</span>
+                <span>{parseDbTime(v.installedAt)?.toLocaleDateString()}</span>
               </span>
             </div>
             <div className="game-detail-version-actions">

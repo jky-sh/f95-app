@@ -1,4 +1,4 @@
-import * as ipc from './ipc';
+import { loadGameDetail } from './gameDetailCache';
 import * as library from './library';
 import type { GameDetail } from '../types/game';
 import type { LibraryGame } from '../types/library';
@@ -29,7 +29,8 @@ export async function checkOne(game: LibraryGame): Promise<UpdateCheckResult> {
   };
   let detail: GameDetail;
   try {
-    detail = await ipc.gameDetail(game.threadId);
+    // Fresh on purpose; the result also refreshes what the game pages show.
+    detail = await loadGameDetail(game.threadId, { fresh: true });
   } catch (err) {
     result.error = err && typeof err === 'object' && 'message' in err
       ? String((err as { message: string }).message)
@@ -38,26 +39,31 @@ export async function checkOne(game: LibraryGame): Promise<UpdateCheckResult> {
   }
   const latest = (detail.version ?? '').trim() || null;
   result.latestVersion = latest;
-  const hasInstall = !!(game.exePath || game.installPath);
-  result.hasUpdate =
-    !!latest &&
-    (game.currentVersion
-      ? !versionsEqual(latest, game.currentVersion)
-      : hasInstall);
+  result.hasUpdate = await applyLatestVersion(game, latest);
+  return result;
+}
 
+/**
+ * Record what F95 advertises for a library game: flags an update when the
+ * version differs from the installed one (or the game is installed without
+ * a known version), and clears a stale notice otherwise. Returns hasUpdate.
+ */
+export async function applyLatestVersion(
+  game: LibraryGame,
+  latestVersion: string | null,
+): Promise<boolean> {
+  const latest = latestVersion?.trim() || null;
+  const hasInstall = !!(game.exePath || game.installPath);
+  const hasUpdate =
+    !!latest && (game.currentVersion ? !versionsEqual(latest, game.currentVersion) : hasInstall);
   try {
-    if (latest && result.hasUpdate) {
-      await library.setAvailableVersion(game.threadId, latest);
-    } else {
-      // Either no version info, no current install version, or same. Either
-      // way we clear any previously stored "available" so a stale notice
-      // doesn't linger after the user updates manually outside the app.
-      await library.setAvailableVersion(game.threadId, null);
-    }
+    // No version info, no install version, or the same one: clear any old
+    // notice so it doesn't linger after a manual update outside the app.
+    await library.setAvailableVersion(game.threadId, hasUpdate ? latest : null);
   } catch (err) {
     console.warn('[updates] failed to write available_version', err);
   }
-  return result;
+  return hasUpdate;
 }
 
 /**
@@ -120,7 +126,7 @@ export async function runBulkUpdateCheck(
  * enough to suppress false positives when authors edit the OP with the same
  * version but different formatting.
  */
-function versionsEqual(a: string, b: string): boolean {
+export function versionsEqual(a: string, b: string): boolean {
   return normalize(a) === normalize(b);
 }
 

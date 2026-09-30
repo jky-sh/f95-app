@@ -1,5 +1,9 @@
+import { memo } from 'react';
 import { Link } from 'react-router-dom';
-import { useIsRunning } from '../../contexts/RunningGames';
+import { useIsRunning, useRunningSince } from '../../contexts/RunningGames';
+import type { ThreadDownload } from '../../hooks/useDownloadsByThread';
+import { PlayTimer } from './PlayTimer';
+import { LibraryCover } from './LibraryCover';
 import { useT } from '../../lib/i18n';
 import type { LibraryGame } from '../../types/library';
 import { formatPlaytime, statusColor, statusKey } from '../../types/library';
@@ -8,11 +12,20 @@ interface Props {
   game: LibraryGame;
   onPrimaryAction: (game: LibraryGame) => void;
   onContextMenu?: (e: React.MouseEvent, game: LibraryGame) => void;
+  /** Live download/extraction of this game, if any. */
+  download?: ThreadDownload;
 }
 
-export function LibraryCard({ game, onPrimaryAction, onContextMenu }: Props) {
+// Memoized: download progress ticks re-render only the card they belong to.
+export const LibraryCard = memo(function LibraryCard({
+  game,
+  onPrimaryAction,
+  onContextMenu,
+  download,
+}: Props) {
   const { t } = useT();
   const isRunning = useIsRunning(game.threadId);
+  const runningSince = useRunningSince(game.threadId);
   const cta = primaryCta(game, isRunning, t);
   return (
     <div
@@ -20,19 +33,38 @@ export function LibraryCard({ game, onPrimaryAction, onContextMenu }: Props) {
       onContextMenu={onContextMenu ? (e) => onContextMenu(e, game) : undefined}
     >
       <Link to={`/library/game/${game.threadId}`} style={thumbLinkStyle}>
-        {game.thumbnailUrl ? (
-          <img src={game.thumbnailUrl} alt={game.title} loading="lazy" style={thumbImg} />
-        ) : (
-          <div style={thumbFallback}>{game.title.slice(0, 1).toUpperCase()}</div>
-        )}
+        <LibraryCover url={game.thumbnailUrl} title={game.title} />
         <div
           style={{
             ...statusBadgeStyle,
-            background: isRunning ? 'var(--status-success)' : statusColor(game.installStatus),
+            background: isRunning
+              ? 'var(--status-success)'
+              : download
+                ? statusColor(download.phase === 'extracting' ? 'extracting' : 'downloading')
+                : statusColor(game.installStatus),
           }}
         >
-          {isRunning ? t('libcard.playing') : t(statusKey(game.installStatus))}
+          {isRunning ? (
+            <>
+              {t('libcard.playing')}
+              {runningSince != null && (
+                <>
+                  {' · '}
+                  <PlayTimer since={runningSince} />
+                </>
+              )}
+            </>
+          ) : download ? (
+            downloadLabel(download, t)
+          ) : (
+            t(statusKey(game.installStatus))
+          )}
         </div>
+        {download?.percent != null && (
+          <div style={progressTrackStyle} aria-hidden>
+            <div style={{ ...progressFillStyle, width: `${download.percent}%` }} />
+          </div>
+        )}
       </Link>
 
       <div style={bodyStyle}>
@@ -68,6 +100,16 @@ export function LibraryCard({ game, onPrimaryAction, onContextMenu }: Props) {
       </div>
     </div>
   );
+});
+
+export function downloadLabel(
+  download: ThreadDownload,
+  t: (k: string, v?: Record<string, string | number>) => string,
+): string {
+  if (download.phase === 'queued') return t('libcard.progress.queued');
+  const key =
+    download.phase === 'extracting' ? 'libcard.progress.extracting' : 'libcard.progress.downloading';
+  return download.percent != null ? t(key, { percent: download.percent }) : t(`${key}.unknown`);
 }
 
 function mediaCta(
@@ -173,26 +215,6 @@ const thumbLinkStyle: React.CSSProperties = {
   overflow: 'hidden',
 };
 
-const thumbImg: React.CSSProperties = {
-  position: 'absolute',
-  inset: 0,
-  width: '100%',
-  height: '100%',
-  objectFit: 'cover',
-  display: 'block',
-};
-
-const thumbFallback: React.CSSProperties = {
-  position: 'absolute',
-  inset: 0,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  fontSize: 32,
-  color: 'var(--text-faint)',
-  fontWeight: 800,
-};
-
 const statusBadgeStyle: React.CSSProperties = {
   position: 'absolute',
   top: 6,
@@ -203,6 +225,21 @@ const statusBadgeStyle: React.CSSProperties = {
   borderRadius: 2,
   fontWeight: 700,
   letterSpacing: 0.3,
+};
+
+const progressTrackStyle: React.CSSProperties = {
+  position: 'absolute',
+  left: 0,
+  right: 0,
+  bottom: 0,
+  height: 3,
+  background: 'rgba(0, 0, 0, 0.55)',
+};
+
+const progressFillStyle: React.CSSProperties = {
+  height: '100%',
+  background: 'var(--status-info)',
+  transition: 'width 0.3s ease',
 };
 
 const bodyStyle: React.CSSProperties = {

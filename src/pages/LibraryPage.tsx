@@ -1,16 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { LibraryCategoryBar } from '../components/library/LibraryCategoryBar';
 import { LibraryCard } from '../components/library/LibraryCard';
 import { CollectionFolderCard } from '../components/library/CollectionFolderCard';
 import { ContinuePlayingRow } from '../components/library/ContinuePlayingRow';
 import { GameCardGridSkeleton } from '../components/ui/GameCardSkeleton';
-import { parseSamCategory } from '../constants/samCategories';
-import { useOffline } from '../contexts/Offline';
 import { useLibraryGameActions } from '../hooks/useLibraryGameActions';
+import { useDownloadsByThread } from '../hooks/useDownloadsByThread';
+import { UpdateCheckControl } from '../components/library/UpdateCheckControl';
 import { useSkin } from '../hooks/useSkin';
 import { useT } from '../lib/i18n';
-import { dialog } from '../lib/dialog';
 import * as library from '../lib/library';
 import {
   COLLECTIONS_CHANGE_EVENT,
@@ -19,16 +18,18 @@ import {
   type CollectionMembership,
   type LibraryCollection,
 } from '../lib/collections';
-import * as updates from '../lib/updates';
-import type {
-  InstallStatus,
-  LibraryGame,
-  LibrarySort,
-} from '../types/library';
+import { rememberSearch } from '../lib/lastSearch';
+import {
+  readLibraryQuery,
+  writeLibraryQuery,
+  type LibraryQuery,
+  type LibraryStatusFilter,
+} from '../lib/libraryQuery';
+import type { InstallStatus, LibraryGame, LibrarySort } from '../types/library';
 import { statusKey } from '../types/library';
 import type { SamCategory } from '../types/sam';
 
-type StatusFilter = InstallStatus | 'all';
+type StatusFilter = LibraryStatusFilter;
 
 // Filters and sorts are declared as i18n keys instead of literal labels;
 // the JSX wraps each `labelKey` in `t()` so a language switch re-renders
@@ -46,34 +47,64 @@ const SORTS: { id: LibrarySort; labelKey: string }[] = [
   { id: 'title', labelKey: 'library.sort.title' },
   { id: 'last_played', labelKey: 'library.sort.lastPlayed' },
   { id: 'playtime', labelKey: 'library.sort.playtime' },
+  { id: 'size', labelKey: 'library.sort.size' },
+  { id: 'rating', labelKey: 'library.sort.rating' },
 ];
+
+/** Typing pause before the search reaches the URL and the query. */
+const SEARCH_DEBOUNCE_MS = 200;
 
 export function LibraryPage() {
   const { t } = useT();
   // Steam skin: LibraryLayout mounts the game-list panel (with its own
   // search) on the left, so this page hides its standalone search input.
   const steamMode = useSkin() === 'steam';
+  // Filters live in the URL, so Back from a game and the nav link reopen
+  // the same view (with its scroll, restored by the shell).
   const [searchParams, setSearchParams] = useSearchParams();
-  const category = parseSamCategory(searchParams.get('cat'));
+  const query = useMemo(() => readLibraryQuery(searchParams), [searchParams]);
+  const { category, status, sort } = query;
+  const updateQuery = useCallback(
+    (patch: Partial<LibraryQuery>) => {
+      setSearchParams((prev) => writeLibraryQuery({ ...readLibraryQuery(prev), ...patch }), {
+        replace: true,
+      });
+    },
+    [setSearchParams],
+  );
+  useEffect(() => {
+    const qs = searchParams.toString();
+    rememberSearch('/library', qs ? `?${qs}` : '');
+  }, [searchParams]);
+
+  // The box updates at once; the URL follows when typing pauses.
+  const [searchInput, setSearchInput] = useState(query.search);
+  const pushedSearchRef = useRef(query.search);
+  useEffect(() => {
+    if (searchInput === pushedSearchRef.current) return;
+    const timer = setTimeout(() => {
+      pushedSearchRef.current = searchInput;
+      updateQuery({ search: searchInput });
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [searchInput, updateQuery]);
+  useEffect(() => {
+    if (query.search === pushedSearchRef.current) return;
+    pushedSearchRef.current = query.search;
+    setSearchInput(query.search);
+  }, [query.search]);
+  const search = query.search;
+
   const [items, setItems] = useState<LibraryGame[]>([]);
   const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState<StatusFilter>('all');
-  const [search, setSearch] = useState('');
-  const [sort, setSort] = useState<LibrarySort>('added');
   const [error, setError] = useState<string | null>(null);
-  const [checking, setChecking] = useState<{ done: number; total: number } | null>(null);
   const [collections, setCollections] = useState<LibraryCollection[]>([]);
   const [memberships, setMemberships] = useState<CollectionMembership[]>([]);
   // Full library snapshot (all categories) feeding the folder mosaics.
   const [allGames, setAllGames] = useState<LibraryGame[]>([]);
   const setCategory = useCallback(
-    (next: SamCategory) => {
-      const params = new URLSearchParams(searchParams);
-      if (next === 'games') params.delete('cat');
-      else params.set('cat', next);
-      setSearchParams(params, { replace: true });
-    },
-    [searchParams, setSearchParams],
+    (next: SamCategory) => updateQuery({ category: next }),
+    [updateQuery],
   );
 
   const reload = useCallback(async () => {
@@ -95,9 +126,26 @@ export function LibraryPage() {
   }, [category, status, search, sort]);
 
   useEffect(() => {
-    const t = setTimeout(reload, search ? 200 : 0);
-    return () => clearTimeout(t);
-  }, [reload, search]);
+    void reload();
+  }, [reload]);
+
+  // Downloads, update checks, sessions and game pages write the library;
+  // follow them in place (coalescing bursts) instead of going stale.
+  const [libraryVersion, setLibraryVersion] = useState(0);
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const stop = library.onLibraryChange(() => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        void reload();
+        setLibraryVersion((v) => v + 1);
+      }, 150);
+    });
+    return () => {
+      stop();
+      clearTimeout(timer);
+    };
+  }, [reload]);
 
   // Collections power the folder shelf; refresh whenever they change
   // anywhere in the app (picker modal, Steam sidebar, collection page).
@@ -128,7 +176,7 @@ export function LibraryPage() {
       cancelled = true;
       window.removeEventListener(COLLECTIONS_CHANGE_EVENT, onChange);
     };
-  }, []);
+  }, [libraryVersion]);
 
   // One folder card per collection, scoped to the active category tab:
   // mosaic + count only consider members of this content type, and
@@ -173,53 +221,7 @@ export function LibraryPage() {
   const { openLibraryContextMenu, playOrStop } = useLibraryGameActions({
     onReload: reload,
   });
-
-  function formatErr(err: unknown): string {
-    if (err && typeof err === 'object' && 'message' in err) {
-      return String((err as { message: string }).message);
-    }
-    return String(err);
-  }
-
-  const { isOffline } = useOffline();
-
-  async function onCheckUpdates() {
-    if (isOffline) {
-      await dialog.alert(t('offline.actionBlocked'), { kind: 'info' });
-      return;
-    }
-    // Pull a fresh full list (independent of current filter) so users see
-    // updates for games hidden by the active status filter too.
-    let games: LibraryGame[];
-    try {
-      games = await library.list({});
-    } catch (err) {
-      await dialog.alert(formatErr(err), { kind: 'error' });
-      return;
-    }
-    if (games.length === 0) return;
-    setChecking({ done: 0, total: games.length });
-    let foundUpdates = 0;
-    try {
-      await updates.checkAll(games, {
-        delayMs: 800,
-        onProgress: (done, total, r) => {
-          setChecking({ done, total });
-          if (r.hasUpdate) foundUpdates += 1;
-        },
-      });
-    } finally {
-      setChecking(null);
-      await reload();
-      if (foundUpdates > 0) {
-        await dialog.alert(t('library.updates.found', { count: foundUpdates }), {
-          kind: 'success',
-        });
-      } else {
-        await dialog.alert(t('library.updates.none'), { kind: 'info' });
-      }
-    }
-  }
+  const downloadsByThread = useDownloadsByThread();
 
   return (
     <div style={pageStyle}>
@@ -231,18 +233,12 @@ export function LibraryPage() {
             {' · '}
             {t('library.stats.installed', { count: stats.installed })}
           </div>
-          <button
-            onClick={onCheckUpdates}
-            disabled={checking !== null}
-            style={{
-              ...updateBtn,
-              ...(checking !== null ? { opacity: 0.6, cursor: 'wait' } : {}),
-            }}
-          >
-            {checking
-              ? t('library.checking', { done: checking.done, total: checking.total })
-              : t('library.checkUpdates')}
-          </button>
+          {/* Shared with News; runs in the background too. Results arrive as
+              library changes, which this page already follows. */}
+          <UpdateCheckControl
+            buttonStyle={updateBtn}
+            onShowUpdates={() => updateQuery({ status: 'update_available' })}
+          />
         </div>
       </header>
 
@@ -252,17 +248,17 @@ export function LibraryPage() {
         {/* In Steam mode the search lives in the left game-list panel. */}
         {!steamMode && (
           <input
-            type="text"
-            value={search}
+            type="search"
+            value={searchInput}
             placeholder={t('library.search')}
-            onChange={(e) => setSearch(e.target.value)}
-            style={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            style={searchInputStyle}
           />
         )}
 
         <select
           value={sort}
-          onChange={(e) => setSort(e.target.value as LibrarySort)}
+          onChange={(e) => updateQuery({ sort: e.target.value as LibrarySort })}
           style={steamMode ? { ...selectStyle, marginLeft: 'auto' } : selectStyle}
         >
           {SORTS.map((s) => (
@@ -277,7 +273,7 @@ export function LibraryPage() {
         {STATUS_FILTERS.map((f) => (
           <button
             key={f.id}
-            onClick={() => setStatus(f.id)}
+            onClick={() => updateQuery({ status: f.id })}
             style={{
               ...pillBtn,
               ...(status === f.id ? pillBtnActive : {}),
@@ -306,7 +302,16 @@ export function LibraryPage() {
       {loading && items.length === 0 ? (
         <GameCardGridSkeleton count={8} />
       ) : items.length === 0 ? (
-        <EmptyState status={status} category={category} />
+        <EmptyState
+          status={status}
+          category={category}
+          search={search.trim()}
+          onClear={() => {
+            setSearchInput('');
+            pushedSearchRef.current = '';
+            updateQuery({ search: '', status: 'all' });
+          }}
+        />
       ) : (
         <>
           {continuePlaying.length > 0 && (
@@ -328,6 +333,7 @@ export function LibraryPage() {
                 game={g}
                 onPrimaryAction={playOrStop}
                 onContextMenu={openLibraryContextMenu}
+                download={downloadsByThread.get(g.threadId)}
               />
             ))}
           </div>
@@ -337,8 +343,31 @@ export function LibraryPage() {
   );
 }
 
-function EmptyState({ status, category }: { status: StatusFilter; category: SamCategory }) {
+function EmptyState({
+  status,
+  category,
+  search,
+  onClear,
+}: {
+  status: StatusFilter;
+  category: SamCategory;
+  search: string;
+  onClear: () => void;
+}) {
   const { t } = useT();
+  // Nothing matched the search: say so, instead of "your library is empty".
+  if (search) {
+    return (
+      <div style={emptyBox}>
+        <p style={{ margin: 0, color: 'var(--text-tertiary)', fontSize: 14 }}>
+          {t('library.empty.search', { query: search })}
+        </p>
+        <button type="button" onClick={onClear} style={{ ...pillBtn, marginTop: 12 }}>
+          {t('library.empty.clearSearch')}
+        </button>
+      </div>
+    );
+  }
   if (status === 'all') {
     const catHint = t(`library.empty.${category}`);
     return (
@@ -410,7 +439,7 @@ const controlsStyle: React.CSSProperties = {
   marginBottom: 12,
 };
 
-const searchInput: React.CSSProperties = {
+const searchInputStyle: React.CSSProperties = {
   flex: 1,
   padding: '7px 10px',
   background: 'var(--bg-elevated)',

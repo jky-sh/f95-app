@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { NotificationBell } from './NotificationBell';
 import { useOffline } from '../contexts/Offline';
 import { useT } from '../lib/i18n';
+import { useSectionHref } from '../lib/lastSearch';
 import type { ProfileDto } from '../types';
 
 interface Props {
@@ -51,6 +52,11 @@ const NAV_SECTIONS: NavSection[] = [
 export function Sidebar({ profile }: Props) {
   const { t } = useT();
   const { isOffline } = useOffline();
+  // Store and library links reopen those lists with the filters they were left with.
+  const sectionHref: Record<string, string> = {
+    '/store': useSectionHref('/store'),
+    '/library': useSectionHref('/library'),
+  };
   return (
     <aside style={sidebarStyle} className="app-sidebar">
       <div style={userBoxStyle}>
@@ -89,7 +95,7 @@ export function Sidebar({ profile }: Props) {
             {section.items.map((item) => (
               <NavLink
                 key={item.to}
-                to={item.to}
+                to={sectionHref[item.to] ?? item.to}
                 style={({ isActive }) => ({
                   ...navLinkStyle,
                   ...(isActive ? navLinkActiveStyle : {}),

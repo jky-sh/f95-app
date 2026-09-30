@@ -21,6 +21,7 @@ import type {
   OverlayLayout,
 } from '../types/overlay';
 import * as settings from './settings';
+import { noteUserStop } from './gameStops';
 import {
   getExperimentalSettings,
   loadExperimentalSettings,
@@ -253,7 +254,8 @@ export async function resolveMediaPreview(args: {
 
 export async function resolveRemoteImagePreview(args: {
   url: string;
-  variant: 'grid';
+  /** grid: F95's 400 px preview; cover: the original resized to 720 px. */
+  variant: 'grid' | 'cover';
 }): Promise<string> {
   return invoke<string>('resolve_remote_image_preview', args);
 }
@@ -275,6 +277,8 @@ export async function launchGame(args: {
 }
 
 export async function stopGame(threadId: string): Promise<void> {
+  // The killed process exits non-zero; this keeps it from looking like a crash.
+  noteUserStop(threadId);
   return invoke('stop_game', { threadId });
 }
 

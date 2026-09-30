@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { NotificationBell } from './NotificationBell';
 import { useOffline } from '../contexts/Offline';
 import { useT } from '../lib/i18n';
+import { useSectionHref } from '../lib/lastSearch';
 import type { ProfileDto } from '../types';
 
 interface Props {
@@ -18,14 +19,16 @@ interface Props {
 export function SteamTopNav({ profile }: Props) {
   const { t } = useT();
   const { isOffline } = useOffline();
+  const storeHref = useSectionHref('/store');
+  const libraryHref = useSectionHref('/library');
 
   return (
     <nav className="steam-topnav">
       <div className="steam-topnav-links">
-        <NavLink to="/store" className="steam-topnav-link">
+        <NavLink to={storeHref} className="steam-topnav-link">
           {t('nav.store')}
         </NavLink>
-        <NavLink to="/library" className="steam-topnav-link">
+        <NavLink to={libraryHref} className="steam-topnav-link">
           {t('nav.library')}
         </NavLink>
         <NavLink to="/news" className="steam-topnav-link">

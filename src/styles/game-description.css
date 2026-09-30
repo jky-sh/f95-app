@@ -48,3 +48,23 @@
 .game-detail-cover-img {
   object-fit: cover;
 }
+
+/* Store game page: links to store lists and the folded changelog. */
+.game-detail-chip-link{text-decoration:none;cursor:pointer;transition:border-color .12s ease,color .12s ease}
+.game-detail-chip-link:hover{border-color:var(--accent);color:var(--text-primary)}
+.game-detail-prefix-link{display:inline-flex;text-decoration:none;border-radius:3px;transition:filter .12s ease}
+.game-detail-prefix-link:hover{filter:brightness(1.15)}
+.game-detail-tag-link{text-decoration:none;cursor:pointer}
+.game-detail-field-link{color:var(--accent);text-decoration:none}
+.game-detail-field-link:hover{text-decoration:underline}
+.game-detail-collapsible{position:relative;max-height:280px;overflow:hidden}
+.game-detail-collapsible--open{max-height:none}
+.game-detail-collapsible--clipped::after{content:"";position:absolute;left:0;right:0;bottom:0;height:56px;background:linear-gradient(to bottom,transparent,var(--bg-elevated));pointer-events:none}
+.game-detail-collapsible-toggle{margin-top:10px;background:none;border:none;padding:0;color:var(--accent);font:inherit;font-size:12px;font-weight:600;cursor:pointer}
+.game-detail-collapsible-toggle:hover{text-decoration:underline}
+.game-detail-notes-status{min-height:16px;margin-top:6px;font-size:11px;color:var(--text-faint)}
+
+/* Library covers (LibraryCover): fill the 16:9 thumbnail box. */
+.library-cover-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.library-cover-img--placeholder{background:var(--bg-hover)}
+.library-cover-fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:32px;color:var(--text-faint);font-weight:800}

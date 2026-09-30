@@ -3,8 +3,6 @@ import { Link, useLocation } from 'react-router-dom';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import * as ipc from '../lib/ipc';
 import * as library from '../lib/library';
-import * as updates from '../lib/updates';
-import { dialog } from '../lib/dialog';
 import { useContextMenu } from '../components/contextMenu';
 import { useOffline } from '../contexts/Offline';
 import { buildNewsActivityMenu } from '../lib/contextMenus/buildNewsMenu';
@@ -12,6 +10,10 @@ import { useT } from '../lib/i18n';
 import { RssFeedSection } from '../components/news/RssFeedSection';
 import { NewsPageSkeleton } from '../components/ui/NewsPageSkeleton';
 import { Spinner } from '../components/ui/Spinner';
+import {
+  UpdateCheckControl,
+  useAfterUpdateCheck,
+} from '../components/library/UpdateCheckControl';
 import type { LibraryGame } from '../types/library';
 import type { ActivityItem, ProfileDto } from '../types';
 
@@ -29,9 +31,6 @@ export function NewsPage() {
   const location = useLocation();
   const { isOffline } = useOffline();
   const { openContextMenu } = useContextMenu();
-  const [checkingUpdates, setCheckingUpdates] = useState<{ done: number; total: number } | null>(
-    null,
-  );
   const [state, setState] = useState<State>({
     loading: true,
     error: null,
@@ -91,46 +90,8 @@ export function NewsPage() {
     void reload();
   }, [location.pathname, reload]);
 
-  async function onCheckUpdates() {
-    if (isOffline) {
-      await dialog.alert(t('offline.actionBlocked'), { kind: 'info' });
-      return;
-    }
-    let games: LibraryGame[];
-    try {
-      games = await library.list({});
-    } catch (err) {
-      await dialog.alert(formatError(err), { kind: 'error' });
-      return;
-    }
-    if (games.length === 0) return;
-
-    setCheckingUpdates({ done: 0, total: games.length });
-    let foundUpdates = 0;
-    try {
-      foundUpdates = await updates.runBulkUpdateCheck({
-        delayMs: 800,
-        onProgress: (done, total) => setCheckingUpdates({ done, total }),
-      });
-    } finally {
-      setCheckingUpdates(null);
-      await reload();
-      if (foundUpdates > 0) {
-        await dialog.alert(t('library.updates.found', { count: foundUpdates }), {
-          kind: 'success',
-        });
-      } else {
-        await dialog.alert(t('library.updates.none'), { kind: 'info' });
-      }
-    }
-  }
-
-  function formatError(err: unknown): string {
-    if (err && typeof err === 'object' && 'message' in err) {
-      return String((err as { message: string }).message);
-    }
-    return String(err);
-  }
+  // A check (here, in the Library or in the background) changes this list.
+  useAfterUpdateCheck(() => void reload());
 
   return (
     <div style={pageStyle}>
@@ -174,22 +135,7 @@ export function NewsPage() {
           <section style={sectionStyle}>
             <div style={sectionHeadRow}>
               <h2 style={sectionTitleInline}>{t('news.section.updates')}</h2>
-              <button
-                type="button"
-                onClick={() => void onCheckUpdates()}
-                disabled={checkingUpdates !== null || isOffline}
-                style={{
-                  ...sectionActionBtn,
-                  ...(checkingUpdates !== null ? { opacity: 0.6, cursor: 'wait' } : {}),
-                }}
-              >
-                {checkingUpdates
-                  ? t('library.checking', {
-                      done: checkingUpdates.done,
-                      total: checkingUpdates.total,
-                    })
-                  : t('library.checkUpdates')}
-              </button>
+              <UpdateCheckControl buttonStyle={sectionActionBtn} />
             </div>
             {state.updateGames.length === 0 ? (
               <div style={hint}>{t('news.updates.empty')}</div>

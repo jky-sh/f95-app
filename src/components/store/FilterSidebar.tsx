@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { createPortal } from 'react-dom';
 import { SAM_CATEGORIES } from '../../constants/samCategories';
 import * as ipc from '../../lib/ipc';
+import { loadSamOptions } from '../../lib/samOptionsCache';
 import { usePrefixCatalog } from '../../contexts/PrefixCatalogContext';
 import { useTagCatalog } from '../../contexts/TagCatalogContext';
 import { useT } from '../../lib/i18n';
@@ -14,6 +15,7 @@ import {
   floatingMenuStyleKey,
 } from '../../lib/floatingMenuPosition';
 import {
+  SAM_DATE_RANGES,
   type PrefixFilterMode,
   type SamCategory,
   type SamPrefixGroup,
@@ -21,6 +23,10 @@ import {
   type SamTag,
   type SamTagMode,
 } from '../../types/sam';
+import type { TFunction } from '../../lib/i18n';
+
+/** What the search box looks up: thread titles or developer names. */
+export type StoreSearchMode = 'title' | 'creator';
 
 const MAX_TAGS = 10;
 
@@ -36,12 +42,18 @@ interface Props {
   onCategory: (c: SamCategory) => void;
   search: string;
   onSearch: (s: string) => void;
+  searchMode: StoreSearchMode;
+  onSearchMode: (mode: StoreSearchMode) => void;
   sort: SamSort;
   onSort: (s: SamSort) => void;
+  /** Updated within this many days; 0 = any time. */
+  date: number;
+  onDate: (days: number) => void;
   prefixFilter: Record<number, PrefixFilterMode>;
   onPrefixFilter: (next: Record<number, PrefixFilterMode>) => void;
   selectedTags: SamTag[];
-  onSelectedTags: (tags: SamTag[]) => void;
+  excludedTags: SamTag[];
+  onTags: (included: SamTag[], excluded: SamTag[]) => void;
   tagMode: SamTagMode;
   onTagMode: (mode: SamTagMode) => void;
   onClearAll: () => void;
@@ -63,12 +75,17 @@ export function FilterSidebar(props: Props) {
     onCategory,
     search,
     onSearch,
+    searchMode,
+    onSearchMode,
     sort,
     onSort,
+    date,
+    onDate,
     prefixFilter,
     onPrefixFilter,
     selectedTags,
-    onSelectedTags,
+    excludedTags,
+    onTags,
     tagMode,
     onTagMode,
     onClearAll,
@@ -85,8 +102,7 @@ export function FilterSidebar(props: Props) {
   useEffect(() => {
     let cancelled = false;
     setPrefixLoading(true);
-    ipc
-      .samOptions(category)
+    loadSamOptions(category)
       .then((result) => {
         if (cancelled) return;
         const next = resolvePrefixGroups(result.prefixGroups, category);
@@ -143,9 +159,33 @@ export function FilterSidebar(props: Props) {
             type="search"
             className="store-filter-search"
             value={search}
-            placeholder={t('filter.search')}
+            placeholder={
+              searchMode === 'creator' ? t('filter.searchMode.creatorPlaceholder') : t('filter.search')
+            }
             onChange={(e) => onSearch(e.target.value)}
           />
+        </div>
+        <div className="store-filter-tag-mode store-filter-search-mode">
+          <span className="store-filter-tag-mode-label">{t('filter.searchMode')}</span>
+          <div className="store-filter-tag-mode-toggle" role="group">
+            <button
+              type="button"
+              className={searchMode === 'title' ? 'store-filter-tag-mode-active' : ''}
+              aria-pressed={searchMode === 'title'}
+              onClick={() => onSearchMode('title')}
+            >
+              {t('filter.searchMode.title')}
+            </button>
+            <span className="store-filter-tag-mode-sep">/</span>
+            <button
+              type="button"
+              className={searchMode === 'creator' ? 'store-filter-tag-mode-active' : ''}
+              aria-pressed={searchMode === 'creator'}
+              onClick={() => onSearchMode('creator')}
+            >
+              {t('filter.searchMode.creator')}
+            </button>
+          </div>
         </div>
       </FilterSection>
 
@@ -174,6 +214,22 @@ export function FilterSidebar(props: Props) {
             {SORTS.map((s) => (
               <option key={s.id} value={s.id}>
                 {t(s.labelKey)}
+              </option>
+            ))}
+          </select>
+        </div>
+      </FilterSection>
+
+      <FilterSection title={t('filter.section.updated')}>
+        <div className="store-filter-select-wrap">
+          <select
+            className="store-filter-select"
+            value={date}
+            onChange={(e) => onDate(Number(e.target.value))}
+          >
+            {SAM_DATE_RANGES.map((days) => (
+              <option key={days} value={days}>
+                {dateRangeLabel(days, t)}
               </option>
             ))}
           </select>
@@ -230,12 +286,19 @@ export function FilterSidebar(props: Props) {
           key={category}
           category={category}
           selected={selectedTags}
-          onChange={onSelectedTags}
+          excluded={excludedTags}
+          onChange={onTags}
           max={MAX_TAGS}
         />
       </FilterSection>
     </aside>
   );
+}
+
+function dateRangeLabel(days: number, t: TFunction): string {
+  if (days === 0) return t('filter.updated.any');
+  if (days === 1) return t('filter.updated.today');
+  return t('filter.updated.days', { n: days });
 }
 
 function FilterSection({
@@ -344,12 +407,15 @@ function PrefixGroupSection({
 function TagFilterInput({
   category,
   selected,
+  excluded,
   onChange,
   max,
 }: {
   category: SamCategory;
   selected: SamTag[];
-  onChange: (tags: SamTag[]) => void;
+  /** Tags the results must not have (SAM `notags`). */
+  excluded: SamTag[];
+  onChange: (included: SamTag[], excluded: SamTag[]) => void;
   max: number;
 }) {
   const { t } = useT();
@@ -365,7 +431,12 @@ function TagFilterInput({
   const menuRef = useRef<HTMLUListElement | null>(null);
   const menuResizeObserverRef = useRef<ResizeObserver | null>(null);
 
-  const selectedIds = useMemo(() => new Set(selected.map((t) => t.id)), [selected]);
+  // Suggestions skip tags already chosen either way.
+  const selectedIds = useMemo(
+    () => new Set([...selected, ...excluded].map((t) => t.id)),
+    [selected, excluded],
+  );
+  const chosenCount = selected.length + excluded.length;
   const selectedIdsRef = useRef(selectedIds);
   selectedIdsRef.current = selectedIds;
   const catalogRef = useRef(catalog);
@@ -536,34 +607,74 @@ function TagFilterInput({
   }, []);
 
   function addTag(tag: SamTag) {
-    if (selected.length >= max || selectedIds.has(tag.id)) return;
-    onChange([...selected, tag]);
+    if (chosenCount >= max || selectedIds.has(tag.id)) return;
+    onChange([...selected, tag], excluded);
     setQuery('');
     setOpen(false);
   }
 
   function removeTag(id: number) {
-    onChange(selected.filter((t) => t.id !== id));
+    onChange(
+      selected.filter((t) => t.id !== id),
+      excluded.filter((t) => t.id !== id),
+    );
   }
+
+  /** Include ⇄ exclude. */
+  function toggleTag(tag: SamTag) {
+    if (excluded.some((t) => t.id === tag.id)) {
+      onChange(
+        [...selected, tag],
+        excluded.filter((t) => t.id !== tag.id),
+      );
+    } else {
+      onChange(
+        selected.filter((t) => t.id !== tag.id),
+        [...excluded, tag],
+      );
+    }
+  }
+
+  const chip = (tag: SamTag, isExcluded: boolean) => (
+    <span
+      key={tag.id}
+      className={`store-filter-tag-chip${isExcluded ? ' store-filter-tag-chip--exclude' : ''}`}
+    >
+      <button
+        type="button"
+        className="store-filter-tag-chip-toggle"
+        aria-pressed={isExcluded}
+        title={
+          isExcluded
+            ? t('filter.tags.include', { name: tag.name })
+            : t('filter.tags.exclude', { name: tag.name })
+        }
+        onClick={() => toggleTag(tag)}
+      >
+        {isExcluded && <span aria-hidden>− </span>}
+        {tag.name}
+      </button>
+      <button
+        type="button"
+        className="store-filter-tag-chip-remove"
+        aria-label={t('filter.tags.remove', { name: tag.name })}
+        onClick={() => removeTag(tag.id)}
+      >
+        ×
+      </button>
+    </span>
+  );
 
   return (
     <div className="store-filter-tags" ref={wrapRef}>
-      {selected.length > 0 && (
-        <div className="store-filter-tag-chips">
-          {selected.map((tag) => (
-            <span key={tag.id} className="store-filter-tag-chip">
-              {tag.name}
-              <button
-                type="button"
-                className="store-filter-tag-chip-remove"
-                aria-label={t('filter.tags.remove', { name: tag.name })}
-                onClick={() => removeTag(tag.id)}
-              >
-                ×
-              </button>
-            </span>
-          ))}
-        </div>
+      {chosenCount > 0 && (
+        <>
+          <div className="store-filter-tag-chips">
+            {selected.map((tag) => chip(tag, false))}
+            {excluded.map((tag) => chip(tag, true))}
+          </div>
+          <p className="store-filter-tag-chips-hint">{t('filter.tags.excludeHint')}</p>
+        </>
       )}
       <div className="store-filter-tag-input-wrap">
         <input
@@ -571,9 +682,9 @@ function TagFilterInput({
           type="text"
           className="store-filter-tag-input"
           value={query}
-          disabled={selected.length >= max}
+          disabled={chosenCount >= max}
           placeholder={
-            selected.length >= max
+            chosenCount >= max
               ? t('filter.tags.maxReached', { max })
               : t('filter.tags.placeholder')
           }

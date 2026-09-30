@@ -1,22 +1,29 @@
-import { useCallback, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import DOMPurify from 'dompurify';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
 import { dialog } from '../lib/dialog';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import * as ipc from '../lib/ipc';
 import * as library from '../lib/library';
-import * as libraries from '../lib/libraries';
-import * as sessions from '../lib/sessions';
 import * as updates from '../lib/updates';
 import * as uninstall from '../lib/uninstall';
 import { useRunningGames } from '../contexts/RunningGames';
+import { useDownloadsByThread } from '../hooks/useDownloadsByThread';
+import { downloadLabel } from '../components/library/LibraryCard';
+import { PlayTimer } from '../components/library/PlayTimer';
 import { useOffline } from '../contexts/Offline';
 import { InstallLocationModal } from '../components/InstallLocationModal';
 import { MoveProgressModal } from '../components/MoveProgressModal';
 import { GameAchievementsSection } from '../components/game/GameAchievementsSection';
 import { InstallVersionsSection } from '../components/game/InstallVersionsSection';
 import { GameDescription } from '../components/game/GameDescription';
+import {
+  CollapsibleHtml,
+  StoreInfoFields,
+  StoreTagList,
+  sanitizeF95Html,
+  useF95ContentLinks,
+} from '../components/game/StoreDetailSections';
 import { ScreenshotGallery } from '../components/game/ScreenshotGallery';
 import { clearGridPreviewCache } from '../lib/gridPreviewQueue';
 import { clearRemoteImageQueue } from '../lib/remoteImageQueue';
@@ -42,11 +49,14 @@ import {
   GameDetailAside,
 } from '../components/game/GameDetailLayout';
 import { useLibraryGameActions } from '../hooks/useLibraryGameActions';
+import { useLibraryGame } from '../hooks/useLibraryGame';
+import { useStoreDetail } from '../hooks/useStoreDetail';
+import { useStoreLinks } from '../hooks/useStoreLinks';
+import { describeIpcError, formatIpcError } from '../lib/ipcError';
+import { useSectionHref } from '../lib/lastSearch';
 import { openGameDownloadModal } from '../lib/gameDownloadModal';
 import { useT } from '../lib/i18n';
-import type { GameDetail } from '../types/game';
-import type { LibraryGame } from '../types/library';
-import type { PlaySession } from '../types/session';
+import { parseDbTime } from '../lib/dbTime';
 import type { InstallLibraryWithDisk } from '../types/install-library';
 import { formatPlaytime, statusColor, statusKey } from '../types/library';
 import type { SamCategory } from '../types/sam';
@@ -55,62 +65,61 @@ function categoryLabelKey(cat: SamCategory): string {
   return `libdetail.category.${cat}`;
 }
 
-type State =
-  | { kind: 'loading' }
-  | { kind: 'error'; message: string }
-  | { kind: 'missing' }
-  | { kind: 'ready'; game: LibraryGame };
-
 export function LibraryGamePage() {
   const { t } = useT();
   const { isOffline } = useOffline();
   const { threadId } = useParams<{ threadId: string }>();
   const navigate = useNavigate();
-  const [state, setState] = useState<State>({ kind: 'loading' });
-  const [storeDetail, setStoreDetail] = useState<GameDetail | null>(null);
-  const [notesDraft, setNotesDraft] = useState('');
+  // Actions and library changes anywhere in the app refresh this page in
+  // place; only opening another game shows the loading state.
+  const { state, sessions: playSessions, libraryId: currentLibId, refresh: reload } =
+    useLibraryGame(threadId);
+  const storeDetail = useStoreDetail(threadId, isOffline);
+  const onContentClick = useF95ContentLinks();
+  /** null = not edited: the textarea shows the saved notes. */
+  const [notesDraft, setNotesDraft] = useState<string | null>(null);
+  const [notesStatus, setNotesStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [tagDraft, setTagDraft] = useState('');
-  const [recentSessions, setRecentSessions] = useState<PlaySession[]>([]);
   const [launching, setLaunching] = useState(false);
   const [uninstalling, setUninstalling] = useState(false);
   const [movePickerOpen, setMovePickerOpen] = useState(false);
-  const [currentLibId, setCurrentLibId] = useState<number | undefined>(undefined);
   const [moveInFlight, setMoveInFlight] = useState<{
     destPath: string;
     totalBytes: number;
   } | null>(null);
-  const { running, launch } = useRunningGames();
+  const { running, startedAt, launch } = useRunningGames();
   const isRunning = threadId ? running.has(threadId) : false;
-
-  const reload = useCallback(async () => {
-    if (!threadId) return;
-    setState({ kind: 'loading' });
-    try {
-      const game = await library.get(threadId);
-      if (!game) {
-        setState({ kind: 'missing' });
-        return;
-      }
-      setNotesDraft(game.notes);
-      const recs = await sessions.recent(threadId, 12);
-      setRecentSessions(recs);
-      setState({ kind: 'ready', game });
-      if (game.installPath) {
-        const owning = await libraries.findContaining(game.installPath);
-        setCurrentLibId(owning?.id);
-      } else {
-        setCurrentLibId(undefined);
-      }
-    } catch (err) {
-      setState({ kind: 'error', message: formatError(err) });
-    }
-  }, [threadId]);
+  const runningSince = threadId ? (startedAt[threadId] ?? null) : null;
+  const download = useDownloadsByThread().get(threadId ?? '');
 
   const { openLibraryDetailContextMenu } = useLibraryGameActions({ onReload: reload });
 
+  // Notes save themselves a moment after typing stops (and on blur).
+  const savedNotes = state.kind === 'ready' ? state.game.notes : null;
+  const notesRef = useRef<{ draft: string | null; saved: string | null }>({
+    draft: null,
+    saved: null,
+  });
+  notesRef.current = { draft: notesDraft, saved: savedNotes };
   useEffect(() => {
-    reload();
-  }, [reload]);
+    if (notesDraft === null || savedNotes === null || notesDraft === savedNotes) return;
+    const timer = setTimeout(() => void saveNotes(), 800);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notesDraft, savedNotes]);
+  // Another game (or leaving the page): keep what was typed. The id is the
+  // one this effect ran for; the ref still holds that game's draft.
+  useEffect(() => {
+    setNotesDraft(null);
+    setNotesStatus('idle');
+    const id = threadId;
+    return () => {
+      const { draft, saved } = notesRef.current;
+      if (id && draft !== null && draft !== saved) {
+        void library.setNotes(id, draft).catch(() => undefined);
+      }
+    };
+  }, [threadId]);
 
   useEffect(
     () => () => {
@@ -120,26 +129,9 @@ export function LibraryGamePage() {
     [],
   );
 
+  // Starting a game opens a session, which does not go through the library.
   useEffect(() => {
-    if (!threadId || state.kind !== 'ready') return;
-    let cancelled = false;
-    ipc
-      .gameDetail(threadId)
-      .then((detail) => {
-        if (!cancelled) setStoreDetail(detail);
-      })
-      .catch(() => {
-        if (!cancelled) setStoreDetail(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [threadId, state.kind]);
-
-  useEffect(() => {
-    if (!isRunning && state.kind === 'ready') {
-      reload();
-    }
+    if (state.kind === 'ready') void reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRunning]);
 
@@ -154,7 +146,7 @@ export function LibraryGamePage() {
   if (state.kind === 'error') {
     return (
       <Shell>
-        <GameDetailError message={state.message} />
+        <GameDetailError message={describeIpcError(state.error, t)} onRetry={() => void reload()} />
       </Shell>
     );
   }
@@ -180,12 +172,9 @@ export function LibraryGamePage() {
 
   const g = state.game;
   const bannerUrl = storeDetail?.bannerUrl ?? g.thumbnailUrl;
-  const sanitized =
-    storeDetail?.descriptionHtml &&
-    DOMPurify.sanitize(storeDetail.descriptionHtml, {
-      ADD_TAGS: ['details', 'summary'],
-      ADD_ATTR: ['target', 'rel', 'loading'],
-    });
+  const sanitized = storeDetail?.descriptionHtml ? sanitizeF95Html(storeDetail.descriptionHtml) : '';
+  const changelog = storeDetail?.changelogHtml ? sanitizeF95Html(storeDetail.changelogHtml) : '';
+  const notesValue = notesDraft ?? g.notes;
 
   async function onPickExe() {
     const selected = await openFileDialog({
@@ -222,10 +211,18 @@ export function LibraryGamePage() {
     navigate('/library');
   }
 
-  async function onSaveNotes() {
-    if (notesDraft === g.notes) return;
-    await library.setNotes(g.threadId, notesDraft);
-    await reload();
+  async function saveNotes() {
+    const draft = notesDraft;
+    if (draft === null || draft === g.notes) return;
+    setNotesStatus('saving');
+    try {
+      await library.setNotes(g.threadId, draft);
+      await reload();
+      setNotesStatus('saved');
+    } catch (err) {
+      setNotesStatus('idle');
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
+    }
   }
 
   async function onAddTag() {
@@ -447,7 +444,21 @@ export function LibraryGamePage() {
               className="game-detail-prefix"
               style={{ background: statusBg }}
             >
-              {isRunning ? t('libdetail.running') : t(statusKey(g.installStatus))}
+              {isRunning ? (
+                <>
+                  {t('libdetail.running')}
+                  {runningSince != null && (
+                    <>
+                      {' · '}
+                      <PlayTimer since={runningSince} />
+                    </>
+                  )}
+                </>
+              ) : download ? (
+                downloadLabel(download, t)
+              ) : (
+                t(statusKey(g.installStatus))
+              )}
             </span>
           </>
         }
@@ -464,17 +475,8 @@ export function LibraryGamePage() {
                 → {g.availableVersion}
               </GameDetailChip>
             )}
-            {isGame && (
-              <>
-                <GameDetailChip>{formatPlaytime(g.totalPlaytimeSeconds)}</GameDetailChip>
-                {g.lastPlayedAt && (
-                  <GameDetailChip>
-                    {t('libdetail.lastPlayed', {
-                      when: new Date(g.lastPlayedAt).toLocaleString(),
-                    })}
-                  </GameDetailChip>
-                )}
-              </>
+            {storeDetail?.developer && (
+              <DeveloperChip name={storeDetail.developer} category={g.category} />
             )}
           </>
         }
@@ -579,12 +581,12 @@ export function LibraryGamePage() {
           <>
             <GameDetailStat
               label={t('libdetail.stats.sessions')}
-              value={recentSessions.length}
+              value={playSessions.total}
             />
             {g.lastPlayedAt && (
               <GameDetailStat
                 label={t('libdetail.stats.lastPlayed')}
-                value={new Date(g.lastPlayedAt).toLocaleDateString()}
+                value={parseDbTime(g.lastPlayedAt)?.toLocaleDateString() ?? '—'}
               />
             )}
           </>
@@ -601,10 +603,26 @@ export function LibraryGamePage() {
 
           {sanitized && (
             <GameDetailSection title={t('gamedetail.section.about')}>
-              <GameDescription
-                html={sanitized}
-                style={{ fontSize: 13.5, lineHeight: 1.65, wordBreak: 'break-word' }}
-              />
+              <div onClick={onContentClick}>
+                <GameDescription
+                  html={sanitized}
+                  style={{ fontSize: 13.5, lineHeight: 1.65, wordBreak: 'break-word' }}
+                />
+              </div>
+            </GameDetailSection>
+          )}
+
+          {changelog && (
+            <GameDetailSection title={t('gamedetail.section.changelog')}>
+              <div onClick={onContentClick}>
+                <CollapsibleHtml html={changelog} />
+              </div>
+            </GameDetailSection>
+          )}
+
+          {storeDetail && storeDetail.tags.length > 0 && (
+            <GameDetailSection title={t('libdetail.section.f95Tags')}>
+              <StoreTagList tags={storeDetail.tags} category={g.category} />
             </GameDetailSection>
           )}
 
@@ -618,25 +636,35 @@ export function LibraryGamePage() {
 
           <GameDetailSection title={t('libdetail.section.notes')}>
             <textarea
-              value={notesDraft}
-              onChange={(e) => setNotesDraft(e.target.value)}
-              onBlur={onSaveNotes}
+              value={notesValue}
+              onChange={(e) => {
+                setNotesDraft(e.target.value);
+                setNotesStatus('idle');
+              }}
+              onBlur={() => void saveNotes()}
               placeholder={t('libdetail.notes.placeholder')}
               rows={6}
               className="game-detail-notes"
             />
+            <div className="game-detail-notes-status" aria-live="polite">
+              {notesStatus === 'saving'
+                ? t('common.saving')
+                : notesStatus === 'saved'
+                  ? t('libdetail.notes.saved')
+                  : ''}
+            </div>
           </GameDetailSection>
 
           {isGame && (
           <GameDetailSection title={t('libdetail.section.sessions')}>
-            {recentSessions.length === 0 ? (
+            {playSessions.recent.length === 0 ? (
               <div className="game-detail-empty-hint">{t('libdetail.sessions.empty')}</div>
             ) : (
               <ul className="game-detail-session-list">
-                {recentSessions.map((s) => (
+                {playSessions.recent.map((s) => (
                   <li key={s.id} className="game-detail-session-row">
                     <span className="game-detail-session-when">
-                      {new Date(s.startedAt).toLocaleString()}
+                      {parseDbTime(s.startedAt)?.toLocaleString()}
                     </span>
                     <span className="game-detail-session-dur">
                       {s.endedAt
@@ -693,20 +721,6 @@ export function LibraryGamePage() {
           <GameDetailSection title={t('libdetail.section.location')}>
             <GameDetailFields>
               <GameDetailField
-                label={t('libdetail.location.status')}
-                value={t(statusKey(g.installStatus))}
-              />
-              <GameDetailField
-                label={t('libdetail.location.version')}
-                value={g.currentVersion ?? '—'}
-              />
-              {g.availableVersion && g.availableVersion !== g.currentVersion && (
-                <GameDetailField
-                  label={t('libdetail.location.available')}
-                  value={g.availableVersion}
-                />
-              )}
-              <GameDetailField
                 label={t('libdetail.location.exe')}
                 value={g.exePath ?? '—'}
                 actionLabel={g.exePath ? t('common.clear') : undefined}
@@ -720,7 +734,7 @@ export function LibraryGamePage() {
               />
               <GameDetailField
                 label={t('libdetail.location.added')}
-                value={new Date(g.addedAt).toLocaleString()}
+                value={parseDbTime(g.addedAt)?.toLocaleString() ?? '—'}
               />
             </GameDetailFields>
 
@@ -747,6 +761,12 @@ export function LibraryGamePage() {
               </div>
             )}
           </GameDetailSection>
+
+          {storeDetail && (
+            <GameDetailSection title={t('gamedetail.section.info')}>
+              <StoreInfoFields detail={storeDetail} category={g.category} omit={['Version']} />
+            </GameDetailSection>
+          )}
 
           <InstallVersionsSection game={g} onChanged={reload} />
 
@@ -811,12 +831,14 @@ function Shell({
   onContextMenu?: (e: React.MouseEvent) => void;
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useT();
+  const libraryHref = useSectionHref('/library');
   return (
     <GameDetailShell onContextMenu={onContextMenu}>
       <GameDetailBackBar
-        onBack={() => navigate('/library')}
-        breadcrumbTo="/library"
+        onBack={() => (location.key !== 'default' ? navigate(-1) : navigate(libraryHref))}
+        breadcrumbTo={libraryHref}
         breadcrumbLabel={t('nav.library')}
       />
       {children}
@@ -824,9 +846,20 @@ function Shell({
   );
 }
 
-function formatError(err: unknown): string {
-  if (err && typeof err === 'object' && 'message' in err) {
-    return String((err as { message: string }).message);
-  }
-  return String(err);
+/** Developer from the F95 thread, opening their other games in the store. */
+function DeveloperChip({ name, category }: { name: string; category: SamCategory }) {
+  const { t } = useT();
+  const to = useStoreLinks(category).developer(name);
+  if (!to) return <GameDetailChip>{name}</GameDetailChip>;
+  return (
+    <Link
+      to={to}
+      className="game-detail-chip game-detail-chip-link"
+      title={t('gamedetail.moreFrom', { name })}
+    >
+      {name}
+    </Link>
+  );
 }
+
+const formatError = formatIpcError;

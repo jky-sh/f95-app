@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useRunningGames } from '../contexts/RunningGames';
 import { useOffline } from '../contexts/Offline';
@@ -31,22 +31,24 @@ export function useLibraryGameActions(opts?: { onReload?: () => void | Promise<v
     [navigate, launch, running, isOffline, t, opts?.onReload],
   );
 
-  function openLibraryContextMenu(e: React.MouseEvent, game: LibraryGame) {
-    openContextMenu(e, buildLibraryMenu(game, deps));
-  }
+  // Stable handlers, so memoized cards don't re-render for new closures.
+  const openLibraryContextMenu = useCallback(
+    (e: React.MouseEvent, game: LibraryGame) => openContextMenu(e, buildLibraryMenu(game, deps)),
+    [openContextMenu, deps],
+  );
 
-  function openLibraryDetailContextMenu(
-    e: React.MouseEvent,
-    game: LibraryGame,
-    extra?: LibraryDetailMenuExtra,
-  ) {
-    openContextMenu(e, buildLibraryDetailMenu(game, deps, extra));
-  }
+  const openLibraryDetailContextMenu = useCallback(
+    (e: React.MouseEvent, game: LibraryGame, extra?: LibraryDetailMenuExtra) =>
+      openContextMenu(e, buildLibraryDetailMenu(game, deps, extra)),
+    [openContextMenu, deps],
+  );
+
+  const playOrStopGame = useCallback((game: LibraryGame) => playOrStop(game, deps), [deps]);
 
   return {
     deps,
     openLibraryContextMenu,
     openLibraryDetailContextMenu,
-    playOrStop: (game: LibraryGame) => playOrStop(game, deps),
+    playOrStop: playOrStopGame,
   };
 }
