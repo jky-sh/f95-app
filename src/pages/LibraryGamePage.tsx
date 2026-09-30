@@ -428,6 +428,77 @@ export function LibraryGamePage() {
   ];
   const tab: GameTab = tabs.some((x) => x.id === tabParam) ? (tabParam as GameTab) : 'overview';
 
+  // Hero actions: games get play / stop / update / pick .exe; other
+  // categories open the viewer or the folder. The first is the main one.
+  const updatePending = !!g.availableVersion && g.installStatus === 'update_available';
+  const heroActions: React.ReactNode[] = isGame
+    ? [
+        isRunning ? (
+          <GameDetailBtnPrimary key="stop" onClick={onStop} className="game-detail-btn-stop">
+            <Icon name="stop" size={14} />
+            {t('libdetail.action.stop')}
+          </GameDetailBtnPrimary>
+        ) : updatePending && !g.exePath ? (
+          // Sem exe não há o que jogar — o update segue como primário.
+          <GameDetailBtnPrimary
+            key="update"
+            onClick={onUpdateNow}
+            className="game-detail-btn-update"
+            title={t('libdetail.action.update.title', { version: g.availableVersion ?? '' })}
+          >
+            <Icon name="download" size={14} />
+            {t('libdetail.action.update', { version: g.availableVersion ?? '' })}
+          </GameDetailBtnPrimary>
+        ) : g.exePath ? (
+          // Jogar continua primário mesmo com update pendente — a versão
+          // instalada nunca fica injogável por causa de um update.
+          <GameDetailBtnPrimary
+            key="play"
+            onClick={onPlay}
+            disabled={launching}
+            className="game-detail-btn-play"
+            title={launching ? t('libdetail.action.play.hintLaunch') : t('libdetail.action.play.title')}
+          >
+            <Icon name="play" size={14} />
+            {launching ? t('libdetail.action.launching') : t('libdetail.action.play')}
+          </GameDetailBtnPrimary>
+        ) : (
+          <GameDetailBtnPrimary key="exe" onClick={onPickExe} title={t('libdetail.action.play.hintExe')}>
+            <Icon name="folder" size={14} />
+            {t('libdetail.action.setExe')}
+          </GameDetailBtnPrimary>
+        ),
+        !isRunning && g.exePath && updatePending && (
+          <GameDetailBtnSecondary
+            key="update-secondary"
+            onClick={onUpdateNow}
+            className="game-detail-btn-update"
+            title={t('libdetail.action.update.title', { version: g.availableVersion ?? '' })}
+          >
+            <Icon name="download" size={14} />
+            {t('libdetail.action.update', { version: g.availableVersion ?? '' })}
+          </GameDetailBtnSecondary>
+        ),
+      ]
+    : [
+        canOpenViewer && (
+          <GameDetailBtnPrimary key="viewer" onClick={onOpenViewer}>
+            <Icon name="play" size={14} />
+            {t('libdetail.action.openViewer')}
+          </GameDetailBtnPrimary>
+        ),
+        g.category === 'mods' && g.exePath && (
+          <GameDetailBtnSecondary key="play" onClick={onPlay} disabled={launching}>
+            {launching ? t('libdetail.action.launching') : t('libdetail.action.play')}
+          </GameDetailBtnSecondary>
+        ),
+        <GameDetailBtnSecondary key="folder" onClick={onOpenInstallFolder}>
+          <Icon name="folder" size={14} />
+          {t('common.open')}
+        </GameDetailBtnSecondary>,
+      ];
+  const [mainAction, ...extraActions] = heroActions.filter(Boolean);
+
   return (
     <Shell
       onContextMenu={(e) =>
@@ -490,80 +561,22 @@ export function LibraryGamePage() {
         }
         actions={
           <>
-            {isGame ? (
-              isRunning ? (
-                <GameDetailBtnPrimary onClick={onStop} className="game-detail-btn-stop">
-                  <Icon name="stop" size={14} />
-                  {t('libdetail.action.stop')}
-                </GameDetailBtnPrimary>
-              ) : g.availableVersion && g.installStatus === 'update_available' && !g.exePath ? (
-                // Sem exe não há o que jogar — o update segue como primário.
-                <GameDetailBtnPrimary
-                  onClick={onUpdateNow}
-                  className="game-detail-btn-update"
-                  title={t('libdetail.action.update.title', { version: g.availableVersion })}
-                >
-                  <Icon name="download" size={14} />
-                  {t('libdetail.action.update', { version: g.availableVersion })}
-                </GameDetailBtnPrimary>
-              ) : g.exePath ? (
-                // Jogar continua primário mesmo com update pendente — a versão
-                // instalada nunca fica injogável por causa de um update.
-                <GameDetailBtnPrimary
-                  onClick={onPlay}
-                  disabled={launching}
-                  className="game-detail-btn-play"
-                  title={launching ? t('libdetail.action.play.hintLaunch') : t('libdetail.action.play.title')}
-                >
-                  <Icon name="play" size={14} />
-                  {launching ? t('libdetail.action.launching') : t('libdetail.action.play')}
-                </GameDetailBtnPrimary>
-              ) : (
-                <GameDetailBtnPrimary onClick={onPickExe} title={t('libdetail.action.play.hintExe')}>
-                  <Icon name="folder" size={14} />
-                  {t('libdetail.action.setExe')}
-                </GameDetailBtnPrimary>
-              )
-            ) : (
-              <>
-                {canOpenViewer && (
-                  <GameDetailBtnPrimary onClick={onOpenViewer}>
-                    <Icon name="play" size={14} />
-                    {t('libdetail.action.openViewer')}
-                  </GameDetailBtnPrimary>
-                )}
-                {g.category === 'mods' && g.exePath && (
-                  <GameDetailBtnSecondary onClick={onPlay} disabled={launching}>
-                    {launching ? t('libdetail.action.launching') : t('libdetail.action.play')}
-                  </GameDetailBtnSecondary>
-                )}
-                <GameDetailBtnSecondary onClick={onOpenInstallFolder}>
-                  <Icon name="folder" size={14} />
-                  {t('common.open')}
-                </GameDetailBtnSecondary>
-              </>
-            )}
-            {isGame && !isRunning && g.exePath && g.availableVersion && g.installStatus === 'update_available' && (
-              <GameDetailBtnSecondary
-                onClick={onUpdateNow}
-                className="game-detail-btn-update"
-                title={t('libdetail.action.update.title', { version: g.availableVersion })}
+            {/* The main action with the "⋯" menu beside it, extras below. */}
+            <div className="game-detail-actions-main">
+              {mainAction}
+              {/* Everything else (pick .exe, check for updates, folder,
+                  collections, uninstall…) lives in the game's menu. */}
+              <button
+                type="button"
+                className="game-detail-btn game-detail-btn-secondary game-detail-btn-icon"
+                aria-label={t('libcard.more')}
+                title={t('libcard.more')}
+                onClick={(e) => openLibraryDetailContextMenu(e, g, { onPickExe, onOpenStore: onUpdateNow })}
               >
-                <Icon name="download" size={14} />
-                {t('libdetail.action.update', { version: g.availableVersion })}
-              </GameDetailBtnSecondary>
-            )}
-            {/* Everything else (pick .exe, check for updates, folder,
-                collections, uninstall…) lives in the game's menu. */}
-            <button
-              type="button"
-              className="game-detail-btn game-detail-btn-secondary game-detail-btn-icon"
-              aria-label={t('libcard.more')}
-              title={t('libcard.more')}
-              onClick={(e) => openLibraryDetailContextMenu(e, g, { onPickExe, onOpenStore: onUpdateNow })}
-            >
-              <Icon name="more" size={18} strokeWidth={3} />
-            </button>
+                <Icon name="more" size={18} strokeWidth={3} />
+              </button>
+            </div>
+            {extraActions}
           </>
         }
       />

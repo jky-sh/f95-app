@@ -1,13 +1,15 @@
 /* Game pages (store and library): refinements over App.css. */
 
-/* Actions wrap in a row: the main one stretches, icon buttons sit beside it. */
+/* Actions: one full-width button per row. The library page puts its main
+   action and the "⋯" menu on the first row (.game-detail-actions-main). */
 .game-detail-actions { flex-direction: row; flex-wrap: wrap; align-items: stretch; width: 290px; min-width: 0; }
-.game-detail-actions > .game-detail-btn:not(.game-detail-btn-icon),
-.game-detail-actions > .install-split { flex: 1 1 100%; }
-.game-detail-actions > .game-detail-btn-play,
-.game-detail-actions > .game-detail-btn-primary:first-child { flex: 1 1 0; }
-.game-detail-actions > .game-detail-btn-icon { flex: 0 0 40px; }
-.game-detail-actions > .game-detail-btn { justify-content: center; }
+.game-detail-actions > .game-detail-btn,
+.game-detail-actions > .install-split,
+.game-detail-actions-main { flex: 1 1 100%; }
+.game-detail-actions .game-detail-btn { justify-content: center; }
+.game-detail-actions-main { display: flex; gap: 8px; min-width: 0; }
+.game-detail-actions-main > .game-detail-btn { flex: 1 1 0; min-width: 0; }
+.game-detail-actions-main > .game-detail-btn-icon { flex: 0 0 40px; padding-left: 0; padding-right: 0; }
 
 @media (max-width: 900px) {
   .game-detail-actions { width: auto; }
