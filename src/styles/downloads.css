@@ -6,6 +6,14 @@
 .dl-history-table { grid-template-columns: 84px minmax(200px, 1fr) minmax(88px, 108px) 108px 76px 92px 132px minmax(180px, max-content); }
 @media (max-width: 1100px) {
   .dl-active-thumb { width: 96px; }
+}
+/* Compact history (App.css turns rows into cards): the art column follows
+   the 16:9 thumbnail instead of the old 48 px portrait one. */
+@container dlpanel (max-width: 1100px) {
+  .dl-history-row { grid-template-columns: 72px minmax(0, 1fr); }
+}
+@container dlpanel (max-width: 640px) {
+  .dl-history-row { grid-template-columns: 64px minmax(0, 1fr); }
   .dl-history-thumb { width: 64px; }
 }
 
