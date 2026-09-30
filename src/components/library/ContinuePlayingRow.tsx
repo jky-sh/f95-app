@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useIsRunning, useRunningSince } from '../../contexts/RunningGames';
 import { PlayTimer } from './PlayTimer';
+import { LibraryCover } from './LibraryCover';
 import { useT } from '../../lib/i18n';
 import type { LibraryGame } from '../../types/library';
 import { formatPlaytime } from '../../types/library';
@@ -64,11 +65,7 @@ function ContinuePlayingCard({
       onContextMenu={onContextMenu ? (e) => onContextMenu(e, game) : undefined}
     >
       <Link to={`/library/game/${game.threadId}`} style={thumbLinkStyle}>
-        {game.thumbnailUrl ? (
-          <img src={game.thumbnailUrl} alt={game.title} style={thumbImg} loading="lazy" />
-        ) : (
-          <div style={thumbFallback}>{game.title.slice(0, 1).toUpperCase()}</div>
-        )}
+        <LibraryCover url={game.thumbnailUrl} title={game.title} />
         <div style={overlayStyle} />
         {isRunning && (
           <div style={runningPillStyle}>
@@ -161,25 +158,6 @@ const thumbLinkStyle: React.CSSProperties = {
   paddingTop: '46%', // a bit wider than 16:9 for a more cinematic strip
   background: 'var(--bg-sunken)',
   overflow: 'hidden',
-};
-
-const thumbImg: React.CSSProperties = {
-  position: 'absolute',
-  inset: 0,
-  width: '100%',
-  height: '100%',
-  objectFit: 'cover',
-};
-
-const thumbFallback: React.CSSProperties = {
-  position: 'absolute',
-  inset: 0,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  fontSize: 48,
-  color: 'var(--text-faint)',
-  fontWeight: 800,
 };
 
 const overlayStyle: React.CSSProperties = {

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useIsRunning, useRunningSince } from '../../contexts/RunningGames';
 import type { ThreadDownload } from '../../hooks/useDownloadsByThread';
 import { PlayTimer } from './PlayTimer';
+import { LibraryCover } from './LibraryCover';
 import { useT } from '../../lib/i18n';
 import type { LibraryGame } from '../../types/library';
 import { formatPlaytime, statusColor, statusKey } from '../../types/library';
@@ -32,11 +33,7 @@ export const LibraryCard = memo(function LibraryCard({
       onContextMenu={onContextMenu ? (e) => onContextMenu(e, game) : undefined}
     >
       <Link to={`/library/game/${game.threadId}`} style={thumbLinkStyle}>
-        {game.thumbnailUrl ? (
-          <img src={game.thumbnailUrl} alt={game.title} loading="lazy" style={thumbImg} />
-        ) : (
-          <div style={thumbFallback}>{game.title.slice(0, 1).toUpperCase()}</div>
-        )}
+        <LibraryCover url={game.thumbnailUrl} title={game.title} />
         <div
           style={{
             ...statusBadgeStyle,
@@ -216,26 +213,6 @@ const thumbLinkStyle: React.CSSProperties = {
   background: 'var(--bg-sunken)',
   textDecoration: 'none',
   overflow: 'hidden',
-};
-
-const thumbImg: React.CSSProperties = {
-  position: 'absolute',
-  inset: 0,
-  width: '100%',
-  height: '100%',
-  objectFit: 'cover',
-  display: 'block',
-};
-
-const thumbFallback: React.CSSProperties = {
-  position: 'absolute',
-  inset: 0,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  fontSize: 32,
-  color: 'var(--text-faint)',
-  fontWeight: 800,
 };
 
 const statusBadgeStyle: React.CSSProperties = {
