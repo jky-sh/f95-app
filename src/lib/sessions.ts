@@ -56,6 +56,15 @@ export async function closeOrphans(): Promise<number> {
   return res.rowsAffected ?? 0;
 }
 
+/** Every session recorded for the game (`recent` only returns the last few). */
+export async function count(threadId: string): Promise<number> {
+  const rows = await query<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM play_sessions WHERE thread_id = ?`,
+    [threadId],
+  );
+  return rows[0]?.n ?? 0;
+}
+
 export async function recent(threadId: string, limit = 20): Promise<PlaySession[]> {
   const rows = await query<DbRow>(
     `SELECT * FROM play_sessions WHERE thread_id = ? ORDER BY id DESC LIMIT ?`,

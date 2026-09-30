@@ -1,13 +1,19 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { cacheThreadPrefixNames } from '../lib/prefixDisplayCache';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { parseSamCategory } from '../constants/samCategories';
-import DOMPurify from 'dompurify';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { cachedGameDetail, loadGameDetail } from '../lib/gameDetailCache';
 import { dialog } from '../lib/dialog';
 import * as library from '../lib/library';
 import { GameDescription } from '../components/game/GameDescription';
+import {
+  CollapsibleHtml,
+  StoreInfoFields,
+  StoreTagList,
+  sanitizeF95Html,
+  useF95ContentLinks,
+} from '../components/game/StoreDetailSections';
 import { clearGridPreviewCache } from '../lib/gridPreviewQueue';
 import { clearRemoteImageQueue } from '../lib/remoteImageQueue';
 import { ScreenshotGallery } from '../components/game/ScreenshotGallery';
@@ -18,15 +24,11 @@ import {
   GameDetailBody,
   GameDetailChip,
   GameDetailError,
-  GameDetailField,
-  GameDetailFields,
   GameDetailHero,
   GameDetailLoading,
   GameDetailMain,
   GameDetailShell,
   GameDetailSection,
-  GameDetailTag,
-  GameDetailTagList,
   GameDetailAside,
   GameDetailBtnPrimary,
   GameDetailBtnSecondary,
@@ -44,7 +46,6 @@ import { useLibraryIndex } from '../hooks/useLibraryIndex';
 import { LibraryBadge, libraryBadgeKind } from '../components/store/LibraryBadge';
 import { formatCount } from '../components/store/GameCard';
 import { useStoreLinks } from '../hooks/useStoreLinks';
-import { activityRoute } from '../lib/memberLinks';
 import { formatAgo, formatDay } from '../lib/memberPresence';
 import type { GameDetail, GamePrefix } from '../types/game';
 import type { SamGameCard } from '../types/sam';
@@ -53,20 +54,6 @@ type State =
   | { kind: 'loading' }
   | { kind: 'error'; error: unknown }
   | { kind: 'ready'; data: GameDetail };
-
-const FIELD_ORDER = [
-  'Developer',
-  'Publisher',
-  'Version',
-  'Release Date',
-  'Thread Updated',
-  'OS',
-  'Language',
-  'Censored',
-  'Censorship',
-];
-
-const SKIP_FIELDS = new Set(['Overview', 'Genre', 'Installation', 'Changelog']);
 
 export function GameDetailPage() {
   return (
@@ -82,9 +69,10 @@ function GameDetailPageInner() {
   const category = parseSamCategory(searchParams.get('cat'));
   const navigate = useNavigate();
   const location = useLocation();
-  const { t, locale } = useT();
+  const { t } = useT();
   const { isOffline } = useOffline();
   const storeLinks = useStoreLinks(category);
+  const onContentClick = useF95ContentLinks();
   // Opened from a store card: its rating, likes and views (the thread page has none).
   const stateCard = (location.state as { card?: SamGameCard } | null)?.card;
   const cardStats = stateCard && stateCard.threadId === threadId ? stateCard : null;
@@ -257,47 +245,8 @@ function GameDetailPageInner() {
   const g = state.data;
   const displayPrefixes = normalizeDetailPrefixes(g.prefixes, g.version);
   const libraryBadge = libraryBadgeKind(libraryEntry, g.version);
-  const sanitized = DOMPurify.sanitize(g.descriptionHtml, {
-    ADD_TAGS: ['details', 'summary'],
-    ADD_ATTR: ['target', 'rel', 'loading'],
-  });
-  const changelog = g.changelogHtml
-    ? DOMPurify.sanitize(g.changelogHtml, {
-        ADD_TAGS: ['details', 'summary'],
-        ADD_ATTR: ['target', 'rel', 'loading'],
-      })
-    : '';
-
-  const orderedFields = FIELD_ORDER.filter((k) => g.fields[k]);
-  const extraFields = Object.entries(g.fields).filter(
-    ([k]) => !FIELD_ORDER.includes(k) && !SKIP_FIELDS.has(k),
-  );
-
-  /** Links in the OP: F95 threads and members open in the app, the rest in the browser. */
-  function onContentClick(e: React.MouseEvent) {
-    const anchor = (e.target as HTMLElement).closest('a');
-    const href = anchor?.getAttribute('href');
-    if (!anchor || !href) return;
-    e.preventDefault();
-    if (!/^https?:/i.test(href)) return;
-    const route = activityRoute(href);
-    if (route) navigate(route);
-    else void openUrl(href);
-  }
-
-  function fieldValue(key: string, value: string): ReactNode {
-    if (key === 'Developer' || key === 'Publisher') {
-      const to = storeLinks.developer(value);
-      if (to) {
-        return (
-          <Link to={to} className="game-detail-field-link" title={t('gamedetail.moreFrom', { name: value })}>
-            {value}
-          </Link>
-        );
-      }
-    }
-    return formatFieldDate(value, locale) ?? value;
-  }
+  const sanitized = sanitizeF95Html(g.descriptionHtml);
+  const changelog = g.changelogHtml ? sanitizeF95Html(g.changelogHtml) : '';
 
   return (
     <GameDetailShell onContextMenu={openDetailContextMenu}>
@@ -416,23 +365,7 @@ function GameDetailPageInner() {
 
           {g.tags.length > 0 && (
             <GameDetailSection title={t('gamedetail.section.tags')}>
-              <GameDetailTagList>
-                {g.tags.map((tag) => {
-                  const to = storeLinks.tag(tag.name);
-                  return to ? (
-                    <Link
-                      key={tag.slug}
-                      to={to}
-                      className="game-detail-tag game-detail-tag-link"
-                      title={t('gamedetail.moreWith', { name: tag.name })}
-                    >
-                      {tag.name}
-                    </Link>
-                  ) : (
-                    <GameDetailTag key={tag.slug}>{tag.name}</GameDetailTag>
-                  );
-                })}
-              </GameDetailTagList>
+              <StoreTagList tags={g.tags} category={category} />
             </GameDetailSection>
           )}
 
@@ -458,18 +391,7 @@ function GameDetailPageInner() {
 
         <GameDetailAside>
           <GameDetailSection title={t('gamedetail.section.info')}>
-            <GameDetailFields>
-              {orderedFields.map((k) => (
-                <GameDetailField
-                  key={k}
-                  label={FIELD_LABEL_KEYS[k] ? t(FIELD_LABEL_KEYS[k]) : k}
-                  value={fieldValue(k, g.fields[k])}
-                />
-              ))}
-              {extraFields.map(([k, v]) => (
-                <GameDetailField key={k} label={k} value={v} />
-              ))}
-            </GameDetailFields>
+            <StoreInfoFields detail={g} category={category} />
           </GameDetailSection>
 
           <GameDetailSection title={t('dl.section')} className="game-detail-downloads">
@@ -491,27 +413,6 @@ function GameDetailPageInner() {
       </GameDetailBody>
     </GameDetailShell>
   );
-}
-
-/** F95 field labels with a translation; others show as F95 writes them. */
-const FIELD_LABEL_KEYS: Record<string, string> = {
-  Developer: 'gamedetail.field.developer',
-  Publisher: 'gamedetail.field.publisher',
-  Version: 'gamedetail.field.version',
-  'Release Date': 'gamedetail.meta.releaseDate',
-  'Thread Updated': 'gamedetail.field.updated',
-  OS: 'gamedetail.field.os',
-  Language: 'gamedetail.field.language',
-  Censored: 'gamedetail.field.censored',
-  Censorship: 'gamedetail.field.censored',
-};
-
-/** F95 writes dates as YYYY-MM-DD; show them in the user's format. */
-function formatFieldDate(value: string, locale: string): string | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value.trim())) return null;
-  const d = new Date(`${value.trim()}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 /**
@@ -569,41 +470,6 @@ function HeroMeta({
       )}
       {stats?.views != null && (
         <GameDetailChip title={t('gamedetail.meta.views')}>👁 {formatCount(stats.views)}</GameDetailChip>
-      )}
-    </>
-  );
-}
-
-/** Long HTML (the changelog) folded to a few lines, with Show more / less. */
-function CollapsibleHtml({ html }: { html: string }) {
-  const { t } = useT();
-  const [open, setOpen] = useState(false);
-  const [overflows, setOverflows] = useState(false);
-  const bodyRef = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => {
-    setOpen(false);
-    const el = bodyRef.current;
-    if (el) setOverflows(el.scrollHeight > el.clientHeight + 8);
-  }, [html]);
-  return (
-    <>
-      <div
-        ref={bodyRef}
-        className={`game-detail-collapsible${open ? ' game-detail-collapsible--open' : ''}${
-          overflows && !open ? ' game-detail-collapsible--clipped' : ''
-        }`}
-      >
-        <GameDescription html={html} style={{ fontSize: 13, lineHeight: 1.6, wordBreak: 'break-word' }} />
-      </div>
-      {overflows && (
-        <button
-          type="button"
-          className="game-detail-collapsible-toggle"
-          aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
-        >
-          {open ? t('common.showLess') : t('common.showMore')}
-        </button>
       )}
     </>
   );

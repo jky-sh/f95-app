@@ -62,3 +62,4 @@
 .game-detail-collapsible--clipped::after{content:"";position:absolute;left:0;right:0;bottom:0;height:56px;background:linear-gradient(to bottom,transparent,var(--bg-elevated));pointer-events:none}
 .game-detail-collapsible-toggle{margin-top:10px;background:none;border:none;padding:0;color:var(--accent);font:inherit;font-size:12px;font-weight:600;cursor:pointer}
 .game-detail-collapsible-toggle:hover{text-decoration:underline}
+.game-detail-notes-status{min-height:16px;margin-top:6px;font-size:11px;color:var(--text-faint)}

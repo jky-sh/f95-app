@@ -52,6 +52,7 @@ import {
 import { checkForAppUpdateInteractive } from '../lib/appUpdater';
 import { getChangelogEntries } from '../lib/changelog';
 import { syncTrayIcon } from '../lib/tray';
+import { clearStoredGameDetails } from '../lib/gameDetailCache';
 
 interface AppInfo {
   name: string;
@@ -656,6 +657,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
     setBusy('games');
     try {
       await execute('DELETE FROM games_cache');
+      await clearStoredGameDetails();
       await refreshCounts();
     } finally {
       setBusy(null);
