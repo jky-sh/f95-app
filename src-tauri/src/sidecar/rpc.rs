@@ -1,6 +1,5 @@
 use crate::bridge::Sidecar;
 use crate::error::AppError;
-use crate::sidecar::dto::ProfileDto;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::sync::Arc;
@@ -95,9 +94,8 @@ impl SidecarClient {
         Ok(())
     }
 
-    pub async fn get_profile(&self) -> Result<ProfileDto, AppError> {
-        let value: Value = self.inner.call("getProfile", json!({})).await?;
-        Ok(serde_json::from_value(value)?)
+    pub async fn get_profile(&self) -> Result<Value, AppError> {
+        self.inner.call("getProfile", json!({})).await
     }
 
     /// Public profile of an arbitrary member. Raw JSON passthrough (typed
@@ -141,8 +139,45 @@ impl SidecarClient {
             .await
     }
 
+    /// `page` is a page number or `"last"` for the newest posts.
+    pub async fn game_posts(&self, thread_id: &str, page: Value) -> Result<Value, AppError> {
+        self.inner
+            .call("gamePosts", json!({ "threadId": thread_id, "page": page }))
+            .await
+    }
+
+    pub async fn game_reviews(&self, thread_id: &str, page: u32) -> Result<Value, AppError> {
+        self.inner
+            .call("gameReviews", json!({ "threadId": thread_id, "page": page }))
+            .await
+    }
+
     pub async fn get_following(&self) -> Result<Value, AppError> {
         self.inner.call("getFollowing", json!({})).await
+    }
+
+    pub async fn get_member_activity(&self, user_id: &str, kind: &str) -> Result<Value, AppError> {
+        self.inner
+            .call("getMemberActivity", json!({ "userId": user_id, "kind": kind }))
+            .await
+    }
+
+    pub async fn get_member_about(&self, user_id: &str) -> Result<Value, AppError> {
+        self.inner
+            .call("getMemberAbout", json!({ "userId": user_id }))
+            .await
+    }
+
+    pub async fn get_member_cards(&self, user_ids: &[String]) -> Result<Value, AppError> {
+        self.inner
+            .call("getMemberCards", json!({ "userIds": user_ids }))
+            .await
+    }
+
+    pub async fn set_member_follow(&self, user_id: &str, follow: bool) -> Result<Value, AppError> {
+        self.inner
+            .call("setMemberFollow", json!({ "userId": user_id, "follow": follow }))
+            .await
     }
 
     pub async fn fetch_rss(&self, params: serde_json::Map<String, Value>) -> Result<Value, AppError> {

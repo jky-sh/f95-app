@@ -47,9 +47,33 @@ export const RPC_METHODS = {
     params: { threadId: 'string' },
     result: 'unknown',
   },
+  gamePosts: {
+    params: { threadId: 'string', page: "number | 'last'" },
+    result: 'ThreadPostsPage',
+  },
+  gameReviews: {
+    params: { threadId: 'string', page: 'number?' },
+    result: 'ThreadReviewsPage',
+  },
   getFollowing: {
     params: {},
     result: 'unknown',
+  },
+  getMemberActivity: {
+    params: { userId: 'string', kind: "'latest' | 'postings'" },
+    result: 'ActivityItem[]',
+  },
+  getMemberAbout: {
+    params: { userId: 'string' },
+    result: 'MemberAboutDto',
+  },
+  getMemberCards: {
+    params: { userIds: 'string[]' },
+    result: 'MemberCardDto[]',
+  },
+  setMemberFollow: {
+    params: { userId: 'string', follow: 'boolean' },
+    result: { following: 'boolean' },
   },
   fetchRss: {
     params: { category: 'string?' },

@@ -1,8 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { GameDetailBackBar } from '../components/game/GameDetailLayout';
-import { LibraryCard } from '../components/library/LibraryCard';
+import {
+  LibraryCard,
+  LibraryCoverTile,
+  LibraryList,
+  LibraryListRow,
+} from '../components/library/LibraryGameViews';
 import { GameCardGridSkeleton } from '../components/ui/GameCardSkeleton';
+import { Icon } from '../components/ui/Icon';
+import { ViewModeSwitch } from '../components/ui/ViewModeSwitch';
+import { useDownloadsByThread } from '../hooks/useDownloadsByThread';
+import { useLibraryView } from '../hooks/useLibraryView';
 import { useLibraryGameActions } from '../hooks/useLibraryGameActions';
 import {
   confirmDeleteCollection,
@@ -15,47 +24,50 @@ import {
   type LibraryCollection,
 } from '../lib/collections';
 import { useT } from '../lib/i18n';
+import { useSectionHref } from '../lib/lastSearch';
 import * as library from '../lib/library';
-import type { LibraryGame } from '../types/library';
+import type { LibraryGame, LibrarySort } from '../types/library';
+
+const COLLATOR = new Intl.Collator(undefined, { sensitivity: 'base' });
 
 /**
- * Folder view: lists every game inside one collection (any category),
- * alphabetically, with the same cards/actions as the library grid. Nested
- * under LibraryLayout so the Steam-skin game-list panel stays visible.
+ * Folder view: every game inside one collection (any category), with the
+ * same views and actions as the library grid. Nested under LibraryLayout so
+ * the Steam-skin game-list panel stays visible.
  */
 export function LibraryCollectionPage() {
   const { t } = useT();
   const navigate = useNavigate();
+  const libraryHref = useSectionHref('/library');
   const { collectionId } = useParams();
   const id = Number(collectionId);
 
   const [collection, setCollection] = useState<LibraryCollection | null>(null);
   const [games, setGames] = useState<LibraryGame[]>([]);
   const [loading, setLoading] = useState(true);
+  const { view, setView, views } = useLibraryView();
+  const [sort, setSort] = useState<LibrarySort>('title');
 
   const reload = useCallback(async () => {
     try {
       const [cols, mems, all] = await Promise.all([
         listCollections(),
         listMemberships(),
-        library.list({}),
+        library.list({ sort }),
       ]);
       const col = cols.find((c) => c.id === id) ?? null;
       setCollection(col);
       const memberIds = new Set(
         mems.filter((m) => m.collectionId === id).map((m) => m.threadId),
       );
-      setGames(
-        all
-          .filter((g) => memberIds.has(g.threadId))
-          .sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' })),
-      );
+      const members = all.filter((g) => memberIds.has(g.threadId));
+      setGames(sort === 'title' ? members.sort((a, b) => COLLATOR.compare(a.title, b.title)) : members);
     } catch (err) {
       console.warn('[collections] page load failed', err);
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, sort]);
 
   useEffect(() => {
     void reload();
@@ -66,10 +78,21 @@ export function LibraryCollectionPage() {
       void reload();
     };
     window.addEventListener(COLLECTIONS_CHANGE_EVENT, onChange);
-    return () => window.removeEventListener(COLLECTIONS_CHANGE_EVENT, onChange);
+    const stop = library.onLibraryChange(onChange);
+    return () => {
+      window.removeEventListener(COLLECTIONS_CHANGE_EVENT, onChange);
+      stop();
+    };
   }, [reload]);
 
   const { openLibraryContextMenu, playOrStop } = useLibraryGameActions({ onReload: reload });
+  const downloadsByThread = useDownloadsByThread();
+  const itemProps = (g: LibraryGame) => ({
+    game: g,
+    onPrimaryAction: playOrStop,
+    onContextMenu: openLibraryContextMenu,
+    download: downloadsByThread.get(g.threadId),
+  });
 
   async function onRename() {
     if (collection) await promptRenameCollection(collection, t);
@@ -78,141 +101,77 @@ export function LibraryCollectionPage() {
   async function onDelete() {
     if (!collection) return;
     const deleted = await confirmDeleteCollection(collection, t);
-    if (deleted) navigate('/library');
+    if (deleted) navigate(libraryHref);
   }
 
   return (
-    <div style={pageStyle}>
+    <div className="lib-page">
       <GameDetailBackBar
-        onBack={() => navigate('/library')}
-        breadcrumbTo="/library"
+        onBack={() => navigate(libraryHref)}
+        breadcrumbTo={libraryHref}
         breadcrumbLabel={t('nav.library')}
       />
 
       {loading ? (
         <GameCardGridSkeleton count={8} />
       ) : !collection ? (
-        <div style={emptyBox}>{t('library.collections.notFound')}</div>
+        <div className="ui-empty">
+          <Icon name="folder" size={32} />
+          <p className="ui-empty-title">{t('library.collections.notFound')}</p>
+        </div>
       ) : (
         <>
-          <header style={headerStyle}>
-            <h1 style={titleStyle}>
-              <span style={folderIconStyle} aria-hidden>
-                <FolderIcon />
-              </span>
-              {collection.name}
-            </h1>
-            <div style={headerSideStyle}>
-              <span style={statsStyle}>
-                {games.length === 1
-                  ? t('library.stats.game', { count: games.length })
-                  : t('library.stats.games', { count: games.length })}
-              </span>
-              <button type="button" style={actionBtn} onClick={() => void onRename()}>
-                {t('library.collections.rename')}
-              </button>
-              <button
-                type="button"
-                style={{ ...actionBtn, color: 'var(--status-danger)', borderColor: 'var(--status-danger)' }}
-                onClick={() => void onDelete()}
-              >
-                {t('library.collections.delete')}
-              </button>
-            </div>
+          <header className="lib-head" style={{ marginTop: 16 }}>
+            <Icon name="folder" size={22} className="lib-collection-icon" />
+            <h1 className="lib-head-title">{collection.name}</h1>
+            <span className="lib-head-stats">
+              {games.length === 1
+                ? t('library.stats.game', { count: games.length })
+                : t('library.stats.games', { count: games.length })}
+            </span>
+            <span className="lib-head-spacer" />
+            <button type="button" className="ui-btn ui-btn--secondary ui-btn--sm" onClick={() => void onRename()}>
+              {t('library.collections.rename')}
+            </button>
+            <button type="button" className="ui-btn ui-btn--danger ui-btn--sm" onClick={() => void onDelete()}>
+              <Icon name="trash" size={13} />
+              {t('library.collections.delete')}
+            </button>
           </header>
 
           {games.length === 0 ? (
-            <div style={emptyBox}>{t('library.collections.emptyCollection')}</div>
-          ) : (
-            <div style={gridStyle}>
-              {games.map((g) => (
-                <LibraryCard
-                  key={g.threadId}
-                  game={g}
-                  onPrimaryAction={playOrStop}
-                  onContextMenu={openLibraryContextMenu}
-                />
-              ))}
+            <div className="ui-empty">
+              <Icon name="folder" size={32} />
+              <p className="ui-empty-title">{t('library.collections.emptyCollection')}</p>
             </div>
+          ) : (
+            <>
+              <div className="ui-toolbar lib-toolbar">
+                <span className="ui-toolbar-spacer" />
+                <ViewModeSwitch value={view} onChange={setView} modes={views} />
+              </div>
+              {view === 'list' ? (
+                <LibraryList
+                  games={games}
+                  sort={sort}
+                  onSort={setSort}
+                  renderRow={(g) => <LibraryListRow key={g.threadId} {...itemProps(g)} />}
+                />
+              ) : (
+                <div className={view === 'covers' ? 'lib-grid lib-grid--covers' : 'lib-grid'}>
+                  {games.map((g) =>
+                    view === 'covers' ? (
+                      <LibraryCoverTile key={g.threadId} {...itemProps(g)} />
+                    ) : (
+                      <LibraryCard key={g.threadId} {...itemProps(g)} />
+                    ),
+                  )}
+                </div>
+              )}
+            </>
           )}
         </>
       )}
     </div>
   );
 }
-
-function FolderIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
-    </svg>
-  );
-}
-
-const pageStyle: React.CSSProperties = {
-  padding: '20px 24px 40px',
-};
-
-const headerStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'baseline',
-  justifyContent: 'space-between',
-  gap: 14,
-  margin: '16px 0',
-  paddingBottom: 12,
-  borderBottom: '1px solid var(--border-faint)',
-};
-
-const titleStyle: React.CSSProperties = {
-  fontSize: 22,
-  fontWeight: 700,
-  color: 'var(--text-primary)',
-  margin: 0,
-  display: 'flex',
-  alignItems: 'center',
-  gap: 10,
-  minWidth: 0,
-};
-
-const folderIconStyle: React.CSSProperties = {
-  display: 'inline-flex',
-  color: 'var(--accent)',
-  flexShrink: 0,
-};
-
-const headerSideStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-  flexShrink: 0,
-};
-
-const statsStyle: React.CSSProperties = {
-  fontSize: 12,
-  color: 'var(--text-muted)',
-  marginRight: 6,
-};
-
-const actionBtn: React.CSSProperties = {
-  background: 'transparent',
-  color: 'var(--text-tertiary)',
-  border: '1px solid var(--border-strong)',
-  padding: '5px 12px',
-  borderRadius: 3,
-  fontSize: 12,
-  cursor: 'pointer',
-  fontWeight: 600,
-};
-
-const gridStyle: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-  gap: 14,
-};
-
-const emptyBox: React.CSSProperties = {
-  textAlign: 'center',
-  padding: '60px 20px',
-  color: 'var(--text-muted)',
-  fontSize: 14,
-};

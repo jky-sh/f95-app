@@ -175,16 +175,6 @@ html.game-overlay-window #root {
   cursor: not-allowed;
 }
 
-.game-overlay-dock-wip {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--status-warning);
-}
-
 .game-overlay-dock-footer {
   display: flex;
   flex-direction: column;
@@ -671,15 +661,6 @@ html.game-overlay-window #root {
   }
 }
 
-.game-overlay-tab-wip {
-  font-size: 8px;
-  padding: 1px 4px;
-  border-radius: 3px;
-  background: var(--status-warning);
-  color: #111;
-  font-weight: 700;
-  text-transform: uppercase;
-}
 
 /* Settings page helpers (kept) */
 .settings-experimental-sub {
@@ -722,3 +703,159 @@ html.game-overlay-window #root {
   font-size: 13px;
   color: var(--text-secondary);
 }
+
+/* ── Game panel: this session, totals and quick actions ─────────────────── */
+
+.game-overlay-game { gap: 12px; }
+.game-overlay-game-hero { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.game-overlay-game-art {
+  flex: 0 0 112px; width: 112px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+}
+.game-overlay-game-art--empty {
+  display: grid; place-items: center; font-size: 26px; font-weight: 800; color: var(--text-muted);
+}
+.game-overlay-game-title-block { min-width: 0; }
+.game-overlay-game-title {
+  margin: 0; font-size: 15px; font-weight: 700; color: var(--text-primary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.game-overlay-game-sub {
+  display: flex; align-items: center; gap: 6px; margin: 4px 0 0; font-size: 12px; color: var(--text-muted);
+}
+.game-overlay-chip {
+  display: inline-flex; align-items: center; padding: 1px 7px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08); color: var(--text-secondary); font-size: 11px; font-weight: 600;
+}
+.game-overlay-game-notice {
+  display: flex; align-items: center; gap: 6px; margin: 0; padding: 7px 10px; border-radius: 6px;
+  background: color-mix(in srgb, var(--status-info) 18%, transparent); color: var(--text-secondary); font-size: 12px;
+}
+
+.game-overlay-game-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.game-overlay-game-stat {
+  position: relative; display: flex; flex-direction: column; gap: 2px; padding: 9px 11px; overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; background: rgba(255, 255, 255, 0.04);
+  text-align: left; font: inherit; color: inherit;
+}
+.game-overlay-game-stat--main { grid-column: 1 / -1; }
+.game-overlay-game-stat-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--text-muted);
+}
+.game-overlay-game-stat-value {
+  font-size: 15px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums;
+}
+.game-overlay-game-stat--main .game-overlay-game-stat-value { font-size: 24px; }
+.game-overlay-game-stat--link { cursor: pointer; }
+.game-overlay-game-stat--link:hover { border-color: rgba(255, 255, 255, 0.2); }
+.game-overlay-game-progress { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--status-success); }
+
+.game-overlay-game-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; }
+.game-overlay-action {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 30px; padding: 0 11px;
+  border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 6px; background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.game-overlay-action:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); color: var(--text-primary); }
+.game-overlay-action:disabled { opacity: 0.5; cursor: default; }
+.game-overlay-action--block { width: 100%; margin-top: 8px; }
+.game-overlay-action--danger {
+  margin-left: auto; color: #f1a4a4; border-color: color-mix(in srgb, var(--status-danger) 55%, transparent);
+}
+.game-overlay-action--danger.is-confirming { background: var(--status-danger); border-color: var(--status-danger); color: #fff; }
+
+/* ── Guides & thread panel ─────────────────────────────────────────────── */
+
+.game-overlay-guides { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.game-overlay-segmented {
+  display: flex; gap: 2px; margin: 10px 12px 0; padding: 2px; border-radius: 7px; background: rgba(0, 0, 0, 0.35);
+}
+.game-overlay-segmented button {
+  flex: 1; height: 26px; border: 0; border-radius: 5px; background: transparent; color: var(--text-muted);
+  font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.game-overlay-segmented button:hover { color: var(--text-primary); }
+.game-overlay-segmented button.is-active { background: rgba(255, 255, 255, 0.12); color: var(--text-primary); }
+
+.game-overlay-guides-search {
+  display: flex; align-items: center; gap: 6px; height: 32px; margin-bottom: 10px; padding: 0 4px 0 9px;
+  border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 6px; background: rgba(0, 0, 0, 0.3); color: var(--text-muted);
+}
+.game-overlay-guides-search input {
+  flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text-primary);
+  font: inherit; font-size: 12px;
+}
+.game-overlay-guides-search button {
+  height: 24px; padding: 0 10px; border: 0; border-radius: 4px; background: var(--accent); color: var(--accent-text);
+  font: inherit; font-size: 11px; font-weight: 700; cursor: pointer;
+}
+
+.game-overlay-link-list { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.game-overlay-link-list a {
+  display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04); color: var(--text-secondary); font-size: 12px; text-decoration: none;
+}
+.game-overlay-link-list a:hover { background: rgba(255, 255, 255, 0.1); color: var(--text-primary); }
+.game-overlay-link-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.game-overlay-link-hint { flex-shrink: 0; font-size: 11px; color: var(--text-muted); }
+
+/* F95 content (changelog, posts): cleaned by the sidecar and DOMPurify. */
+.game-overlay-rich { font-size: 12.5px; line-height: 1.55; color: var(--text-secondary); overflow-wrap: anywhere; }
+.game-overlay-rich a { color: var(--accent); }
+.game-overlay-rich img { display: block; max-width: 100%; max-height: 220px; margin: 6px 0; border-radius: 4px; }
+.game-overlay-rich blockquote {
+  margin: 4px 0 8px; padding: 6px 10px; border-left: 3px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.3); color: var(--text-tertiary);
+}
+.game-overlay-rich cite { display: block; font-size: 11px; font-style: normal; font-weight: 700; color: var(--text-muted); }
+.game-overlay-rich details { margin: 6px 0; padding: 4px 8px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 4px; }
+.game-overlay-rich summary { cursor: pointer; font-size: 11px; font-weight: 600; color: var(--text-tertiary); }
+
+.game-overlay-post { padding: 10px 0; border-top: 1px solid rgba(255, 255, 255, 0.07); }
+.game-overlay-post:first-child { padding-top: 0; border-top: 0; }
+.game-overlay-post-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.game-overlay-post-author { font-size: 12px; font-weight: 700; color: var(--text-primary); }
+.game-overlay-post-time { margin-left: auto; font-size: 11px; color: var(--text-muted); }
+.game-overlay-post-reactions {
+  display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; font-size: 11px; color: var(--text-muted);
+}
+.game-overlay-post-reactions .ui-icon { color: var(--accent); }
+.game-overlay-inline-btn {
+  padding: 0; border: 0; background: none; color: var(--accent); font: inherit; text-decoration: underline; cursor: pointer;
+}
+
+/* ── Always dark: the overlay sits over a game, whatever the app theme ───── */
+
+html.game-overlay-window[data-theme='light'] {
+  --text-primary: #f5f5f5;
+  --text-secondary: #dcdcdc;
+  --text-tertiary: #bdbdbd;
+  --text-muted: #9a9a9a;
+  --text-faint: #6a6a6a;
+  --border-faint: rgba(255, 255, 255, 0.07);
+  --border: rgba(255, 255, 255, 0.12);
+  --border-strong: rgba(255, 255, 255, 0.2);
+  --bg-sunken: rgba(0, 0, 0, 0.35);
+  --bg-elevated: #16181e;
+  --bg-hover: rgba(255, 255, 255, 0.08);
+}
+
+/* ── Steam skin: square corners and the blue-grey panel gradient ─────────── */
+
+:root[data-skin='steam'] .game-overlay-float {
+  border-radius: 3px;
+  border-color: rgba(103, 193, 245, 0.18);
+  background: linear-gradient(180deg, rgba(40, 52, 68, 0.96), rgba(22, 30, 40, 0.96));
+}
+:root[data-skin='steam'] .game-overlay-float-header { background: rgba(0, 0, 0, 0.2); }
+:root[data-skin='steam'] .game-overlay-dock-btn--active,
+:root[data-skin='steam'] .game-overlay-segmented button.is-active {
+  background: linear-gradient(90deg, var(--sk-btn-accent-top), var(--sk-btn-accent-bottom));
+  color: var(--accent-text);
+}
+:root[data-skin='steam'] .game-overlay-action,
+:root[data-skin='steam'] .game-overlay-game-stat,
+:root[data-skin='steam'] .game-overlay-link-list a,
+:root[data-skin='steam'] .game-overlay-segmented,
+:root[data-skin='steam'] .game-overlay-segmented button,
+:root[data-skin='steam'] .game-overlay-guides-search { border-radius: 2px; }

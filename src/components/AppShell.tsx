@@ -14,7 +14,10 @@ import { useSkin } from '../hooks/useSkin';
 import { LaunchingOverlay } from './LaunchingOverlay';
 import { CollectionPickerModal } from './library/CollectionPickerModal';
 import { GameDownloadModal } from './GameDownloadModal';
+import { CommandPalette } from './CommandPalette';
 import { CatalogBootstrap } from './store/CatalogBootstrap';
+import { MainScrollRestoration } from './MainScrollRestoration';
+import { UpdateCheckScheduler } from './library/UpdateCheckControl';
 import { PrefixCatalogProvider } from '../contexts/PrefixCatalogContext';
 import { TagCatalogProvider } from '../contexts/TagCatalogContext';
 import { tStandalone } from '../lib/i18n';
@@ -62,6 +65,8 @@ export function AppShell({ profile, onLoggedOut }: Props) {
             <TagCatalogProvider>
               <PrefixCatalogProvider>
                 <CatalogBootstrap />
+                <MainScrollRestoration />
+                <UpdateCheckScheduler />
                 <AchievementsBridge />
                 <div style={rootStyle} className="app-shell">
                   <TitleBar />
@@ -76,6 +81,7 @@ export function AppShell({ profile, onLoggedOut }: Props) {
                   <LaunchingOverlay />
                   <CollectionPickerModal />
                   <GameDownloadModal />
+                  <CommandPalette />
                 </div>
               </PrefixCatalogProvider>
             </TagCatalogProvider>

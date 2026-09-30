@@ -1,65 +1,62 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { cacheThreadPrefixNames } from '../lib/prefixDisplayCache';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { parseSamCategory } from '../constants/samCategories';
-import DOMPurify from 'dompurify';
 import { openUrl } from '@tauri-apps/plugin-opener';
-import { gameDetail } from '../lib/ipc';
+import { cachedGameDetail, loadGameDetail } from '../lib/gameDetailCache';
 import { dialog } from '../lib/dialog';
 import * as library from '../lib/library';
 import { GameDescription } from '../components/game/GameDescription';
+import {
+  CollapsibleHtml,
+  StoreInfoFields,
+  StoreTagList,
+  sanitizeF95Html,
+  useF95ContentLinks,
+} from '../components/game/StoreDetailSections';
 import { clearGridPreviewCache } from '../lib/gridPreviewQueue';
 import { clearRemoteImageQueue } from '../lib/remoteImageQueue';
 import { ScreenshotGallery } from '../components/game/ScreenshotGallery';
 import { StoreAchievementsSection } from '../components/game/StoreAchievementsSection';
+import { ThreadDiscussion, ThreadReviews } from '../components/game/ThreadCommunity';
+import { Tabs } from '../components/ui/Tabs';
 import { DownloadLinks } from '../components/game/DownloadLinks';
 import {
   GameDetailBackBar,
   GameDetailBody,
   GameDetailChip,
   GameDetailError,
-  GameDetailField,
-  GameDetailFields,
   GameDetailHero,
   GameDetailLoading,
   GameDetailMain,
   GameDetailShell,
   GameDetailSection,
-  GameDetailStat,
-  GameDetailStatGrid,
-  GameDetailTag,
-  GameDetailTagList,
   GameDetailAside,
   GameDetailBtnPrimary,
   GameDetailBtnSecondary,
   PrefixPill,
 } from '../components/game/GameDetailLayout';
 import { OfflineGate } from '../components/OfflineGate';
+import { Icon } from '../components/ui/Icon';
 import { openGameDownloadModal } from '../lib/gameDownloadModal';
 import { useContextMenu } from '../components/contextMenu';
 import { useOffline } from '../contexts/Offline';
 import { buildStoreMenu } from '../lib/contextMenus/buildStoreMenu';
 import { useT } from '../lib/i18n';
+import { describeIpcError, formatIpcError } from '../lib/ipcError';
+import { useStoreHref } from '../lib/storeQuery';
+import { useLibraryIndex } from '../hooks/useLibraryIndex';
+import { LibraryBadge, libraryBadgeKind } from '../components/store/LibraryBadge';
+import { formatCount } from '../components/store/GameCard';
+import { useStoreLinks } from '../hooks/useStoreLinks';
+import { formatAgo, formatDay } from '../lib/memberPresence';
 import type { GameDetail, GamePrefix } from '../types/game';
+import type { SamGameCard } from '../types/sam';
 
 type State =
   | { kind: 'loading' }
-  | { kind: 'error'; message: string }
+  | { kind: 'error'; error: unknown }
   | { kind: 'ready'; data: GameDetail };
-
-const FIELD_ORDER = [
-  'Developer',
-  'Publisher',
-  'Version',
-  'Release Date',
-  'Thread Updated',
-  'OS',
-  'Language',
-  'Censored',
-  'Censorship',
-];
-
-const SKIP_FIELDS = new Set(['Overview', 'Genre', 'Installation', 'Changelog']);
 
 export function GameDetailPage() {
   return (
@@ -71,14 +68,44 @@ export function GameDetailPage() {
 
 function GameDetailPageInner() {
   const { threadId } = useParams<{ threadId: string }>();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const category = parseSamCategory(searchParams.get('cat'));
+  // The open tab lives in the URL, so Back returns to it.
+  const tabParam = searchParams.get('tab');
+  const selectTab = (id: StoreTab) =>
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (id === 'overview') next.delete('tab');
+        else next.set('tab', id);
+        return next;
+      },
+      { replace: true },
+    );
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useT();
   const { isOffline } = useOffline();
+  const storeLinks = useStoreLinks(category);
+  const onContentClick = useF95ContentLinks();
+  // Opened from a store card: its rating, likes and views (the thread page has none).
+  const stateCard = (location.state as { card?: SamGameCard } | null)?.card;
+  const cardStats = stateCard && stateCard.threadId === threadId ? stateCard : null;
   const { openMenuAt } = useContextMenu();
-  const [state, setState] = useState<State>({ kind: 'loading' });
-  const [inLibrary, setInLibrary] = useState(false);
+  const storeHref = useStoreHref();
+  // Details seen a moment ago (Back from the library page, the download
+  // modal) render in the first frame instead of a loading screen.
+  const [state, setState] = useState<State>(() => {
+    const hit = threadId ? cachedGameDetail(threadId) : null;
+    return hit ? { kind: 'ready', data: hit } : { kind: 'loading' };
+  });
+  /** Bumped by the Retry button to run the fetch again. */
+  const [attempt, setAttempt] = useState(0);
+  // The library index follows adds, installs and update checks anywhere in
+  // the app; `justAdded` covers the moment before it reloads.
+  const libraryEntry = useLibraryIndex().get(threadId ?? '');
+  const [justAdded, setJustAdded] = useState(false);
+  const inLibrary = !!libraryEntry || justAdded;
   const [adding, setAdding] = useState(false);
 
   const openDetailContextMenu = useCallback(
@@ -105,7 +132,7 @@ function GameDetailPageInner() {
             isOffline,
             inLibrary: inLib,
             t,
-            onLibraryChange: () => setInLibrary(true),
+            onLibraryChange: () => setJustAdded(true),
           },
         ),
       );
@@ -116,26 +143,27 @@ function GameDetailPageInner() {
   useEffect(() => {
     if (!threadId) return;
     let cancelled = false;
-    setState({ kind: 'loading' });
-    gameDetail(threadId)
-      .then((data) => {
-        if (cancelled) return;
-        setState({ kind: 'ready', data });
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setState({ kind: 'error', message: formatError(err) });
-      });
-    library
-      .isInLibrary(threadId)
-      .then((v) => {
-        if (!cancelled) setInLibrary(v);
-      })
-      .catch(() => undefined);
+    // Retry skips the cache; otherwise details seen a moment ago are reused.
+    const hit = attempt === 0 ? cachedGameDetail(threadId) : null;
+    if (hit) {
+      setState((prev) =>
+        prev.kind === 'ready' && prev.data === hit ? prev : { kind: 'ready', data: hit },
+      );
+    } else {
+      setState({ kind: 'loading' });
+      loadGameDetail(threadId, { fresh: attempt > 0 })
+        .then((data) => {
+          if (!cancelled) setState({ kind: 'ready', data });
+        })
+        .catch((err) => {
+          if (!cancelled) setState({ kind: 'error', error: err });
+        });
+    }
+    setJustAdded(false);
     return () => {
       cancelled = true;
     };
-  }, [threadId]);
+  }, [threadId, attempt]);
 
   useEffect(() => {
     if (state.kind !== 'ready') return;
@@ -165,9 +193,9 @@ function GameDetailPageInner() {
         thumbnailUrl: state.data.bannerUrl,
         currentVersion: state.data.version,
       });
-      setInLibrary(true);
+      setJustAdded(true);
     } catch (err) {
-      await dialog.alert(formatError(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     } finally {
       setAdding(false);
     }
@@ -183,7 +211,20 @@ function GameDetailPageInner() {
       title: state.data.title,
       detail: state.data,
       // O download adiciona o jogo à biblioteca; reflete na hora no botão.
-      onStarted: () => setInLibrary(true),
+      onStarted: () => setJustAdded(true),
+    });
+  }
+
+  /** F95 has a newer version than the installed one: download it. */
+  function onUpdate() {
+    if (state.kind !== 'ready') return;
+    openGameDownloadModal({
+      threadId: state.data.threadId,
+      category,
+      mode: 'update',
+      title: state.data.title,
+      versionLabel: state.data.version,
+      detail: state.data,
     });
   }
 
@@ -192,7 +233,7 @@ function GameDetailPageInner() {
       <GameDetailShell>
         <GameDetailBackBar
           onBack={() => navigate(-1)}
-          breadcrumbTo="/store"
+          breadcrumbTo={storeHref}
           breadcrumbLabel={t('nav.store')}
         />
         <GameDetailLoading />
@@ -205,31 +246,38 @@ function GameDetailPageInner() {
       <GameDetailShell>
         <GameDetailBackBar
           onBack={() => navigate(-1)}
-          breadcrumbTo="/store"
+          breadcrumbTo={storeHref}
           breadcrumbLabel={t('nav.store')}
         />
-        <GameDetailError message={state.message} />
+        <GameDetailError
+          message={describeIpcError(state.error, t)}
+          onRetry={() => setAttempt((n) => n + 1)}
+        />
       </GameDetailShell>
     );
   }
 
   const g = state.data;
   const displayPrefixes = normalizeDetailPrefixes(g.prefixes, g.version);
-  const sanitized = DOMPurify.sanitize(g.descriptionHtml, {
-    ADD_TAGS: ['details', 'summary'],
-    ADD_ATTR: ['target', 'rel', 'loading'],
-  });
-
-  const orderedFields = FIELD_ORDER.filter((k) => g.fields[k]);
-  const extraFields = Object.entries(g.fields).filter(
-    ([k]) => !FIELD_ORDER.includes(k) && !SKIP_FIELDS.has(k),
-  );
+  const libraryBadge = libraryBadgeKind(libraryEntry, g.version);
+  const sanitized = sanitizeF95Html(g.descriptionHtml);
+  const changelog = g.changelogHtml ? sanitizeF95Html(g.changelogHtml) : '';
+  // Details cached before these fields existed have none: show the tabs anyway.
+  const hasReviews = g.reviewCount !== null;
+  const tabs: { id: StoreTab; label: string; count?: number }[] = [
+    { id: 'overview', label: t('gamedetail.tabs.overview') },
+    { id: 'discussion', label: t('gamedetail.tabs.discussion') },
+    ...(hasReviews
+      ? [{ id: 'reviews' as const, label: t('gamedetail.tabs.reviews'), count: g.reviewCount ?? undefined }]
+      : []),
+  ];
+  const tab: StoreTab = tabs.some((x) => x.id === tabParam) ? (tabParam as StoreTab) : 'overview';
 
   return (
     <GameDetailShell onContextMenu={openDetailContextMenu}>
       <GameDetailBackBar
         onBack={() => navigate(-1)}
-        breadcrumbTo="/store"
+        breadcrumbTo={storeHref}
         breadcrumbLabel={t('nav.store')}
       />
 
@@ -238,17 +286,65 @@ function GameDetailPageInner() {
         coverUrl={g.bannerUrl}
         badges={
           <>
-            {displayPrefixes.map((p) => (
-              <PrefixPill key={p.name} name={p.name} cssClass={p.cssClass} />
-            ))}
+            {libraryBadge && libraryEntry && (
+              <LibraryBadge
+                kind={libraryBadge}
+                entry={libraryEntry}
+                storeVersion={g.version}
+                inline
+              />
+            )}
+            {displayPrefixes.map((p) => {
+              const to = storeLinks.prefix(p.name);
+              const pill = <PrefixPill name={p.name} cssClass={p.cssClass} />;
+              return to ? (
+                <Link
+                  key={p.name}
+                  to={to}
+                  className="game-detail-prefix-link"
+                  title={t('gamedetail.moreWith', { name: p.name })}
+                >
+                  {pill}
+                </Link>
+              ) : (
+                <span key={p.name}>{pill}</span>
+              );
+            })}
           </>
         }
         title={g.title}
-        meta={buildHeroMeta(g, t)}
+        meta={
+          <HeroMeta
+            detail={g}
+            stats={cardStats}
+            developerTo={g.developer ? storeLinks.developer(g.developer) : null}
+          />
+        }
         actions={
           <>
-            {inLibrary ? (
+            {libraryBadge === 'update' ? (
+              <>
+                <GameDetailBtnPrimary
+                  onClick={onUpdate}
+                  className="game-detail-btn-update"
+                  title={t('store.lib.updateTitle', {
+                    installed: libraryEntry?.currentVersion ?? '?',
+                    latest: g.version ?? '?',
+                  })}
+                >
+                  <Icon name="download" size={15} strokeWidth={2.4} />
+                  {g.version
+                    ? t('libdetail.action.update', { version: g.version })
+                    : t('gamedetail.action.update')}
+                </GameDetailBtnPrimary>
+                <GameDetailBtnSecondary onClick={() => navigate(`/library/game/${g.threadId}`)}>
+                  <Icon name="library" size={15} />
+                  {t('gamedetail.action.openInLibrary')}
+                </GameDetailBtnSecondary>
+              </>
+            ) : inLibrary ? (
               <GameDetailBtnPrimary as="a" to={`/library/game/${g.threadId}`}>
+                <Icon name="library" size={15} />
                 {t('gamedetail.action.openInLibrary')}
               </GameDetailBtnPrimary>
             ) : (
@@ -259,7 +355,7 @@ function GameDetailPageInner() {
                   onClick={onInstall}
                   title={t('gamedetail.action.install.title')}
                 >
-                  <DownloadIcon />
+                  <Icon name="download" size={15} strokeWidth={2.4} className="install-split-icon" />
                   <span className="install-split-label">
                     {t('gamedetail.action.install')}
                   </span>
@@ -271,7 +367,7 @@ function GameDetailPageInner() {
                   disabled={adding}
                   title={t('gamedetail.action.addToLibrary')}
                 >
-                  <PlusIcon />
+                  <Icon name="plus" size={15} strokeWidth={2.6} className="install-split-icon" />
                   <span className="install-split-label">
                     {adding
                       ? t('gamedetail.action.adding')
@@ -281,81 +377,67 @@ function GameDetailPageInner() {
               </div>
             )}
             <GameDetailBtnSecondary onClick={() => openUrl(g.threadUrl)}>
+              <Icon name="external" size={15} />
               {t('gamedetail.action.openThread')}
             </GameDetailBtnSecondary>
           </>
         }
       />
 
-      <GameDetailStatGrid>
-        {g.fields['Developer'] && (
-          <GameDetailStat label={t('gamedetail.field.developer')} value={g.fields['Developer']} />
-        )}
-        {g.fields['Publisher'] && (
-          <GameDetailStat label={t('gamedetail.field.publisher')} value={g.fields['Publisher']} />
-        )}
-        {g.version && (
-          <GameDetailStat label={t('gamedetail.field.version')} value={g.version} highlight />
-        )}
-        {g.fields['Thread Updated'] && (
-          <GameDetailStat
-            label={t('gamedetail.field.updated')}
-            value={g.fields['Thread Updated']}
-          />
-        )}
-        {g.fields['OS'] && (
-          <GameDetailStat
-            label={t('gamedetail.field.os')}
-            value={g.fields['OS']}
-            className="game-detail-stat-wide"
-          />
-        )}
-        {g.downloads.length > 0 && (
-          <GameDetailStat
-            label={t('gamedetail.field.downloads')}
-            value={t('gamedetail.field.downloadsCount', { count: g.downloads.length })}
-          />
-        )}
-      </GameDetailStatGrid>
-
       <GameDetailBody>
         <GameDetailMain>
-          {g.screenshots.length > 0 && (
-            <GameDetailSection title={t('gamedetail.section.screenshots')}>
-              <ScreenshotGallery images={g.screenshots} />
-            </GameDetailSection>
+          <Tabs label={t('gamedetail.tabs.label')} tabs={tabs} value={tab} onChange={selectTab} />
+
+          {tab === 'overview' && (
+            <>
+              {g.screenshots.length > 0 && (
+                <GameDetailSection title={t('gamedetail.section.screenshots')}>
+                  <ScreenshotGallery images={g.screenshots} />
+                </GameDetailSection>
+              )}
+
+              {g.tags.length > 0 && (
+                <GameDetailSection title={t('gamedetail.section.tags')}>
+                  <StoreTagList tags={g.tags} category={category} />
+                </GameDetailSection>
+              )}
+
+              <GameDetailSection title={t('gamedetail.section.about')}>
+                <div onClick={onContentClick}>
+                  <GameDescription
+                    html={sanitized}
+                    style={{ fontSize: 13.5, lineHeight: 1.65, wordBreak: 'break-word' }}
+                  />
+                </div>
+              </GameDetailSection>
+
+              {changelog && (
+                <GameDetailSection title={t('gamedetail.section.changelog')}>
+                  <div onClick={onContentClick}>
+                    <CollapsibleHtml html={changelog} />
+                  </div>
+                </GameDetailSection>
+              )}
+
+              {category === 'games' && <StoreAchievementsSection detail={g} />}
+            </>
           )}
 
-          {g.tags.length > 0 && (
-            <GameDetailSection title={t('gamedetail.section.tags')}>
-              <GameDetailTagList>
-                {g.tags.map((tag) => (
-                  <GameDetailTag key={tag.slug}>{tag.name}</GameDetailTag>
-                ))}
-              </GameDetailTagList>
-            </GameDetailSection>
-          )}
+          {tab === 'discussion' && <ThreadDiscussion threadId={g.threadId} threadUrl={g.threadUrl} />}
 
-          <GameDetailSection title={t('gamedetail.section.about')}>
-            <GameDescription
-              html={sanitized}
-              style={{ fontSize: 13.5, lineHeight: 1.65, wordBreak: 'break-word' }}
+          {tab === 'reviews' && (
+            <ThreadReviews
+              threadId={g.threadId}
+              threadUrl={g.threadUrl}
+              rating={g.rating}
+              reviewCount={g.reviewCount}
             />
-          </GameDetailSection>
-
-          {category === 'games' && <StoreAchievementsSection detail={g} />}
+          )}
         </GameDetailMain>
 
         <GameDetailAside>
           <GameDetailSection title={t('gamedetail.section.info')}>
-            <GameDetailFields>
-              {orderedFields.map((k) => (
-                <GameDetailField key={k} label={k} value={g.fields[k]} />
-              ))}
-              {extraFields.map(([k, v]) => (
-                <GameDetailField key={k} label={k} value={v} />
-              ))}
-            </GameDetailFields>
+            <StoreInfoFields detail={g} category={category} />
           </GameDetailSection>
 
           <GameDetailSection title={t('dl.section')} className="game-detail-downloads">
@@ -379,81 +461,76 @@ function GameDetailPageInner() {
   );
 }
 
-function normMetaKey(value: string): string {
-  return value.trim().toLowerCase().replace(/\s+/g, ' ');
+/**
+ * One row under the title: developer (opens their games in the store),
+ * version, when the thread was updated, and the card's rating, likes and
+ * views when the page was opened from the store list. Platform, release
+ * date and the rest stay in the Information panel.
+ */
+function HeroMeta({
+  detail,
+  stats,
+  developerTo,
+}: {
+  detail: GameDetail;
+  stats: SamGameCard | null;
+  developerTo: string | null;
+}) {
+  const { t, locale } = useT();
+  const updated = detail.fields['Thread Updated']?.trim() ?? '';
+  const updatedMs = /^\d{4}-\d{2}-\d{2}$/.test(updated)
+    ? new Date(`${updated}T00:00:00`).getTime()
+    : null;
+  const ago = updatedMs ? formatAgo(updatedMs, locale) : null;
+  return (
+    <>
+      {detail.developer &&
+        (developerTo ? (
+          <Link
+            to={developerTo}
+            className="game-detail-chip game-detail-chip-link"
+            title={t('gamedetail.moreFrom', { name: detail.developer })}
+          >
+            {detail.developer}
+          </Link>
+        ) : (
+          <GameDetailChip title={t('gamedetail.meta.developer')}>{detail.developer}</GameDetailChip>
+        ))}
+      {detail.version && (
+        <GameDetailChip accent title={t('gamedetail.meta.version')}>
+          {detail.version}
+        </GameDetailChip>
+      )}
+      {updatedMs && (
+        <GameDetailChip title={new Date(updatedMs).toLocaleDateString(locale)}>
+          {ago
+            ? t('gamedetail.meta.updatedAgo', { when: ago })
+            : t('gamedetail.meta.updatedOn', { date: formatDay(updatedMs, locale) })}
+        </GameDetailChip>
+      )}
+      {stats?.rating != null && stats.rating > 0 && (
+        <GameDetailChip title={t('gamedetail.meta.rating')}>
+          <Icon name="star" size={12} className="game-detail-chip-icon" />
+          {stats.rating.toFixed(1)}
+        </GameDetailChip>
+      )}
+      {stats?.likes != null && (
+        <GameDetailChip title={t('gamedetail.meta.likes')}>
+          <Icon name="heart" size={12} className="game-detail-chip-icon" />
+          {formatCount(stats.likes)}
+        </GameDetailChip>
+      )}
+      {stats?.views != null && (
+        <GameDetailChip title={t('gamedetail.meta.views')}>
+          <Icon name="eye" size={12} className="game-detail-chip-icon" />
+          {formatCount(stats.views)}
+        </GameDetailChip>
+      )}
+    </>
+  );
 }
 
-/** Avoid showing the same text twice (e.g. version in Release Date field). */
-function metaValuesMatch(a: string, b: string): boolean {
-  const ka = normMetaKey(a);
-  const kb = normMetaKey(b);
-  if (!ka || !kb) return false;
-  if (ka === kb) return true;
-  if (ka.includes(kb) || kb.includes(ka)) {
-    if (/\d{4}-\d{2}-\d{2}/.test(ka) || /\d{4}-\d{2}-\d{2}/.test(kb)) return true;
-    if (ka.replace(/^v\.?/, '') === kb.replace(/^v\.?/, '')) return true;
-  }
-  return false;
-}
-
-function truncateChip(text: string, max = 52): string {
-  const s = text.trim();
-  if (s.length <= max) return s;
-  return `${s.slice(0, max - 1)}…`;
-}
-
-function buildHeroMeta(
-  g: GameDetail,
-  t: (key: string, vars?: Record<string, string | number>) => string,
-) {
-  const seen = new Set<string>();
-  const chips: ReactNode[] = [];
-
-  const push = (key: string, node: ReactNode) => {
-    if (seen.has(key)) return;
-    seen.add(key);
-    chips.push(node);
-  };
-
-  if (g.developer) {
-    push(
-      normMetaKey(g.developer),
-      <GameDetailChip title={t('gamedetail.meta.developer')}>{g.developer}</GameDetailChip>,
-    );
-  }
-
-  if (g.version) {
-    push(
-      normMetaKey(g.version),
-      <GameDetailChip accent title={t('gamedetail.meta.version')}>
-        {g.version}
-      </GameDetailChip>,
-    );
-  }
-
-  const release = g.fields['Release Date']?.trim();
-  if (release && !metaValuesMatch(release, g.version ?? '')) {
-    const updated = g.fields['Thread Updated']?.trim() ?? '';
-    if (!updated || !metaValuesMatch(release, updated)) {
-      push(
-        normMetaKey(release),
-        <GameDetailChip title={t('gamedetail.meta.releaseDate')}>{release}</GameDetailChip>,
-      );
-    }
-  }
-
-  const os = g.fields['OS']?.trim();
-  if (os) {
-    push(
-      normMetaKey(os),
-      <GameDetailChip title={os} className="game-detail-chip-truncate">
-        {truncateChip(os)}
-      </GameDetailChip>,
-    );
-  }
-
-  return <>{chips}</>;
-}
+type StoreTab = 'overview' | 'discussion' | 'reviews';
 
 function normalizeDetailPrefixes(
   prefixes: GamePrefix[],
@@ -473,52 +550,4 @@ function normalizeDetailPrefixes(
     out.push(p);
   }
   return out;
-}
-
-function formatError(err: unknown): string {
-  if (err && typeof err === 'object' && 'message' in err) {
-    return String((err as { message: string }).message);
-  }
-  return String(err);
-}
-
-/** Seta de download (traço + seta pra baixo), no tamanho do texto do botão. */
-function DownloadIcon() {
-  return (
-    <svg
-      className="install-split-icon"
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M12 3v12" />
-      <path d="m6 11 6 6 6-6" />
-      <path d="M4 21h16" />
-    </svg>
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg
-      className="install-split-icon"
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.6"
-      strokeLinecap="round"
-      aria-hidden
-    >
-      <path d="M12 5v14" />
-      <path d="M5 12h14" />
-    </svg>
-  );
 }

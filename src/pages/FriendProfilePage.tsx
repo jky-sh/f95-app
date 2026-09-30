@@ -1,79 +1,103 @@
-import { useCallback, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { openUrl } from '@tauri-apps/plugin-opener';
-import * as ipc from '../lib/ipc';
 import { useT } from '../lib/i18n';
-import type { TFunction } from '../lib/i18n';
+import { dialog } from '../lib/dialog';
 import { OfflineGate } from '../components/OfflineGate';
 import { GameDetailBackBar } from '../components/game/GameDetailLayout';
+import { MemberAboutPanel } from '../components/profile/MemberAboutPanel';
 import {
-  MemberAboutList,
   MemberActivityList,
   MemberHero,
-  MemberSection,
   MemberStatsRow,
+  MemberTabBody,
+  MemberTabs,
 } from '../components/profile/MemberProfileParts';
+import { useMemberAbout, useMemberPostings, useMemberProfile } from '../hooks/useMemberProfile';
+import { useNow } from '../hooks/useNow';
 import type { MemberProfileDto } from '../types/social';
 
-type State =
-  | { kind: 'loading' }
-  | { kind: 'error'; message: string }
-  | { kind: 'ready'; member: MemberProfileDto };
+type Tab = 'activity' | 'postings' | 'about';
+const TABS: Tab[] = ['activity', 'postings', 'about'];
+
+function formatErr(err: unknown): string {
+  if (err && typeof err === 'object' && 'message' in err) {
+    return String((err as { message: string }).message);
+  }
+  return String(err);
+}
 
 /**
- * In-app profile of a followed member (`/friends/:userId`) — fetched live
- * from F95 via `get_member_profile`. Shares the hero/stats/activity/about
- * building blocks with the user's own Profile page.
+ * In-app profile of any F95 member (`/friends/:userId`): hero with cover,
+ * follow and message actions, stats and Activity / Postings / About tabs.
  */
 export function FriendProfilePage() {
+  const { userId } = useParams();
+  // Remount per member so moving between profiles never flashes the last one.
+  return <MemberProfileView key={userId} userId={userId} />;
+}
+
+function MemberProfileView({ userId }: { userId: string | undefined }) {
   const { t } = useT();
   const navigate = useNavigate();
-  const { userId } = useParams();
-  const [state, setState] = useState<State>({ kind: 'loading' });
+  const now = useNow();
+  const [params, setParams] = useSearchParams();
+  const requested = params.get('tab') as Tab | null;
+  const tab: Tab = requested && TABS.includes(requested) ? requested : 'activity';
+  const { state, reload, setFollowing } = useMemberProfile(userId);
+  const postings = useMemberPostings(userId, tab === 'postings');
+  const about = useMemberAbout(userId, tab === 'about');
+  const [followBusy, setFollowBusy] = useState(false);
 
-  const reload = useCallback(async () => {
-    if (!userId) return;
-    setState({ kind: 'loading' });
-    try {
-      const member = await ipc.getMemberProfile(userId);
-      setState({ kind: 'ready', member });
-    } catch (err) {
-      setState({
-        kind: 'error',
-        message:
-          err && typeof err === 'object' && 'message' in err
-            ? String((err as { message: string }).message)
-            : String(err),
+  // Came here from another profile (follower avatars): go back to it.
+  const canGoBack = ((window.history.state as { idx?: number } | null)?.idx ?? 0) > 0;
+
+  function setTab(next: Tab) {
+    setParams(next === 'activity' ? {} : { tab: next }, { replace: true });
+  }
+
+  async function onToggleFollow(member: MemberProfileDto) {
+    const following = member.followState === 'following';
+    if (following) {
+      const ok = await dialog.confirm(t('friends.unfollow.confirm', { name: member.username }), {
+        kind: 'warning',
+        confirmLabel: t('friends.unfollow.action'),
       });
+      if (!ok) return;
     }
-  }, [userId]);
-
-  useEffect(() => {
-    void reload();
-  }, [reload]);
+    setFollowBusy(true);
+    try {
+      await setFollowing(!following);
+    } catch (err) {
+      await dialog.alert(t('profile.follow.failed', { error: formatErr(err) }), { kind: 'error' });
+    } finally {
+      setFollowBusy(false);
+    }
+  }
 
   return (
     <OfflineGate>
-      <div style={pageStyle}>
+      <div className="member-page">
         <GameDetailBackBar
-          onBack={() => navigate('/friends')}
+          onBack={() => (canGoBack ? navigate(-1) : navigate('/friends'))}
           breadcrumbTo="/friends"
           breadcrumbLabel={t('nav.friends')}
         />
 
-        <div style={contentStyle}>
+        <div className="member-page-content">
           {state.kind === 'loading' && (
             <div className="member-profile-skeleton">
               <div className="skeleton member-profile-skeleton-hero" />
+              <div className="skeleton member-profile-skeleton-stats" />
               <div className="skeleton member-profile-skeleton-block" />
             </div>
           )}
 
           {state.kind === 'error' && (
-            <div style={errorBox}>
+            <div className="member-error">
               <div>{t('profile.loadFailed')}</div>
-              <div style={errorDetail}>{state.message}</div>
-              <button type="button" style={retryBtn} onClick={() => void reload()}>
+              <div className="member-error-detail">{state.message}</div>
+              <button type="button" className="member-btn" onClick={() => void reload()}>
                 {t('common.refresh')}
               </button>
             </div>
@@ -82,20 +106,40 @@ export function FriendProfilePage() {
           {state.kind === 'ready' && (
             <>
               <MemberHero
-                avatarUrl={state.member.avatarUrl}
-                username={state.member.username}
-                userBanner={state.member.userBanner}
-                customTitle={state.member.customTitle}
-                joinedAt={state.member.joinedAt}
-                lastSeen={state.member.lastSeen}
+                member={state.member}
+                now={now}
                 actions={
-                  <button
-                    type="button"
-                    style={openBtn}
-                    onClick={() => void openUrl(state.member.profileUrl)}
-                  >
-                    {t('profile.openOnF95')}
-                  </button>
+                  <>
+                    {state.member.followState && (
+                      <button
+                        type="button"
+                        className={`member-btn ${
+                          state.member.followState === 'following' ? 'member-btn--following' : 'member-btn--primary'
+                        }`}
+                        disabled={followBusy}
+                        title={state.member.followState === 'following' ? t('profile.following.title') : undefined}
+                        onClick={() => void onToggleFollow(state.member)}
+                      >
+                        {state.member.followState === 'following' ? `✓ ${t('profile.following')}` : t('profile.follow')}
+                      </button>
+                    )}
+                    {state.member.conversationUrl && (
+                      <button
+                        type="button"
+                        className="member-btn"
+                        onClick={() => void openUrl(state.member.conversationUrl!)}
+                      >
+                        {t('profile.sendMessage')}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="member-btn"
+                      onClick={() => void openUrl(state.member.profileUrl)}
+                    >
+                      {t('profile.openOnF95')}
+                    </button>
+                  </>
                 }
               />
 
@@ -103,19 +147,32 @@ export function FriendProfilePage() {
                 stats={[
                   { label: t('profile.field.messages'), value: state.member.messagesCount },
                   { label: t('profile.field.reactions'), value: state.member.reactionScore },
-                  { label: t('profile.field.points'), value: state.member.points },
-                  { label: t('profile.field.trophies'), value: state.member.trophyPoints },
+                  { label: t('profile.field.points'), value: state.member.points ?? state.member.trophyPoints },
                   { label: t('profile.field.ratings'), value: state.member.ratingsReceived },
                 ]}
               />
 
-              <MemberSection title={t('profile.tab.activity')}>
-                <MemberActivityList items={state.member.activity} />
-              </MemberSection>
-
-              <MemberSection title={t('profile.section.about')}>
-                <MemberAboutList rows={aboutRows(state.member, t)} />
-              </MemberSection>
+              <MemberTabs
+                tabs={[
+                  { id: 'activity', label: t('profile.tab.activity') },
+                  { id: 'postings', label: t('profile.tab.postings') },
+                  { id: 'about', label: t('profile.tab.about') },
+                ]}
+                active={tab}
+                onChange={setTab}
+              >
+                {tab === 'activity' && <MemberActivityList items={state.member.activity} now={now} />}
+                {tab === 'postings' && (
+                  <MemberTabBody state={postings.state} onRetry={() => void postings.reload()}>
+                    {(items) => <MemberActivityList items={items} now={now} />}
+                  </MemberTabBody>
+                )}
+                {tab === 'about' && (
+                  <MemberTabBody state={about.state} onRetry={() => void about.reload()}>
+                    {(data) => <MemberAboutPanel about={data} member={state.member} />}
+                  </MemberTabBody>
+                )}
+              </MemberTabs>
             </>
           )}
         </div>
@@ -123,65 +180,3 @@ export function FriendProfilePage() {
     </OfflineGate>
   );
 }
-
-function aboutRows(m: MemberProfileDto, t: TFunction): [string, string][] {
-  const rows: [string, string][] = [];
-  rows.push([t('profile.field.userId'), `#${m.userId}`]);
-  if (m.joinedAt) rows.push([t('profile.field.joinedAt'), m.joinedAt]);
-  if (m.lastSeen) rows.push([t('profile.field.lastSeen'), m.lastSeen]);
-  if (m.userBanner) rows.push([t('profile.field.title'), m.userBanner]);
-  for (const [k, v] of Object.entries(m.extraStats)) {
-    rows.push([k, v]);
-  }
-  rows.push([t('profile.field.profileUrl'), m.profileUrl]);
-  return rows;
-}
-
-const pageStyle: React.CSSProperties = {
-  padding: '20px 24px 40px',
-};
-
-const contentStyle: React.CSSProperties = {
-  maxWidth: 980,
-  margin: '16px auto 0',
-};
-
-const errorBox: React.CSSProperties = {
-  background: 'var(--status-danger-bg)',
-  border: '1px solid var(--accent-strong)',
-  color: 'var(--status-danger-text)',
-  padding: '16px 18px',
-  borderRadius: 6,
-  fontSize: 13,
-};
-
-const errorDetail: React.CSSProperties = {
-  marginTop: 6,
-  fontSize: 12,
-  opacity: 0.85,
-  wordBreak: 'break-word',
-};
-
-const retryBtn: React.CSSProperties = {
-  marginTop: 12,
-  background: 'transparent',
-  color: 'var(--status-danger-text)',
-  border: '1px solid currentColor',
-  padding: '5px 12px',
-  borderRadius: 3,
-  fontSize: 12,
-  fontWeight: 600,
-  cursor: 'pointer',
-};
-
-const openBtn: React.CSSProperties = {
-  background: 'transparent',
-  color: 'var(--accent)',
-  border: '1px solid var(--accent)',
-  padding: '6px 14px',
-  borderRadius: 3,
-  cursor: 'pointer',
-  fontSize: 13,
-  fontWeight: 600,
-  whiteSpace: 'nowrap',
-};

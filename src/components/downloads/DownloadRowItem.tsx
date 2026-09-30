@@ -12,6 +12,9 @@ import {
   stateKey,
 } from '../../types/download';
 import type { DownloadGameInfo } from './DownloadCard';
+import { parseDbTime } from '../../lib/dbTime';
+import { LibraryCover } from '../library/LibraryCover';
+import { Icon } from '../ui/Icon';
 
 interface Props {
   row: DownloadRow;
@@ -36,13 +39,7 @@ export function DownloadActiveCard({ row, progress, game, onCancel, onContextMen
   return (
     <article className="dl-active-card" onContextMenu={onContextMenu}>
       <Link to={`/store/game/${row.threadId}`} className="dl-active-thumb">
-        {game?.thumbnailUrl ? (
-          <img src={game.thumbnailUrl} alt="" loading="lazy" />
-        ) : (
-          <span className="dl-active-thumb-fallback">
-            {displayTitle.slice(0, 1).toUpperCase()}
-          </span>
-        )}
+        <LibraryCover url={game?.thumbnailUrl ?? null} title={displayTitle} quality="preview" />
       </Link>
 
       <div className="dl-active-body">
@@ -75,7 +72,8 @@ export function DownloadActiveCard({ row, progress, game, onCancel, onContextMen
               <> · {t('dllist.meta.eta', { eta: formatEta(liveTotal - liveBytes, progress.speedBps) })}</>
             )}
           </span>
-          <button type="button" className="dl-link-btn" onClick={onCancel}>
+          <button type="button" className="ui-btn ui-btn--ghost ui-btn--sm" onClick={onCancel}>
+            <Icon name="x" size={13} />
             {t('downloads.action.cancel')}
           </button>
         </div>
@@ -120,8 +118,9 @@ export function DownloadHistoryRow({
   const fileName = fileLabel(row, displayTitle);
   const size = formatBytes(row.bytesTotal ?? row.bytesDone);
   const captchaHost = supportsCaptchaWindow(row.host);
-  const date = row.finishedAt
-    ? new Date(row.finishedAt).toLocaleString(undefined, {
+  const finished = parseDbTime(row.finishedAt);
+  const date = finished
+    ? finished.toLocaleString(undefined, {
         day: '2-digit',
         month: '2-digit',
         hour: '2-digit',
@@ -135,11 +134,7 @@ export function DownloadHistoryRow({
       onContextMenu={onContextMenu}
     >
       <Link to={`/store/game/${row.threadId}`} className="dl-history-thumb">
-        {game?.thumbnailUrl ? (
-          <img src={game.thumbnailUrl} alt="" loading="lazy" />
-        ) : (
-          <span>{displayTitle.slice(0, 1).toUpperCase()}</span>
-        )}
+        <LibraryCover url={game?.thumbnailUrl ?? null} title={displayTitle} quality="preview" />
       </Link>
 
       <div className="dl-history-main">

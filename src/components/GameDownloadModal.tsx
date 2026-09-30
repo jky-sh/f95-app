@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { gameDetail } from '../lib/ipc';
+import { loadGameDetail } from '../lib/gameDetailCache';
 import {
   GAME_DOWNLOAD_MODAL_EVENT,
   type GameDownloadModalDetail,
@@ -51,7 +51,7 @@ export function GameDownloadModal() {
     }
     let cancelled = false;
     setBody({ kind: 'loading' });
-    gameDetail(request.threadId)
+    loadGameDetail(request.threadId)
       .then((data) => {
         if (!cancelled) setBody({ kind: 'ready', data });
       })

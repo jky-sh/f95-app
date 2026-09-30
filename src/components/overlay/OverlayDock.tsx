@@ -2,7 +2,7 @@ import { useT } from '../../lib/i18n';
 import type { OverlayAnchorStatus, OverlayContext } from '../../types/overlay';
 import { OverlayAnchorBadge } from './OverlayAnchorBadge';
 import { OverlayTabIcon } from './overlayIcons';
-import { OVERLAY_TAB_ORDER, OVERLAY_WIP_TABS, type OverlayTab } from './overlayTypes';
+import { OVERLAY_TAB_LABEL_KEYS, OVERLAY_TAB_ORDER, type OverlayTab } from './overlayTypes';
 
 interface RunningOption {
   threadId: string;
@@ -11,6 +11,8 @@ interface RunningOption {
 
 interface Props {
   context: OverlayContext | null;
+  /** The running game's title, when Rust has sent no context yet. */
+  fallbackTitle: string | null;
   anchor: OverlayAnchorStatus | null;
   running: RunningOption[];
   threadId: string;
@@ -21,15 +23,9 @@ interface Props {
   onCloseOverlay: () => void;
 }
 
-const TAB_LABEL_KEYS: Record<OverlayTab, string> = {
-  notes: 'overlay.tab.notes',
-  guides: 'overlay.tab.guides',
-  browser: 'overlay.tab.browser',
-  achievements: 'overlay.tab.achievements',
-};
-
 export function OverlayDock({
   context,
+  fallbackTitle,
   anchor,
   running,
   threadId,
@@ -51,8 +47,8 @@ export function OverlayDock({
             <OverlayTabIcon tab="notes" size={18} />
           </div>
         )}
-        <span className="game-overlay-dock-title" title={context?.title}>
-          {context?.title ?? 'F95 App'}
+        <span className="game-overlay-dock-title" title={context?.title ?? fallbackTitle ?? undefined}>
+          {context?.title ?? fallbackTitle ?? 'F95 App'}
         </span>
       </div>
 
@@ -67,14 +63,11 @@ export function OverlayDock({
               className={`game-overlay-dock-btn${isOpen ? ' game-overlay-dock-btn--active' : ''}`}
               onClick={() => enabled && onTogglePanel(tab)}
               disabled={!enabled}
-              title={t(TAB_LABEL_KEYS[tab])}
-              aria-label={t(TAB_LABEL_KEYS[tab])}
+              title={t(OVERLAY_TAB_LABEL_KEYS[tab])}
+              aria-label={t(OVERLAY_TAB_LABEL_KEYS[tab])}
               aria-pressed={isOpen}
             >
               <OverlayTabIcon tab={tab} size={18} />
-              {OVERLAY_WIP_TABS.has(tab) && enabled && (
-                <span className="game-overlay-dock-wip" aria-hidden />
-              )}
             </button>
           );
         })}

@@ -91,6 +91,15 @@ async function versionRows(threadId: string): Promise<DbRow[]> {
   );
 }
 
+/** Disk used by every registered version of the game (bytes), or null if unknown. */
+export async function totalSize(threadId: string): Promise<number | null> {
+  const rows = await query<{ total: number | null }>(
+    `SELECT SUM(size_bytes) AS total FROM install_versions WHERE thread_id = ?`,
+    [threadId],
+  );
+  return rows[0]?.total ?? null;
+}
+
 /**
  * Registered install root that holds `path` (the path itself when it is a
  * root, or the root of the extraction it sits in), or `path` when none does.
@@ -174,6 +183,7 @@ export async function listForGame(game: LibraryGame): Promise<InstallVersion[]> 
       root.install_path,
       game.threadId,
     ]);
+    library.notifyLibraryChange(game.threadId);
     activePath = root.install_path;
   }
 
@@ -248,6 +258,7 @@ export async function setActive(
           SET install_path = ?, exe_path = NULL,
               install_status = CASE
                 WHEN install_status IN ('downloading', 'extracting') THEN install_status
+                WHEN install_status = 'update_available' THEN install_status
                 ELSE 'installed'
               END
         WHERE thread_id = ?`,
@@ -260,6 +271,9 @@ export async function setActive(
       [version.version, game.threadId],
     );
   }
+  // Activating the version F95 advertises clears the update notice; rolling
+  // back to an older one brings it back.
+  await library.syncUpdateStatus(game.threadId);
 }
 
 /** Atualiza o exe registrado de uma versão (usuário escolheu manualmente). */

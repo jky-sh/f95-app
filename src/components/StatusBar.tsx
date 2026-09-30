@@ -158,7 +158,7 @@ export function StatusBar() {
           type="button"
           className="status-bar-offline-badge"
           title={t('offline.badge')}
-          onClick={() => navigate('/settings#settings-offline')}
+          onClick={() => navigate('/settings?section=system#settings-offline')}
         >
           {t('offline.badge')}
         </button>

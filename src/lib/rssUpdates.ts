@@ -8,7 +8,8 @@ import type { RssFeedItem } from '../types/rss';
 export const KEY_RSS_LAST_POLL_AT = 'rss_last_poll_at';
 export const KEY_RSS_GUIDS_SEEDED = 'rss_guids_seeded';
 
-const THREAD_URL_RE = /\/threads\/(\d+)/;
+// `/threads/123/` and the usual `/threads/some-title.123/post-456`.
+const THREAD_URL_RE = /\/threads\/(?:[^/?#]*\.)?(\d+)(?:[/?#]|$)/;
 
 /**
  * Poll the F95 RSS feed, cross-check library games for updates, and enqueue

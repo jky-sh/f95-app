@@ -1,3 +1,4 @@
+import { emit, listen } from '@tauri-apps/api/event';
 import {
   clampAllPanelLayouts,
   DEFAULT_PANEL_LAYOUTS,
@@ -5,6 +6,9 @@ import {
   type OverlayPanelLayouts,
 } from '../components/overlay/overlayPanelLayouts';
 import * as settings from './settings';
+
+/** Sent to every window (main, overlay, hint) after a save. */
+const CHANGED_EVENT = 'settings:experimental-changed';
 
 export type OverlayDisplayMode = 'fullscreen' | 'compact';
 
@@ -16,6 +20,7 @@ export interface OverlayCompactGeom {
 }
 
 export interface ExperimentalFeatures {
+  game: boolean;
   notes: boolean;
   guides: boolean;
   browser: boolean;
@@ -50,6 +55,7 @@ const COMPACT_MIN_H = 280;
 const COMPACT_MARGIN = 24;
 
 const DEFAULT_FEATURES: ExperimentalFeatures = {
+  game: true,
   notes: true,
   guides: true,
   browser: true,
@@ -94,6 +100,7 @@ function parseFeatures(raw: string | null): ExperimentalFeatures {
   try {
     const o = JSON.parse(raw) as Partial<ExperimentalFeatures>;
     return {
+      game: o.game !== false,
       notes: o.notes !== false,
       guides: o.guides !== false,
       browser: o.browser !== false,
@@ -189,15 +196,34 @@ export function isOverlayEnabled(): boolean {
 export function subscribeExperimentalSettings(
   fn: (s: ExperimentalSettings) => void,
 ): () => void {
+  startCrossWindowSync();
   listeners.add(fn);
   fn(getExperimentalSettings());
   return () => listeners.delete(fn);
 }
 
+let syncing = false;
+
+/** Reload when another window saves, so the overlay follows Settings live. */
+function startCrossWindowSync(): void {
+  if (syncing || typeof window === 'undefined') return;
+  syncing = true;
+  void listen(CHANGED_EVENT, () => {
+    void loadExperimentalSettings().then(notify);
+  }).catch(() => {
+    syncing = false;
+  });
+}
+
+/**
+ * Saves only the settings in `patch`, merged onto what is stored now rather
+ * than this window's copy: the main window and the overlay each keep one,
+ * and writing every key from a stale copy undid the other window's changes.
+ */
 export async function saveExperimentalSettings(
   patch: Partial<ExperimentalSettings>,
 ): Promise<ExperimentalSettings> {
-  const current = cached ?? (await loadExperimentalSettings());
+  const current = await loadExperimentalSettings();
   const next: ExperimentalSettings = {
     ...current,
     ...patch,
@@ -217,22 +243,23 @@ export async function saveExperimentalSettings(
     next.overlayCompactGeom = clampCompactGeom(next.overlayCompactGeom);
   }
   cached = next;
-  await Promise.all([
-    settings.setBool(settings.KEY_EXP_OVERLAY_ENABLED, next.overlayEnabled),
-    settings.set(settings.KEY_EXP_OVERLAY_HOTKEY, next.overlayHotkey),
-    settings.set(settings.KEY_EXP_OVERLAY_DISPLAY_MODE, next.overlayDisplayMode),
-    settings.set(
-      settings.KEY_EXP_OVERLAY_COMPACT_GEOM,
-      JSON.stringify(next.overlayCompactGeom),
-    ),
-    settings.set(settings.KEY_EXP_OVERLAY_BACKDROP_OPACITY, String(next.overlayBackdropOpacity)),
-    settings.set(settings.KEY_EXP_FEATURES_JSON, JSON.stringify(next.features)),
-    settings.set(settings.KEY_EXP_BROWSER_HOME_URL, next.browserHomeUrl),
-    settings.set(
-      settings.KEY_EXP_OVERLAY_PANEL_LAYOUTS,
-      JSON.stringify(next.overlayPanelLayouts),
-    ),
-  ]);
+  const writes: Record<keyof ExperimentalSettings, () => Promise<void>> = {
+    overlayEnabled: () => settings.setBool(settings.KEY_EXP_OVERLAY_ENABLED, next.overlayEnabled),
+    overlayHotkey: () => settings.set(settings.KEY_EXP_OVERLAY_HOTKEY, next.overlayHotkey),
+    overlayDisplayMode: () => settings.set(settings.KEY_EXP_OVERLAY_DISPLAY_MODE, next.overlayDisplayMode),
+    overlayCompactGeom: () =>
+      settings.set(settings.KEY_EXP_OVERLAY_COMPACT_GEOM, JSON.stringify(next.overlayCompactGeom)),
+    overlayBackdropOpacity: () =>
+      settings.set(settings.KEY_EXP_OVERLAY_BACKDROP_OPACITY, String(next.overlayBackdropOpacity)),
+    features: () => settings.set(settings.KEY_EXP_FEATURES_JSON, JSON.stringify(next.features)),
+    browserHomeUrl: () => settings.set(settings.KEY_EXP_BROWSER_HOME_URL, next.browserHomeUrl),
+    overlayPanelLayouts: () =>
+      settings.set(settings.KEY_EXP_OVERLAY_PANEL_LAYOUTS, JSON.stringify(next.overlayPanelLayouts)),
+  };
+  await Promise.all(
+    (Object.keys(patch) as (keyof ExperimentalSettings)[]).filter((k) => k in writes).map((k) => writes[k]()),
+  );
   notify();
+  void emit(CHANGED_EVENT).catch(() => {});
   return next;
 }

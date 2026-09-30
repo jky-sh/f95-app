@@ -34,6 +34,12 @@ function emitChanged(): void {
   window.dispatchEvent(new CustomEvent(COLLECTIONS_CHANGE_EVENT));
 }
 
+/** Drop a game from every collection (it left the library). */
+export async function forgetGame(threadId: string): Promise<void> {
+  await execute(`DELETE FROM library_collection_games WHERE thread_id = ?`, [threadId]);
+  emitChanged();
+}
+
 export function openManageCollections(detail: ManageCollectionsDetail): void {
   window.dispatchEvent(new CustomEvent(MANAGE_COLLECTIONS_EVENT, { detail }));
 }
