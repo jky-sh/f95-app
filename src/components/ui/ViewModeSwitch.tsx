@@ -44,11 +44,20 @@ export function useViewMode(page: string, fallback: ViewMode = 'cards'): [ViewMo
   return [mode, update];
 }
 
-export function ViewModeSwitch({ value, onChange }: { value: ViewMode; onChange: (mode: ViewMode) => void }) {
+export function ViewModeSwitch({
+  value,
+  onChange,
+  modes,
+}: {
+  value: ViewMode;
+  onChange: (mode: ViewMode) => void;
+  /** The views this page offers; all three by default. */
+  modes?: readonly ViewMode[];
+}) {
   const { t } = useT();
   return (
     <div className="ui-segmented" role="group" aria-label={t('view.label')}>
-      {MODES.map((m) => (
+      {MODES.filter((m) => !modes || modes.includes(m.id)).map((m) => (
         <button
           key={m.id}
           type="button"

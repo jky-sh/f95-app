@@ -9,8 +9,9 @@ import {
 } from '../components/library/LibraryGameViews';
 import { GameCardGridSkeleton } from '../components/ui/GameCardSkeleton';
 import { Icon } from '../components/ui/Icon';
-import { ViewModeSwitch, useViewMode } from '../components/ui/ViewModeSwitch';
+import { ViewModeSwitch } from '../components/ui/ViewModeSwitch';
 import { useDownloadsByThread } from '../hooks/useDownloadsByThread';
+import { useLibraryView } from '../hooks/useLibraryView';
 import { useLibraryGameActions } from '../hooks/useLibraryGameActions';
 import {
   confirmDeleteCollection,
@@ -44,7 +45,7 @@ export function LibraryCollectionPage() {
   const [collection, setCollection] = useState<LibraryCollection | null>(null);
   const [games, setGames] = useState<LibraryGame[]>([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useViewMode('library');
+  const { view, setView, views } = useLibraryView();
   const [sort, setSort] = useState<LibrarySort>('title');
 
   const reload = useCallback(async () => {
@@ -147,7 +148,7 @@ export function LibraryCollectionPage() {
             <>
               <div className="ui-toolbar lib-toolbar">
                 <span className="ui-toolbar-spacer" />
-                <ViewModeSwitch value={view} onChange={setView} />
+                <ViewModeSwitch value={view} onChange={setView} modes={views} />
               </div>
               {view === 'list' ? (
                 <LibraryList

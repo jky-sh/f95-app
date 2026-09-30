@@ -9,7 +9,7 @@ import {
 } from '../components/library/LibraryGameViews';
 import { Icon } from '../components/ui/Icon';
 import { SearchBox } from '../components/ui/SearchBox';
-import { ViewModeSwitch, useViewMode } from '../components/ui/ViewModeSwitch';
+import { ViewModeSwitch } from '../components/ui/ViewModeSwitch';
 import { CollectionFolderCard } from '../components/library/CollectionFolderCard';
 import { ContinuePlayingRow } from '../components/library/ContinuePlayingRow';
 import { GameCardGridSkeleton } from '../components/ui/GameCardSkeleton';
@@ -17,6 +17,7 @@ import { useLibraryGameActions } from '../hooks/useLibraryGameActions';
 import { useDownloadsByThread } from '../hooks/useDownloadsByThread';
 import { UpdateCheckControl } from '../components/library/UpdateCheckControl';
 import { useSkin } from '../hooks/useSkin';
+import { useLibraryView } from '../hooks/useLibraryView';
 import { useT } from '../lib/i18n';
 import * as library from '../lib/library';
 import {
@@ -225,7 +226,7 @@ export function LibraryPage() {
     onReload: reload,
   });
   const downloadsByThread = useDownloadsByThread();
-  const [view, setView] = useViewMode('library');
+  const { view, setView, views } = useLibraryView();
 
   // Chip counts follow the category tab, whatever else is filtered.
   const counts = useMemo(() => {
@@ -307,7 +308,7 @@ export function LibraryPage() {
             </option>
           ))}
         </select>
-        <ViewModeSwitch value={view} onChange={setView} />
+        <ViewModeSwitch value={view} onChange={setView} modes={views} />
       </div>
 
       {error && <div className="store-error">{error}</div>}
