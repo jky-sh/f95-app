@@ -86,7 +86,12 @@
 .lib-tile .library-cover-img { transition: transform 0.25s ease; }
 
 /* List view -------------------------------------------------------------------- */
-.lib-list { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--ui-radius-lg); overflow: hidden; }
+.lib-list {
+  display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--ui-radius-lg); overflow: hidden;
+  /* Columns drop by the list's own width: the store's filter panel and the
+     Steam game list take space the window width doesn't show. */
+  container: liblist / inline-size;
+}
 .lib-list-row {
   display: grid; align-items: center; gap: 14px; padding: 6px 12px 6px 6px;
   /* Every row is its own grid: fixed tracks keep the columns aligned. */
@@ -111,14 +116,27 @@
   color: inherit; font: inherit; text-transform: inherit; letter-spacing: inherit; cursor: pointer;
 }
 .lib-list-sort:hover, .lib-list-sort--active { color: var(--text-primary); }
-@media (max-width: 1100px) {
+@container liblist (max-width: 1000px) {
   .lib-list-row { grid-template-columns: 96px minmax(160px, 1fr) 130px 110px 156px; }
   .lib-list-col--last, .lib-list-col--status { display: none; }
 }
+@container liblist (max-width: 720px) {
+  .lib-list-row { grid-template-columns: 72px minmax(140px, 1fr) 100px 156px; gap: 10px; }
+  .lib-list-row .lib-list-thumb { width: 72px; }
+  .lib-list-col--version { display: none; }
+}
 
 /* Continue playing rail -------------------------------------------------------- */
-.lib-continue { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
-.lib-continue-card { position: relative; border-radius: var(--ui-radius-lg); overflow: hidden; background: var(--bg-sunken); min-width: 0; }
+/* One row, whatever the width: up to four cards share it; a narrow window
+   scrolls it sideways instead of stacking the rail above the library. The
+   padding keeps the Steam hover glow inside the scroller. */
+.lib-continue {
+  display: grid; grid-auto-flow: column; gap: 16px;
+  grid-auto-columns: minmax(240px, calc((100% - 48px) / 4));
+  overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding: 6px;
+  padding: 6px; margin: -6px;
+}
+.lib-continue-card { position: relative; border-radius: var(--ui-radius-lg); overflow: hidden; background: var(--bg-sunken); min-width: 0; scroll-snap-align: start; }
 .lib-continue-card .lib-tile-cover { aspect-ratio: 2 / 1; }
 .lib-continue-card .lib-tile-info { right: 64px; }
 .lib-continue-play { position: absolute; right: 12px; bottom: 12px; width: 42px; height: 42px; border-radius: 50%; }
@@ -159,9 +177,14 @@
 .store-list-col--title { display: flex; flex-direction: column; gap: 2px; }
 .store-list-dev { font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .store-list-col--flags { display: flex; gap: 6px; overflow: visible; }
-@media (max-width: 1250px) {
+@container liblist (max-width: 900px) {
   .store-list-row { grid-template-columns: 80px minmax(140px, 1fr) 100px 56px 76px 92px; }
   .store-list-col--views, .store-list-col--flags { display: none; }
+}
+@container liblist (max-width: 620px) {
+  .store-list-row { grid-template-columns: 64px minmax(120px, 1fr) 56px 92px; gap: 10px; }
+  .store-list-row .lib-list-thumb { width: 64px; }
+  .store-list-col--version, .store-list-col--likes { display: none; }
 }
 /* Store tiles stop at F95's 400 px previews: keep them near that width. */
 .store-grid--covers { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
