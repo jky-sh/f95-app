@@ -633,6 +633,11 @@ export async function overlayHide(): Promise<void> {
   return invoke('overlay_hide');
 }
 
+/** The layout the global hotkey opens the overlay with (fullscreen or compact). */
+export async function overlaySetLayout(layout: OverlayLayout): Promise<void> {
+  return invoke('overlay_set_layout', { layout });
+}
+
 export async function overlayToggle(): Promise<boolean> {
   await loadExperimentalSettings();
   return invoke<boolean>('overlay_toggle', { layout: buildOverlayLayout() });

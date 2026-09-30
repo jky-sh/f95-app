@@ -1243,6 +1243,13 @@ fn cache_overlay_layout(state: &AppState, layout: &OverlayLayout) {
     }
 }
 
+/// The layout the global hotkey shows the overlay with. Only `overlay_show`
+/// set it before, so the hotkey opened fullscreen even in compact mode.
+#[tauri::command]
+pub fn overlay_set_layout(state: State<'_, AppState>, layout: OverlayLayout) {
+    cache_overlay_layout(&state, &layout);
+}
+
 pub fn pause_overlay_follow(state: &AppState, ms: u64) {
     if let Ok(mut g) = state.overlay_follow_paused_until.lock() {
         *g = Some(std::time::Instant::now() + Duration::from_millis(ms.max(50)));

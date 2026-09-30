@@ -55,6 +55,8 @@ export async function syncOverlayForLaunch(
   await syncOverlayHotkey();
   const hotkey = getExperimentalSettings().overlayHotkey.trim() || DEFAULT_OVERLAY_HOTKEY;
   await ipc.overlayEnsure();
+  // The hotkey opens the overlay in the mode chosen in Settings (compact or fullscreen).
+  await ipc.overlaySetLayout(ipc.buildOverlayLayout()).catch(() => {});
   await ipc.overlaySetContext(gameToOverlayContext(game, sessionId));
   await new Promise((r) => setTimeout(r, 600));
   try {
