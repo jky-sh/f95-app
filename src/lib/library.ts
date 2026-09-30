@@ -9,6 +9,32 @@ import type {
 } from '../types/library';
 import type { SamCategory } from '../types/sam';
 
+/**
+ * Fired on `window` after a library row changes (`detail.threadId`), so the
+ * store badges, the library grid and open game pages follow along without
+ * polling. Bursts (bulk update checks, a download finishing) come as several
+ * events; listeners should coalesce them.
+ */
+export const LIBRARY_CHANGE_EVENT = 'f95:library-changed';
+
+export interface LibraryChangeDetail {
+  threadId: string | null;
+}
+
+export function notifyLibraryChange(threadId: string | null = null): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(
+    new CustomEvent<LibraryChangeDetail>(LIBRARY_CHANGE_EVENT, { detail: { threadId } }),
+  );
+}
+
+export function onLibraryChange(listener: (threadId: string | null) => void): () => void {
+  const handler = (e: Event) =>
+    listener((e as CustomEvent<LibraryChangeDetail>).detail?.threadId ?? null);
+  window.addEventListener(LIBRARY_CHANGE_EVENT, handler);
+  return () => window.removeEventListener(LIBRARY_CHANGE_EVENT, handler);
+}
+
 interface DbRow {
   thread_id: string;
   category?: string;
@@ -95,6 +121,7 @@ export async function add(input: AddInput): Promise<void> {
       input.currentVersion,
     ],
   );
+  notifyLibraryChange(input.threadId);
 }
 
 /**
@@ -147,6 +174,7 @@ export async function setAvailableVersion(
       [threadId],
     );
   }
+  notifyLibraryChange(threadId);
 }
 
 /**
@@ -169,10 +197,12 @@ export async function applyVersion(
         WHERE thread_id = ?`,
     [version, threadId],
   );
+  notifyLibraryChange(threadId);
 }
 
 export async function remove(threadId: string): Promise<void> {
   await execute(`DELETE FROM library_games WHERE thread_id = ?`, [threadId]);
+  notifyLibraryChange(threadId);
 }
 
 export async function get(threadId: string): Promise<LibraryGame | null> {
@@ -276,6 +306,7 @@ export async function setExe(
         WHERE thread_id = ?`,
     [exePath, installPath || null, threadId],
   );
+  notifyLibraryChange(threadId);
 }
 
 export async function setStatus(threadId: string, status: InstallStatus): Promise<void> {
@@ -283,6 +314,7 @@ export async function setStatus(threadId: string, status: InstallStatus): Promis
     `UPDATE library_games SET install_status = ? WHERE thread_id = ?`,
     [status, threadId],
   );
+  notifyLibraryChange(threadId);
 }
 
 export async function setInstallPath(
@@ -293,6 +325,7 @@ export async function setInstallPath(
     `UPDATE library_games SET install_path = ? WHERE thread_id = ?`,
     [installPath, threadId],
   );
+  notifyLibraryChange(threadId);
 }
 
 export async function clearExe(threadId: string): Promise<void> {
@@ -302,6 +335,7 @@ export async function clearExe(threadId: string): Promise<void> {
         WHERE thread_id = ?`,
     [threadId],
   );
+  notifyLibraryChange(threadId);
 }
 
 /** Vincula (ou desvincula, com null) o AppID Steam usado pelos achievements. */
@@ -313,6 +347,7 @@ export async function setSteamAppid(
     `UPDATE library_games SET steam_appid = ? WHERE thread_id = ?`,
     [steamAppid, threadId],
   );
+  notifyLibraryChange(threadId);
 }
 
 /** Liga/desliga a detecção de conquistas via saves do próprio jogo. */
@@ -324,6 +359,7 @@ export async function setAchSaveScan(
     `UPDATE library_games SET ach_save_scan = ? WHERE thread_id = ?`,
     [enabled ? 1 : 0, threadId],
   );
+  notifyLibraryChange(threadId);
 }
 
 /** Jogos com AppID Steam vinculado — o conjunto observado pelo watcher. */
@@ -339,6 +375,7 @@ export async function setNotes(threadId: string, notes: string): Promise<void> {
     `UPDATE library_games SET notes = ? WHERE thread_id = ?`,
     [notes, threadId],
   );
+  notifyLibraryChange(threadId);
 }
 
 export async function setCustomTags(
@@ -350,6 +387,7 @@ export async function setCustomTags(
     `UPDATE library_games SET custom_tags_json = ? WHERE thread_id = ?`,
     [json, threadId],
   );
+  notifyLibraryChange(threadId);
 }
 
 /**
@@ -366,6 +404,7 @@ export async function bumpPlaytime(
       `UPDATE library_games SET last_played_at = datetime('now') WHERE thread_id = ?`,
       [threadId],
     );
+    notifyLibraryChange(threadId);
     return;
   }
   await execute(
@@ -375,6 +414,7 @@ export async function bumpPlaytime(
         WHERE thread_id = ?`,
     [seconds, threadId],
   );
+  notifyLibraryChange(threadId);
 }
 
 export async function stats(category?: SamCategory): Promise<{ total: number; installed: number }> {
@@ -400,4 +440,5 @@ export async function markInstalled(threadId: string, installPath: string): Prom
         WHERE thread_id = ?`,
     [installPath, threadId],
   );
+  notifyLibraryChange(threadId);
 }

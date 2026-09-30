@@ -1,16 +1,21 @@
 import { Link } from 'react-router-dom';
 import { useStoreContextMenu } from '../../hooks/useStoreContextMenu';
 import type { SamCategory, SamGameCard } from '../../types/sam';
+import type { LibraryEntry } from '../../hooks/useLibraryIndex';
+import { LibraryBadge, libraryBadgeKind } from './LibraryBadge';
 import { ContentTagPills } from './ContentTagPills';
 import { PrefixPills } from './PrefixPills';
 
 interface Props {
   game: SamGameCard;
   category: SamCategory;
+  /** The game's library row, when it is in the library. */
+  libraryEntry?: LibraryEntry;
 }
 
-export function GameCard({ game, category }: Props) {
+export function GameCard({ game, category, libraryEntry }: Props) {
   const { openStoreContextMenu } = useStoreContextMenu(category);
+  const badge = libraryBadgeKind(libraryEntry, game.version);
   return (
     <Link
       to={`/store/game/${game.threadId}?cat=${category}`}
@@ -33,6 +38,9 @@ export function GameCard({ game, category }: Props) {
           <div style={thumbFallback}>{game.title.slice(0, 1).toUpperCase()}</div>
         )}
         {game.version && <div style={versionBadge}>{game.version}</div>}
+        {badge && libraryEntry && (
+          <LibraryBadge kind={badge} entry={libraryEntry} storeVersion={game.version} />
+        )}
       </div>
 
       <div style={bodyStyle}>

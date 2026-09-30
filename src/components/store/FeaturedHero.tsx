@@ -2,12 +2,16 @@ import { Link } from 'react-router-dom';
 import { useStoreContextMenu } from '../../hooks/useStoreContextMenu';
 import { useT } from '../../lib/i18n';
 import type { SamCategory, SamGameCard } from '../../types/sam';
+import type { LibraryEntry } from '../../hooks/useLibraryIndex';
+import { LibraryBadge, libraryBadgeKind } from './LibraryBadge';
 import { ContentTagPills } from './ContentTagPills';
 import { PrefixPills } from './PrefixPills';
 
 interface Props {
   game: SamGameCard;
   category: SamCategory;
+  /** The game's library row, when it is in the library. */
+  libraryEntry?: LibraryEntry;
 }
 
 /**
@@ -18,9 +22,10 @@ interface Props {
  * Renders a cleaner "no thumbnail" fallback if the game has no banner so we
  * never end up with an empty grey box up top.
  */
-export function FeaturedHero({ game, category }: Props) {
+export function FeaturedHero({ game, category, libraryEntry }: Props) {
   const { t } = useT();
   const { openStoreContextMenu } = useStoreContextMenu(category);
+  const badge = libraryBadgeKind(libraryEntry, game.version);
   return (
     <Link
       to={`/store/game/${game.threadId}?cat=${category}`}
@@ -48,6 +53,9 @@ export function FeaturedHero({ game, category }: Props) {
         <h2 style={titleStyle}>{game.title}</h2>
 
         <div style={metaRow}>
+          {badge && libraryEntry && (
+            <LibraryBadge kind={badge} entry={libraryEntry} storeVersion={game.version} inline />
+          )}
           {game.creator && <span style={creatorStyle}>{game.creator}</span>}
           {game.version && <span style={versionBadge}>{game.version}</span>}
           {game.rating !== null && (

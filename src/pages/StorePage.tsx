@@ -7,6 +7,7 @@ import { StorePagination } from '../components/store/StorePagination';
 import { LoadingState } from '../components/ui/LoadingState';
 import { GameCardGridSkeleton } from '../components/ui/GameCardSkeleton';
 import { useSamList } from '../hooks/useSamList';
+import { useLibraryIndex } from '../hooks/useLibraryIndex';
 import { useStoreSettings } from '../contexts/StoreSettings';
 import { useTagCatalog } from '../contexts/TagCatalogContext';
 import { OfflineGate } from '../components/OfflineGate';
@@ -28,6 +29,7 @@ export function StorePage() {
   const { settings: storeSettings, loading: storeSettingsLoading } = useStoreSettings();
   const infiniteScroll = storeSettings.scrollMode === 'infinite';
   const { resolve: resolveTag } = useTagCatalog();
+  const libraryIndex = useLibraryIndex();
 
   // Filters live in the URL, so Back from a game, the nav link or a reload
   // reopen the same list.
@@ -235,13 +237,24 @@ export function StorePage() {
             <div className="store-empty">{t('store.noResults')}</div>
           )}
 
-          {showFeatured && <FeaturedHero game={items[0]} category={category} />}
+          {showFeatured && (
+            <FeaturedHero
+              game={items[0]}
+              category={category}
+              libraryEntry={libraryIndex.get(items[0].threadId)}
+            />
+          )}
 
           {showFeatured && <h2 className="store-section-title">{t('store.section.more')}</h2>}
 
           <div className="store-grid">
             {gridItems.map((game) => (
-              <GameCard key={game.threadId} game={game} category={category} />
+              <GameCard
+                key={game.threadId}
+                game={game}
+                category={category}
+                libraryEntry={libraryIndex.get(game.threadId)}
+              />
             ))}
           </div>
 

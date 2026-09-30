@@ -174,6 +174,7 @@ export async function listForGame(game: LibraryGame): Promise<InstallVersion[]> 
       root.install_path,
       game.threadId,
     ]);
+    library.notifyLibraryChange(game.threadId);
     activePath = root.install_path;
   }
 
@@ -260,6 +261,7 @@ export async function setActive(
       [version.version, game.threadId],
     );
   }
+  library.notifyLibraryChange(game.threadId);
 }
 
 /** Atualiza o exe registrado de uma versão (usuário escolheu manualmente). */

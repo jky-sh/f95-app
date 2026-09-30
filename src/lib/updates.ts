@@ -121,7 +121,7 @@ export async function runBulkUpdateCheck(
  * enough to suppress false positives when authors edit the OP with the same
  * version but different formatting.
  */
-function versionsEqual(a: string, b: string): boolean {
+export function versionsEqual(a: string, b: string): boolean {
   return normalize(a) === normalize(b);
 }
 

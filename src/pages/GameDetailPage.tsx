@@ -42,6 +42,8 @@ import { buildStoreMenu } from '../lib/contextMenus/buildStoreMenu';
 import { useT } from '../lib/i18n';
 import { describeIpcError, formatIpcError } from '../lib/ipcError';
 import { useStoreHref } from '../lib/storeQuery';
+import { useLibraryIndex } from '../hooks/useLibraryIndex';
+import { LibraryBadge, libraryBadgeKind } from '../components/store/LibraryBadge';
 import type { GameDetail, GamePrefix } from '../types/game';
 
 type State =
@@ -88,7 +90,11 @@ function GameDetailPageInner() {
   });
   /** Bumped by the Retry button to run the fetch again. */
   const [attempt, setAttempt] = useState(0);
-  const [inLibrary, setInLibrary] = useState(false);
+  // The library index follows adds, installs and update checks anywhere in
+  // the app; `justAdded` covers the moment before it reloads.
+  const libraryEntry = useLibraryIndex().get(threadId ?? '');
+  const [justAdded, setJustAdded] = useState(false);
+  const inLibrary = !!libraryEntry || justAdded;
   const [adding, setAdding] = useState(false);
 
   const openDetailContextMenu = useCallback(
@@ -115,7 +121,7 @@ function GameDetailPageInner() {
             isOffline,
             inLibrary: inLib,
             t,
-            onLibraryChange: () => setInLibrary(true),
+            onLibraryChange: () => setJustAdded(true),
           },
         ),
       );
@@ -142,12 +148,7 @@ function GameDetailPageInner() {
           if (!cancelled) setState({ kind: 'error', error: err });
         });
     }
-    library
-      .isInLibrary(threadId)
-      .then((v) => {
-        if (!cancelled) setInLibrary(v);
-      })
-      .catch(() => undefined);
+    setJustAdded(false);
     return () => {
       cancelled = true;
     };
@@ -181,7 +182,7 @@ function GameDetailPageInner() {
         thumbnailUrl: state.data.bannerUrl,
         currentVersion: state.data.version,
       });
-      setInLibrary(true);
+      setJustAdded(true);
     } catch (err) {
       await dialog.alert(formatIpcError(err), { kind: 'error' });
     } finally {
@@ -199,7 +200,20 @@ function GameDetailPageInner() {
       title: state.data.title,
       detail: state.data,
       // O download adiciona o jogo à biblioteca; reflete na hora no botão.
-      onStarted: () => setInLibrary(true),
+      onStarted: () => setJustAdded(true),
+    });
+  }
+
+  /** F95 has a newer version than the installed one: download it. */
+  function onUpdate() {
+    if (state.kind !== 'ready') return;
+    openGameDownloadModal({
+      threadId: state.data.threadId,
+      category,
+      mode: 'update',
+      title: state.data.title,
+      versionLabel: state.data.version,
+      detail: state.data,
     });
   }
 
@@ -234,6 +248,7 @@ function GameDetailPageInner() {
 
   const g = state.data;
   const displayPrefixes = normalizeDetailPrefixes(g.prefixes, g.version);
+  const libraryBadge = libraryBadgeKind(libraryEntry, g.version);
   const sanitized = DOMPurify.sanitize(g.descriptionHtml, {
     ADD_TAGS: ['details', 'summary'],
     ADD_ATTR: ['target', 'rel', 'loading'],
@@ -257,6 +272,14 @@ function GameDetailPageInner() {
         coverUrl={g.bannerUrl}
         badges={
           <>
+            {libraryBadge && libraryEntry && (
+              <LibraryBadge
+                kind={libraryBadge}
+                entry={libraryEntry}
+                storeVersion={g.version}
+                inline
+              />
+            )}
             {displayPrefixes.map((p) => (
               <PrefixPill key={p.name} name={p.name} cssClass={p.cssClass} />
             ))}
@@ -266,7 +289,25 @@ function GameDetailPageInner() {
         meta={buildHeroMeta(g, t)}
         actions={
           <>
-            {inLibrary ? (
+            {libraryBadge === 'update' ? (
+              <>
+                <GameDetailBtnPrimary
+                  onClick={onUpdate}
+                  className="game-detail-btn-update"
+                  title={t('store.lib.updateTitle', {
+                    installed: libraryEntry?.currentVersion ?? '?',
+                    latest: g.version ?? '?',
+                  })}
+                >
+                  {g.version
+                    ? t('libdetail.action.update', { version: g.version })
+                    : t('gamedetail.action.update')}
+                </GameDetailBtnPrimary>
+                <GameDetailBtnSecondary onClick={() => navigate(`/library/game/${g.threadId}`)}>
+                  {t('gamedetail.action.openInLibrary')}
+                </GameDetailBtnSecondary>
+              </>
+            ) : inLibrary ? (
               <GameDetailBtnPrimary as="a" to={`/library/game/${g.threadId}`}>
                 {t('gamedetail.action.openInLibrary')}
               </GameDetailBtnPrimary>
