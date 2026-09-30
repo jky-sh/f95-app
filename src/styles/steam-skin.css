@@ -793,3 +793,57 @@
 :root[data-skin='steam'] ::-webkit-scrollbar-thumb:hover {
   background: var(--scrollbar-thumb-hover);
 }
+
+/* ------------------------------------------------------------------ */
+/* Shared UI primitives (ui.css) and library views, Steam look          */
+/* ------------------------------------------------------------------ */
+
+:root[data-skin='steam'] {
+  --ui-radius: 2px;
+  --ui-radius-lg: 3px;
+}
+
+:root[data-skin='steam'] .ui-btn--secondary,
+:root[data-skin='steam'] .ui-segmented > button[aria-pressed='true'] {
+  background: linear-gradient(90deg, var(--sk-btn-neutral-top) 5%, var(--sk-btn-neutral-bottom) 95%);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+:root[data-skin='steam'] .ui-btn--secondary:hover:not(:disabled) {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--text-primary) 26%, var(--bg-elevated)) 5%,
+    color-mix(in srgb, var(--text-primary) 14%, var(--bg-elevated)) 95%
+  );
+  color: var(--text-primary);
+}
+
+:root[data-skin='steam'] .ui-btn--primary {
+  background: linear-gradient(90deg, var(--sk-btn-accent-top) 5%, var(--sk-btn-accent-bottom) 95%);
+  color: var(--accent-text);
+}
+
+:root[data-skin='steam'] .ui-btn--primary:hover:not(:disabled) {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent) 60%, #fff) 5%,
+    color-mix(in srgb, var(--accent) 92%, #000) 95%
+  );
+}
+
+:root[data-skin='steam'] .ui-chip {
+  border-radius: 2px;
+}
+
+:root[data-skin='steam'] .lib-card,
+:root[data-skin='steam'] .lib-tile,
+:root[data-skin='steam'] .lib-continue-card {
+  border-color: var(--sk-border-dark);
+}
+
+:root[data-skin='steam'] .lib-card:hover,
+:root[data-skin='steam'] .lib-tile:hover,
+:root[data-skin='steam'] .lib-continue-card:hover {
+  box-shadow: 0 0 12px var(--sk-accent-glow);
+}

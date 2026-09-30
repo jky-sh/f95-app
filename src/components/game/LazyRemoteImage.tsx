@@ -13,6 +13,8 @@ interface Props {
   alt?: string;
   className?: string;
   rootMargin?: string;
+  /** Every image that finishes loading (the light preview, then the upgrade). */
+  onLoad?: (img: HTMLImageElement) => void;
 }
 
 export function LazyRemoteImage({
@@ -23,6 +25,7 @@ export function LazyRemoteImage({
   alt = '',
   className,
   rootMargin = '80px 0px',
+  onLoad,
 }: Props) {
   const ref = useRef<HTMLSpanElement>(null);
   const [displaySrc, setDisplaySrc] = useState<string | null>(null);
@@ -84,6 +87,7 @@ export function LazyRemoteImage({
           className={imgClass}
           decoding="async"
           loading="lazy"
+          onLoad={onLoad ? (e) => onLoad(e.currentTarget) : undefined}
         />
       ) : (
         <span className={imgClass ?? 'lazy-remote-image__placeholder'} aria-hidden />

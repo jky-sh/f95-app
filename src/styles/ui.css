@@ -1,0 +1,133 @@
+/* -----------------------------------------------------------------------------
+ * Shared UI primitives: buttons, segmented controls, toolbars, search boxes,
+ * badges, chips and empty states. Built only on the theme tokens (theme.css),
+ * so every theme works; the Steam skin restyles them in steam-skin.css.
+ * -------------------------------------------------------------------------- */
+
+:root {
+  --ui-radius: 6px;
+  --ui-radius-lg: 10px;
+  --ui-control-h: 32px;
+  --ui-control-h-sm: 28px;
+  --ui-focus-ring: 0 0 0 2px var(--bg-base), 0 0 0 4px var(--accent);
+  --ui-ease: 120ms ease;
+}
+
+.ui-icon { flex: none; display: block; }
+
+/* Buttons ------------------------------------------------------------------ */
+.ui-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: var(--ui-control-h); padding: 0 14px;
+  border: 1px solid transparent; border-radius: var(--ui-radius);
+  font: inherit; font-size: 13px; font-weight: 600; line-height: 1;
+  white-space: nowrap; text-decoration: none; cursor: pointer; user-select: none;
+  transition: background var(--ui-ease), border-color var(--ui-ease), color var(--ui-ease), opacity var(--ui-ease);
+}
+.ui-btn:focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
+.ui-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.ui-btn--primary { background: var(--accent); color: var(--accent-text); }
+.ui-btn--primary:hover:not(:disabled) { background: var(--accent-strong); }
+.ui-btn--update { background: var(--status-info); color: #fff; }
+.ui-btn--update:hover:not(:disabled) { filter: brightness(1.1); }
+.ui-btn--stop { background: var(--status-danger-bg); color: var(--status-danger-text); border-color: var(--status-danger); }
+.ui-btn--stop:hover:not(:disabled) { filter: brightness(1.15); }
+.ui-btn--secondary { background: var(--bg-elevated); color: var(--text-secondary); border-color: var(--border-strong); }
+.ui-btn--secondary:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-primary); }
+.ui-btn--ghost { background: transparent; color: var(--text-tertiary); }
+.ui-btn--ghost:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-primary); }
+.ui-btn--danger { background: transparent; color: var(--status-danger-text); border-color: var(--status-danger); }
+.ui-btn--danger:hover:not(:disabled) { background: var(--status-danger-bg); }
+.ui-btn--sm { height: var(--ui-control-h-sm); padding: 0 10px; font-size: 12px; }
+.ui-btn--lg { height: 40px; padding: 0 20px; font-size: 14px; }
+.ui-btn--block { width: 100%; }
+.ui-btn--icon { width: var(--ui-control-h); padding: 0; }
+.ui-btn--icon.ui-btn--sm { width: var(--ui-control-h-sm); }
+
+/* Segmented control (view modes, small toggles) ----------------------------- */
+.ui-segmented {
+  display: inline-flex; gap: 2px; padding: 2px;
+  background: var(--bg-sunken); border: 1px solid var(--border); border-radius: var(--ui-radius);
+}
+.ui-segmented > button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 26px; min-width: 30px; padding: 0 8px;
+  border: 0; border-radius: 4px; background: transparent; color: var(--text-muted);
+  font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: background var(--ui-ease), color var(--ui-ease);
+}
+.ui-segmented > button:hover { color: var(--text-primary); }
+.ui-segmented > button:focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
+.ui-segmented > button[aria-pressed='true'] { background: var(--bg-hover); color: var(--text-primary); box-shadow: inset 0 0 0 1px var(--border-strong); }
+
+/* Toolbar: one row of filters and actions above a list ---------------------- */
+.ui-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.ui-toolbar-spacer { flex: 1; }
+
+.ui-search { position: relative; display: flex; align-items: center; min-width: 200px; flex: 1; max-width: 420px; }
+.ui-search > .ui-icon { position: absolute; left: 10px; color: var(--text-faint); pointer-events: none; }
+.ui-search > input {
+  width: 100%; height: var(--ui-control-h); padding: 0 30px 0 32px;
+  background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--ui-radius);
+  color: var(--text-secondary); font: inherit; font-size: 13px; outline: none;
+  transition: border-color var(--ui-ease);
+}
+.ui-search > input::placeholder { color: var(--text-faint); }
+.ui-search > input:focus { border-color: var(--accent); }
+.ui-search > input::-webkit-search-cancel-button { display: none; }
+.ui-search > button {
+  position: absolute; right: 4px; width: 24px; height: 24px; border: 0; border-radius: 4px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; color: var(--text-muted); cursor: pointer;
+}
+.ui-search > button:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+.ui-select {
+  height: var(--ui-control-h); padding: 0 28px 0 10px;
+  background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--ui-radius);
+  color: var(--text-secondary); font: inherit; font-size: 13px; cursor: pointer; outline: none;
+}
+.ui-select:focus-visible { border-color: var(--accent); }
+
+/* Chips: filter toggles ----------------------------------------------------- */
+.ui-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ui-chip {
+  display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px;
+  background: transparent; border: 1px solid var(--border); border-radius: 999px;
+  color: var(--text-tertiary); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: background var(--ui-ease), border-color var(--ui-ease), color var(--ui-ease);
+}
+.ui-chip:hover { border-color: var(--border-strong); color: var(--text-primary); }
+.ui-chip:focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
+.ui-chip[aria-pressed='true'] { background: var(--accent-soft-bg); border-color: var(--accent); color: var(--text-primary); }
+.ui-chip-count { color: var(--text-muted); font-weight: 500; }
+.ui-chip[aria-pressed='true'] .ui-chip-count { color: var(--text-secondary); }
+
+/* Status badges: a dot and a label ---------------------------------------- */
+.ui-badge {
+  display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px;
+  border-radius: 999px; background: rgba(0, 0, 0, 0.72); color: #fff;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.2px; white-space: nowrap;
+}
+.ui-badge::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--ui-badge-color, var(--text-muted)); flex: none; }
+.ui-badge--plain { background: var(--bg-sunken); color: var(--text-secondary); border: 1px solid var(--border); }
+.ui-badge--success { --ui-badge-color: var(--status-success); }
+.ui-badge--info { --ui-badge-color: var(--status-info); }
+.ui-badge--warning { --ui-badge-color: var(--status-warning); }
+.ui-badge--danger { --ui-badge-color: var(--status-danger); }
+.ui-badge--muted { --ui-badge-color: var(--text-faint); }
+
+/* Section heading inside pages -------------------------------------------- */
+.ui-section-head { display: flex; align-items: baseline; gap: 10px; margin: 0 0 12px; }
+.ui-section-title { margin: 0; font-size: 13px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: var(--text-tertiary); }
+.ui-section-hint { font-size: 12px; color: var(--text-muted); }
+
+/* Empty states ------------------------------------------------------------- */
+.ui-empty {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 56px 20px; text-align: center; color: var(--text-muted);
+}
+.ui-empty > .ui-icon { color: var(--text-faint); margin-bottom: 4px; }
+.ui-empty-title { margin: 0; font-size: 15px; font-weight: 700; color: var(--text-secondary); }
+.ui-empty-text { margin: 0; font-size: 13px; max-width: 420px; line-height: 1.5; }
+.ui-empty .ui-btn { margin-top: 8px; }

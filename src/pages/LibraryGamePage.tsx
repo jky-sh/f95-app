@@ -9,7 +9,7 @@ import * as updates from '../lib/updates';
 import * as uninstall from '../lib/uninstall';
 import { useRunningGames } from '../contexts/RunningGames';
 import { useDownloadsByThread } from '../hooks/useDownloadsByThread';
-import { downloadLabel } from '../components/library/LibraryCard';
+import { downloadLabel } from '../components/library/LibraryGameViews';
 import { PlayTimer } from '../components/library/PlayTimer';
 import { useOffline } from '../contexts/Offline';
 import { InstallLocationModal } from '../components/InstallLocationModal';

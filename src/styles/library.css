@@ -1,0 +1,134 @@
+/* -----------------------------------------------------------------------------
+ * Library views: cards (default grid), covers (big art, actions on hover) and
+ * list (dense rows). Built on theme tokens; the Steam skin adjusts corners.
+ * -------------------------------------------------------------------------- */
+
+/* Covers: fill the tile; wide banners show whole over a blurred copy. */
+.library-cover { position: absolute; inset: 0; overflow: hidden; background: var(--bg-sunken); }
+.library-cover .lazy-remote-image { position: absolute; inset: 0; }
+.library-cover--contain::before {
+  content: ''; position: absolute; inset: -24px;
+  background: var(--cover-url) center / cover no-repeat;
+  filter: blur(22px) brightness(0.5) saturate(1.2);
+}
+.library-cover .library-cover-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.library-cover--contain .library-cover-img { object-fit: contain; }
+.library-cover .library-cover-img--placeholder { background: var(--bg-hover); }
+.library-cover-fallback {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 34px; font-weight: 800; color: var(--text-faint);
+}
+
+.lib-badge-slot { position: absolute; top: 8px; left: 8px; display: flex; gap: 6px; pointer-events: none; }
+.lib-badge-slot:empty { display: none; }
+
+.lib-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(0, 0, 0, 0.55); }
+.lib-progress > div { height: 100%; background: var(--status-info); transition: width 0.3s ease; }
+
+.lib-version { font-weight: 600; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lib-version-next { color: var(--status-info); }
+
+/* Grids ------------------------------------------------------------------- */
+.lib-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+.lib-grid--covers { gap: 14px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+
+/* Cards --------------------------------------------------------------------- */
+.lib-card {
+  display: flex; flex-direction: column; min-width: 0;
+  background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--ui-radius-lg);
+  overflow: hidden; transition: border-color var(--ui-ease), transform var(--ui-ease);
+}
+.lib-card:hover { border-color: var(--border-strong); }
+.lib-card:focus-within { border-color: var(--accent); }
+.lib-card-cover { position: relative; display: block; aspect-ratio: 16 / 9; background: var(--bg-sunken); }
+.lib-card-cover:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
+.lib-card-body { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px 12px; min-width: 0; flex: 1; }
+.lib-card-title {
+  color: var(--text-primary); font-size: 14px; font-weight: 700; line-height: 1.3; text-decoration: none;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 36px;
+}
+.lib-card-title:hover { color: var(--accent); }
+.lib-card-meta {
+  display: flex; align-items: center; gap: 0; min-width: 0; font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden;
+}
+.lib-card-meta > * { overflow: hidden; text-overflow: ellipsis; }
+.lib-card-meta > * + *::before { content: '·'; margin: 0 6px; color: var(--text-faint); }
+.lib-card-actions { display: flex; align-items: center; gap: 4px; margin-top: auto; padding-top: 4px; }
+.lib-card-cta { flex: 1; min-width: 0; }
+.lib-cta-label { overflow: hidden; text-overflow: ellipsis; }
+
+/* Covers view ------------------------------------------------------------------ */
+.lib-tile { position: relative; min-width: 0; border-radius: var(--ui-radius-lg); overflow: hidden; background: var(--bg-sunken); }
+.lib-tile-cover { position: relative; display: block; aspect-ratio: 16 / 9; text-decoration: none; }
+.lib-tile-cover:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
+.lib-tile-scrim {
+  position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.35) 38%, transparent 62%);
+}
+.lib-tile-info { position: absolute; left: 12px; right: 12px; bottom: 10px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.lib-tile-title {
+  color: #fff; font-size: 15px; font-weight: 700; line-height: 1.25; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.lib-tile-meta { display: flex; gap: 8px; font-size: 12px; color: rgba(255, 255, 255, 0.75); min-width: 0; }
+.lib-tile-meta .lib-version { color: rgba(255, 255, 255, 0.9); }
+.lib-tile-actions {
+  position: absolute; inset: 0; pointer-events: none;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity var(--ui-ease);
+}
+.lib-tile:hover .lib-tile-actions, .lib-tile:focus-within .lib-tile-actions { opacity: 1; }
+.lib-tile-actions > * { pointer-events: auto; }
+.lib-tile-play { width: 52px; height: 52px; border-radius: 50%; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45); }
+.lib-tile-more { position: absolute; top: 6px; right: 6px; background: rgba(0, 0, 0, 0.55); color: #fff; }
+.lib-tile-more:hover:not(:disabled) { background: rgba(0, 0, 0, 0.75); color: #fff; }
+.lib-tile:hover .lib-tile-cover .library-cover-img { transform: scale(1.03); }
+.lib-tile .library-cover-img { transition: transform 0.25s ease; }
+
+/* List view -------------------------------------------------------------------- */
+.lib-list { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--ui-radius-lg); overflow: hidden; }
+.lib-list-row {
+  display: grid; align-items: center; gap: 14px; padding: 6px 12px 6px 6px;
+  /* Every row is its own grid: fixed tracks keep the columns aligned. */
+  grid-template-columns: 96px minmax(160px, 1fr) 150px 110px 120px 170px 156px;
+  border-top: 1px solid var(--border-faint); background: var(--bg-elevated); min-height: 66px;
+}
+.lib-list-row:first-child { border-top: 0; }
+.lib-list-row:not(.lib-list-head):hover { background: var(--bg-hover); }
+.lib-list-head {
+  min-height: 34px; background: var(--bg-sunken); font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted);
+}
+.lib-list-thumb { position: relative; display: block; width: 96px; aspect-ratio: 16 / 9; border-radius: 4px; overflow: hidden; }
+.lib-list-head .lib-list-thumb { aspect-ratio: auto; height: 1px; }
+.lib-list-col { min-width: 0; font-size: 12px; color: var(--text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lib-list-title { color: var(--text-primary); font-size: 14px; font-weight: 600; text-decoration: none; }
+.lib-list-title:hover { color: var(--accent); }
+.lib-list-col--actions { display: flex; justify-content: flex-end; gap: 4px; overflow: visible; }
+.lib-list-row .ui-badge { background: transparent; color: var(--text-secondary); padding: 0; height: auto; }
+.lib-list-sort {
+  display: inline-flex; align-items: center; gap: 4px; padding: 0; border: 0; background: transparent;
+  color: inherit; font: inherit; text-transform: inherit; letter-spacing: inherit; cursor: pointer;
+}
+.lib-list-sort:hover, .lib-list-sort--active { color: var(--text-primary); }
+@media (max-width: 1100px) {
+  .lib-list-row { grid-template-columns: 96px minmax(160px, 1fr) 130px 110px 156px; }
+  .lib-list-col--last, .lib-list-col--status { display: none; }
+}
+
+/* Continue playing rail -------------------------------------------------------- */
+.lib-continue { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.lib-continue-card { position: relative; border-radius: var(--ui-radius-lg); overflow: hidden; background: var(--bg-sunken); min-width: 0; }
+.lib-continue-card .lib-tile-cover { aspect-ratio: 2 / 1; }
+.lib-continue-card .lib-tile-info { right: 64px; }
+.lib-continue-play { position: absolute; right: 12px; bottom: 12px; width: 42px; height: 42px; border-radius: 50%; }
+
+/* Library page chrome ----------------------------------------------------------- */
+.lib-page { padding: 20px 24px 40px; }
+.lib-head { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.lib-head-title { margin: 0; font-size: 24px; font-weight: 800; color: var(--text-primary); letter-spacing: -0.2px; }
+.lib-head-stats { font-size: 13px; color: var(--text-muted); }
+.lib-head-spacer { flex: 1; }
+.lib-toolbar { margin: 14px 0 20px; }
+.lib-section { margin-bottom: 28px; }
+.lib-collection-icon { color: var(--accent); }

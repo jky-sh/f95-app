@@ -22,6 +22,7 @@ import { runStartupUpdateCheck } from './lib/appUpdater';
 import { tStandalone } from './lib/i18n';
 import type { ProfileDto } from './types';
 import './App.css';
+import './styles/ui.css';
 import './styles/steam-skin.css';
 import './styles/store-filter.css';
 import './styles/offline.css';
