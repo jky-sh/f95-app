@@ -326,6 +326,7 @@ const ru: Record<string, string> = {
   'settings.nav.system': 'Система',
   'settings.nav.account': 'Аккаунт',
   'settings.nav.experimental': 'В разработке',
+  'settings.nav.about': 'О программе',
 
   'settings.language.section': 'Язык',
   'settings.language.hint': 'Применяется сразу. Перезапуск не нужен.',

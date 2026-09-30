@@ -326,6 +326,7 @@ const de: Record<string, string> = {
   'settings.nav.system': 'System',
   'settings.nav.account': 'Konto',
   'settings.nav.experimental': 'In Entwicklung',
+  'settings.nav.about': 'Über',
 
   'settings.language.section': 'Sprache',
   'settings.language.hint': 'Wird sofort angewendet. Neustart nicht nötig.',

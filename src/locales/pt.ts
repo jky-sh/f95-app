@@ -328,6 +328,7 @@ const pt: Record<string, string> = {
   'settings.nav.system': 'Sistema',
   'settings.nav.account': 'Conta',
   'settings.nav.experimental': 'Em desenvolvimento',
+  'settings.nav.about': 'Sobre',
 
   'settings.language.section': 'Idioma',
   'settings.language.hint': 'Aplica imediatamente. Não precisa reiniciar.',

@@ -329,6 +329,7 @@ const en: Record<string, string> = {
   'settings.nav.system': 'System',
   'settings.nav.account': 'Account',
   'settings.nav.experimental': 'In development',
+  'settings.nav.about': 'About',
 
   'settings.language.section': 'Language',
   'settings.language.hint': 'Applied immediately. Restart not required.',

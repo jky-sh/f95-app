@@ -27,6 +27,7 @@ import './styles/ui.css';
 import './styles/library.css';
 import './styles/game-page.css';
 import './styles/downloads.css';
+import './styles/settings.css';
 import './styles/steam-skin.css';
 import './styles/store-filter.css';
 import './styles/offline.css';
