@@ -139,6 +139,19 @@ impl SidecarClient {
             .await
     }
 
+    /// `page` is a page number or `"last"` for the newest posts.
+    pub async fn game_posts(&self, thread_id: &str, page: Value) -> Result<Value, AppError> {
+        self.inner
+            .call("gamePosts", json!({ "threadId": thread_id, "page": page }))
+            .await
+    }
+
+    pub async fn game_reviews(&self, thread_id: &str, page: u32) -> Result<Value, AppError> {
+        self.inner
+            .call("gameReviews", json!({ "threadId": thread_id, "page": page }))
+            .await
+    }
+
     pub async fn get_following(&self) -> Result<Value, AppError> {
         self.inner.call("getFollowing", json!({})).await
     }

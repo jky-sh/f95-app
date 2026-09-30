@@ -18,6 +18,8 @@ import { clearGridPreviewCache } from '../lib/gridPreviewQueue';
 import { clearRemoteImageQueue } from '../lib/remoteImageQueue';
 import { ScreenshotGallery } from '../components/game/ScreenshotGallery';
 import { StoreAchievementsSection } from '../components/game/StoreAchievementsSection';
+import { ThreadDiscussion, ThreadReviews } from '../components/game/ThreadCommunity';
+import { Tabs } from '../components/ui/Tabs';
 import { DownloadLinks } from '../components/game/DownloadLinks';
 import {
   GameDetailBackBar,
@@ -66,8 +68,20 @@ export function GameDetailPage() {
 
 function GameDetailPageInner() {
   const { threadId } = useParams<{ threadId: string }>();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const category = parseSamCategory(searchParams.get('cat'));
+  // The open tab lives in the URL, so Back returns to it.
+  const tabParam = searchParams.get('tab');
+  const selectTab = (id: StoreTab) =>
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (id === 'overview') next.delete('tab');
+        else next.set('tab', id);
+        return next;
+      },
+      { replace: true },
+    );
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useT();
@@ -248,6 +262,16 @@ function GameDetailPageInner() {
   const libraryBadge = libraryBadgeKind(libraryEntry, g.version);
   const sanitized = sanitizeF95Html(g.descriptionHtml);
   const changelog = g.changelogHtml ? sanitizeF95Html(g.changelogHtml) : '';
+  // Details cached before these fields existed have none: show the tabs anyway.
+  const hasReviews = g.reviewCount !== null;
+  const tabs: { id: StoreTab; label: string; count?: number }[] = [
+    { id: 'overview', label: t('gamedetail.tabs.overview') },
+    { id: 'discussion', label: t('gamedetail.tabs.discussion') },
+    ...(hasReviews
+      ? [{ id: 'reviews' as const, label: t('gamedetail.tabs.reviews'), count: g.reviewCount ?? undefined }]
+      : []),
+  ];
+  const tab: StoreTab = tabs.some((x) => x.id === tabParam) ? (tabParam as StoreTab) : 'overview';
 
   return (
     <GameDetailShell onContextMenu={openDetailContextMenu}>
@@ -362,36 +386,53 @@ function GameDetailPageInner() {
 
       <GameDetailBody>
         <GameDetailMain>
-          {g.screenshots.length > 0 && (
-            <GameDetailSection title={t('gamedetail.section.screenshots')}>
-              <ScreenshotGallery images={g.screenshots} />
-            </GameDetailSection>
+          <Tabs label={t('gamedetail.tabs.label')} tabs={tabs} value={tab} onChange={selectTab} />
+
+          {tab === 'overview' && (
+            <>
+              {g.screenshots.length > 0 && (
+                <GameDetailSection title={t('gamedetail.section.screenshots')}>
+                  <ScreenshotGallery images={g.screenshots} />
+                </GameDetailSection>
+              )}
+
+              {g.tags.length > 0 && (
+                <GameDetailSection title={t('gamedetail.section.tags')}>
+                  <StoreTagList tags={g.tags} category={category} />
+                </GameDetailSection>
+              )}
+
+              <GameDetailSection title={t('gamedetail.section.about')}>
+                <div onClick={onContentClick}>
+                  <GameDescription
+                    html={sanitized}
+                    style={{ fontSize: 13.5, lineHeight: 1.65, wordBreak: 'break-word' }}
+                  />
+                </div>
+              </GameDetailSection>
+
+              {changelog && (
+                <GameDetailSection title={t('gamedetail.section.changelog')}>
+                  <div onClick={onContentClick}>
+                    <CollapsibleHtml html={changelog} />
+                  </div>
+                </GameDetailSection>
+              )}
+
+              {category === 'games' && <StoreAchievementsSection detail={g} />}
+            </>
           )}
 
-          {g.tags.length > 0 && (
-            <GameDetailSection title={t('gamedetail.section.tags')}>
-              <StoreTagList tags={g.tags} category={category} />
-            </GameDetailSection>
+          {tab === 'discussion' && <ThreadDiscussion threadId={g.threadId} threadUrl={g.threadUrl} />}
+
+          {tab === 'reviews' && (
+            <ThreadReviews
+              threadId={g.threadId}
+              threadUrl={g.threadUrl}
+              rating={g.rating}
+              reviewCount={g.reviewCount}
+            />
           )}
-
-          <GameDetailSection title={t('gamedetail.section.about')}>
-            <div onClick={onContentClick}>
-              <GameDescription
-                html={sanitized}
-                style={{ fontSize: 13.5, lineHeight: 1.65, wordBreak: 'break-word' }}
-              />
-            </div>
-          </GameDetailSection>
-
-          {changelog && (
-            <GameDetailSection title={t('gamedetail.section.changelog')}>
-              <div onClick={onContentClick}>
-                <CollapsibleHtml html={changelog} />
-              </div>
-            </GameDetailSection>
-          )}
-
-          {category === 'games' && <StoreAchievementsSection detail={g} />}
         </GameDetailMain>
 
         <GameDetailAside>
@@ -488,6 +529,8 @@ function HeroMeta({
     </>
   );
 }
+
+type StoreTab = 'overview' | 'discussion' | 'reviews';
 
 function normalizeDetailPrefixes(
   prefixes: GamePrefix[],

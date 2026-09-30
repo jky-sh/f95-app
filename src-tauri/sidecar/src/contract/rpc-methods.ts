@@ -47,6 +47,14 @@ export const RPC_METHODS = {
     params: { threadId: 'string' },
     result: 'unknown',
   },
+  gamePosts: {
+    params: { threadId: 'string', page: "number | 'last'" },
+    result: 'ThreadPostsPage',
+  },
+  gameReviews: {
+    params: { threadId: 'string', page: 'number?' },
+    result: 'ThreadReviewsPage',
+  },
   getFollowing: {
     params: {},
     result: 'unknown',

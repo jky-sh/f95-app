@@ -22,6 +22,8 @@
             "samTagSearch",
             "samOptions",
             "gameDetail",
+            "gamePosts",
+            "gameReviews",
             "getFollowing",
             "getMemberActivity",
             "getMemberAbout",

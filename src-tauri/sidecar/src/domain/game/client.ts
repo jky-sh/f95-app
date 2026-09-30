@@ -6,6 +6,15 @@ import { log } from '../../logger';
 import { classifyHost } from './hosts';
 import { assertNotCloudflareChallenge } from '../../shared/cloudflare';
 import { F95_BASE } from '../../shared/constants';
+import {
+  parseThreadCommunity,
+  parseThreadPosts,
+  parseThreadReviews,
+  threadPostsUrl,
+  threadReviewsUrl,
+  type ThreadPostsPage,
+  type ThreadReviewsPage,
+} from './community';
 
 const BASE = F95_BASE;
 
@@ -29,6 +38,12 @@ export interface GameDetail {
   tags: GameTag[];
   downloads: GameDownload[];
   social: SocialLink[];
+  /** The stars under the thread title; null when nobody rated it. */
+  rating: { average: number; votes: number } | null;
+  /** Count on the thread's Reviews tab; null when it has no such tab. */
+  reviewCount: number | null;
+  /** Pages of posts in the thread. */
+  discussionPages: number;
 }
 export interface GamePrefix {
   name: string;
@@ -102,6 +117,42 @@ export class GameClient {
     }
     return parseThread(res.body, res.url || url);
   }
+
+  /** One page of the thread's posts; 'last' is the newest page. */
+  async getPosts(threadId: string, page: number | 'last'): Promise<ThreadPostsPage> {
+    const id = requireThreadId(threadId);
+    const url = threadPostsUrl(id, page);
+    const res = await this.fetchPage(url, 'posts');
+    return parseThreadPosts(res.body, res.url || url, id);
+  }
+
+  /** One page of the thread's reviews, newest first. */
+  async getReviews(threadId: string, page: number): Promise<ThreadReviewsPage> {
+    const id = requireThreadId(threadId);
+    const url = threadReviewsUrl(id, page);
+    const res = await this.fetchPage(url, 'reviews');
+    return parseThreadReviews(res.body, res.url || url, id);
+  }
+
+  private async fetchPage(url: string, what: string) {
+    log(`[game] GET ${url}`);
+    const res = await this.http.get(url);
+    assertNotCloudflareChallenge(res.body, res.headers, {
+      message: `Cloudflare challenge encountered on thread ${what} fetch`,
+    });
+    if (res.status >= 400) {
+      throw new RpcError(RPC_ERROR.INTERNAL, `thread ${what} fetch HTTP ${res.status} for ${url}`);
+    }
+    return res;
+  }
+}
+
+function requireThreadId(input: string): string {
+  const s = String(input ?? '').trim();
+  if (!/^\d+$/.test(s)) {
+    throw new RpcError(RPC_ERROR.INVALID_PARAMS, `expected numeric thread id, got "${s}"`);
+  }
+  return s;
 }
 
 function normalizeThreadUrl(input: string): string {
@@ -208,6 +259,7 @@ export function parseThread(html: string, finalUrl: string): GameDetail {
     tags,
     downloads,
     social,
+    ...parseThreadCommunity($, finalUrl),
   };
 }
 

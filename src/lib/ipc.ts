@@ -2,7 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import type { ActivityItem, ProfileDto } from '../types';
 import type { SamFilters, SamOptionsResult, SamPage, SamTag } from '../types/sam';
 import type { SamCategory } from '../types/sam';
-import type { GameDetail } from '../types/game';
+import type { GameDetail, ThreadPostsPage, ThreadReviewsPage } from '../types/game';
 import type { CbzPreviewResult, InstallMediaIndex } from '../types/media';
 import type { F95AlertsListResult, F95AlertsPopupResult } from '../types/alerts';
 import type {
@@ -66,6 +66,16 @@ export async function samOptions(category: SamCategory): Promise<SamOptionsResul
 
 export async function gameDetail(threadId: string): Promise<GameDetail> {
   return invoke<GameDetail>('game_detail', { threadId });
+}
+
+/** One page of a thread's posts; 'last' is the newest page. */
+export async function gamePosts(threadId: string, page: number | 'last'): Promise<ThreadPostsPage> {
+  return invoke<ThreadPostsPage>('game_posts', { threadId, page });
+}
+
+/** One page of a thread's reviews, newest first. */
+export async function gameReviews(threadId: string, page: number): Promise<ThreadReviewsPage> {
+  return invoke<ThreadReviewsPage>('game_reviews', { threadId, page });
 }
 
 export async function getFollowing(): Promise<FollowedUser[]> {
