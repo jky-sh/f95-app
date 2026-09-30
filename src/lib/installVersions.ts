@@ -2,6 +2,7 @@ import { execute, query } from './db';
 import * as ipc from './ipc';
 import * as libraries from './libraries';
 import * as library from './library';
+import { isPathInside, pathsOverlap, samePath } from './paths';
 import type { LibraryGame } from '../types/library';
 
 /**
@@ -60,10 +61,12 @@ interface DbRow {
   installed_at: string;
 }
 
-function samePath(a: string | null | undefined, b: string | null | undefined): boolean {
-  if (!a || !b) return false;
-  const norm = (p: string) => p.trim().replace(/[/\\]+$/, '').toLowerCase();
-  return norm(a) === norm(b);
+/** Thrown instead of deleting a folder that holds the install in use. */
+export class ActiveInstallError extends Error {
+  constructor(path: string) {
+    super(`refusing to delete ${path}: it contains the active install`);
+    this.name = 'ActiveInstallError';
+  }
 }
 
 function rowToVersion(r: DbRow, activePath: string | null): InstallVersion {
@@ -76,8 +79,26 @@ function rowToVersion(r: DbRow, activePath: string | null): InstallVersion {
     engine: r.engine,
     sizeBytes: r.size_bytes,
     installedAt: r.installed_at,
-    active: samePath(r.install_path, activePath),
+    // The game row may point at the exe's subfolder of this install root.
+    active: isPathInside(activePath, r.install_path),
   };
+}
+
+async function versionRows(threadId: string): Promise<DbRow[]> {
+  return query<DbRow>(
+    `SELECT * FROM install_versions WHERE thread_id = ? ORDER BY installed_at DESC, id DESC`,
+    [threadId],
+  );
+}
+
+/**
+ * Registered install root that holds `path` (the path itself when it is a
+ * root, or the root of the extraction it sits in), or `path` when none does.
+ */
+export async function installRootFor(threadId: string, path: string): Promise<string> {
+  const rows = await versionRows(threadId);
+  const root = rows.find((r) => isPathInside(path, r.install_path));
+  return root?.install_path ?? path;
 }
 
 export interface RegisterInput {
@@ -95,6 +116,12 @@ export interface RegisterInput {
  * linha em vez de duplicar.
  */
 export async function register(input: RegisterInput): Promise<void> {
+  // A registered extraction root already covers this path (older installs
+  // pointed the game at the exe's subfolder): don't list it twice.
+  const rows = await versionRows(input.threadId);
+  if (rows.some((r) => !samePath(r.install_path, input.installPath) && isPathInside(input.installPath, r.install_path))) {
+    return;
+  }
   await execute(
     `INSERT INTO install_versions (
        thread_id, version, install_path, exe_path, engine, size_bytes, installed_at
@@ -124,18 +151,40 @@ export async function register(input: RegisterInput): Promise<void> {
  * tamanho/engine sondados do disco.
  */
 export async function listForGame(game: LibraryGame): Promise<InstallVersion[]> {
-  const activePath = game.installPath;
+  let activePath = game.installPath;
+
+  // Repair installs made before the root fix: the game row pointed at the
+  // exe's subfolder, so that subfolder got its own "active" row while the
+  // extraction root showed up as an old version — deleting it would wipe the
+  // playable game. Keep the root, drop the rows nested in it, and point the
+  // game at the root so uninstall/move/reveal see the whole install.
+  const existingRows = await versionRows(game.threadId);
+  const root = activePath
+    ? existingRows.find(
+        (r) => !samePath(r.install_path, activePath) && isPathInside(activePath, r.install_path),
+      )
+    : undefined;
+  if (root) {
+    for (const r of existingRows) {
+      if (r.id !== root.id && isPathInside(r.install_path, root.install_path)) {
+        await execute(`DELETE FROM install_versions WHERE id = ?`, [r.id]);
+      }
+    }
+    await execute(`UPDATE library_games SET install_path = ? WHERE thread_id = ?`, [
+      root.install_path,
+      game.threadId,
+    ]);
+    activePath = root.install_path;
+  }
+
   // Seed só de instalação REAL: antes da extração o install_path aponta para
   // a pasta do thread (onde ficam os arquivos baixados) — registrar essa
   // pasta como "versão" deixaria o botão Excluir apagar os downloads juntos.
   const isRealInstall =
     game.installStatus === 'installed' || game.installStatus === 'update_available';
   if (activePath && isRealInstall) {
-    const existing = await query<{ n: number }>(
-      `SELECT COUNT(*) AS n FROM install_versions WHERE install_path = ?`,
-      [activePath],
-    );
-    if ((existing[0]?.n ?? 0) === 0) {
+    const covered = existingRows.some((r) => isPathInside(activePath, r.install_path));
+    if (!covered) {
       let engine: string | null = null;
       let sizeBytes: number | null = null;
       try {
@@ -157,10 +206,7 @@ export async function listForGame(game: LibraryGame): Promise<InstallVersion[]> 
       });
     }
   }
-  const rows = await query<DbRow>(
-    `SELECT * FROM install_versions WHERE thread_id = ? ORDER BY installed_at DESC, id DESC`,
-    [game.threadId],
-  );
+  const rows = await versionRows(game.threadId);
   // Poda linhas cujo diretório sumiu (usuário apagou no Explorer). A ativa
   // fica — o fluxo normal de uninstall cuida dela. Existência via disk_info,
   // que é um syscall barato (probe_install_dir anda a árvore inteira).
@@ -195,7 +241,7 @@ export async function setActive(
   version: InstallVersion,
 ): Promise<void> {
   if (version.exePath) {
-    await library.setExe(game.threadId, version.exePath);
+    await library.setExe(game.threadId, version.exePath, version.installPath);
   } else {
     await execute(
       `UPDATE library_games
@@ -247,7 +293,16 @@ export async function deleteVersion(
   version: InstallVersion,
 ): Promise<DeleteVersionResult> {
   if (version.active) {
-    throw new Error('cannot delete the active version');
+    throw new ActiveInstallError(version.installPath);
+  }
+  // Re-check against the live row: a folder that contains the install in use
+  // (or sits inside it) must never be deleted as an "old" version.
+  const current = await query<{ install_path: string | null }>(
+    `SELECT install_path FROM library_games WHERE thread_id = ?`,
+    [version.threadId],
+  );
+  if (pathsOverlap(version.installPath, current[0]?.install_path)) {
+    throw new ActiveInstallError(version.installPath);
   }
   const safeRoots = await libraries.allPaths();
   const ok = await ipc.deleteInstallDir({ path: version.installPath, safeRoots });
