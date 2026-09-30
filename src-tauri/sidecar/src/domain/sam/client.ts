@@ -36,6 +36,10 @@ export interface SamFilters {
   notags?: number[];
   tagtype?: SamTagMode;
   search?: string;
+  /** Developer name (SAM's `creator`; the title search does not match it). */
+  creator?: string;
+  /** Updated within this many days (SAM's `date`: 1, 3, 7, 14, 30, 90, 180, 365). */
+  date?: number;
   page?: number;
   rows?: number;
   sort?: SamSort;
@@ -159,6 +163,8 @@ export class SamClient {
     params.set('sort', filters.sort ?? 'date');
     if (filters.order) params.set('order', filters.order);
     if (filters.search) params.set('search', filters.search);
+    if (filters.creator?.trim()) params.set('creator', filters.creator.trim());
+    if (filters.date && filters.date > 0) params.set('date', String(Math.floor(filters.date)));
     for (const p of filters.prefixes ?? []) params.append('prefixes[]', String(p));
     for (const p of filters.noprefixes ?? []) params.append('noprefixes[]', String(p));
     for (const t of filters.tags ?? []) params.append('tags[]', String(t));

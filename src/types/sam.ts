@@ -11,11 +11,18 @@ export interface SamFilters {
   notags?: number[];
   tagtype?: SamTagMode;
   search?: string;
+  /** Developer name; SAM's title search does not match developers. */
+  creator?: string;
+  /** Updated within this many days (see `SAM_DATE_RANGES`). */
+  date?: number;
   page?: number;
   rows?: number;
   sort?: SamSort;
   order?: SamOrder;
 }
+
+/** "Updated within" choices SAM accepts, in days (0 = any time). */
+export const SAM_DATE_RANGES = [0, 1, 3, 7, 14, 30, 90, 180, 365] as const;
 
 export interface SamTag {
   id: number;

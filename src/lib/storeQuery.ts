@@ -1,6 +1,12 @@
 import { useLocation } from 'react-router-dom';
 import { parseSamCategory } from '../constants/samCategories';
-import type { PrefixFilterMode, SamCategory, SamSort, SamTagMode } from '../types/sam';
+import {
+  SAM_DATE_RANGES,
+  type PrefixFilterMode,
+  type SamCategory,
+  type SamSort,
+  type SamTagMode,
+} from '../types/sam';
 
 /**
  * Store filters as they live in the URL (`/store?cat=mods&sort=likes&t=12,40`),
@@ -10,9 +16,16 @@ import type { PrefixFilterMode, SamCategory, SamSort, SamTagMode } from '../type
 export interface StoreQuery {
   category: SamCategory;
   search: string;
+  /** Developer filter (SAM `creator`). */
+  creator: string;
+  /** Which of the two the search box edits. */
+  searchIn: 'title' | 'creator';
   sort: SamSort;
+  /** Updated within this many days; 0 = any time. */
+  date: number;
   prefixFilter: Record<number, PrefixFilterMode>;
   tagIds: number[];
+  excludedTagIds: number[];
   tagMode: SamTagMode;
   /** Page shown in paged mode (1-based). */
   page: number;
@@ -36,12 +49,19 @@ export function readStoreQuery(params: URLSearchParams): StoreQuery {
   for (const id of readIds(params.get('px'))) prefixFilter[id] = 'exclude';
   const sort = params.get('sort') as SamSort | null;
   const page = Number(params.get('page'));
+  const date = Number(params.get('d'));
+  const tagIds = readIds(params.get('t'));
   return {
     category: parseSamCategory(params.get('cat')),
     search: params.get('q') ?? '',
+    creator: params.get('dev') ?? '',
+    searchIn:
+      params.get('in') === 'dev' || (params.has('dev') && !params.has('q')) ? 'creator' : 'title',
     sort: sort && SORTS.includes(sort) ? sort : 'date',
+    date: (SAM_DATE_RANGES as readonly number[]).includes(date) ? date : 0,
     prefixFilter,
-    tagIds: readIds(params.get('t')),
+    tagIds,
+    excludedTagIds: readIds(params.get('tx')).filter((id) => !tagIds.includes(id)),
     tagMode: params.get('tm') === 'and' ? 'and' : 'or',
     page: Number.isInteger(page) && page > 1 ? page : 1,
   };
@@ -56,10 +76,14 @@ export function writeStoreQuery(query: StoreQuery): URLSearchParams {
       .join(',');
   if (query.category !== 'games') params.set('cat', query.category);
   if (query.search.trim()) params.set('q', query.search);
+  if (query.creator.trim()) params.set('dev', query.creator);
+  if (query.searchIn === 'creator') params.set('in', 'dev');
   if (query.sort !== 'date') params.set('sort', query.sort);
+  if (query.date > 0) params.set('d', String(query.date));
   if (prefixes('include')) params.set('pi', prefixes('include'));
   if (prefixes('exclude')) params.set('px', prefixes('exclude'));
   if (query.tagIds.length > 0) params.set('t', query.tagIds.join(','));
+  if (query.excludedTagIds.length > 0) params.set('tx', query.excludedTagIds.join(','));
   if (query.tagMode === 'and') params.set('tm', 'and');
   if (query.page > 1) params.set('page', String(query.page));
   return params;

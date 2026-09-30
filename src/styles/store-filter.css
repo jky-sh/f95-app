@@ -35,6 +35,13 @@
 .store-filter-tag-chip{display:inline-flex;align-items:center;gap:4px;background:var(--accent-soft-bg);border:1px solid var(--accent);color:var(--text-primary);font-size:11px;font-weight:600;padding:4px 6px 4px 8px;border-radius:4px}
 .store-filter-tag-chip-remove{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;line-height:1;padding:0 2px}
 .store-filter-tag-chip-remove:hover{color:var(--accent)}
+.store-filter-tag-chip-toggle{background:none;border:none;padding:0;color:inherit;font:inherit;cursor:pointer}
+.store-filter-tag-chip-toggle:hover{text-decoration:underline}
+.store-filter-tag-chip--exclude{background:var(--status-danger-bg);border-color:var(--accent-strong);color:var(--status-danger-text)}
+.store-filter-tag-chip--exclude .store-filter-tag-chip-toggle{text-decoration:line-through}
+.store-filter-tag-chip--exclude .store-filter-tag-chip-toggle:hover{text-decoration:line-through underline}
+.store-filter-tag-chips-hint{margin:6px 0 0;font-size:10.5px;color:var(--text-faint)}
+.store-filter-search-mode{margin-top:8px}
 .store-filter-tag-input-wrap{position:relative;display:flex;align-items:center;background:var(--bg-elevated);border:1px solid var(--border);border-radius:6px;transition:border-color .12s}
 .store-filter-tag-input-wrap:focus-within{border-color:var(--accent)}
 .store-filter-tag-input{flex:1;min-width:0;width:100%;box-sizing:border-box;background:transparent;border:none;border-radius:6px;color:var(--text-primary);font-size:13px;padding:9px 12px;outline:none;font-family:inherit}

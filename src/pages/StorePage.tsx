@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { FilterSidebar } from '../components/store/FilterSidebar';
+import { FilterSidebar, type StoreSearchMode } from '../components/store/FilterSidebar';
 import { GameCard } from '../components/store/GameCard';
 import { FeaturedHero } from '../components/store/FeaturedHero';
 import { StorePagination } from '../components/store/StorePagination';
@@ -52,27 +52,48 @@ export function StorePage() {
     rememberStoreSearch(qs ? `?${qs}` : '');
   }, [params]);
 
-  // The box updates at once; the URL (and the list) follow when typing pauses.
-  const [searchInput, setSearchInput] = useState(query.search);
-  const pushedSearchRef = useRef(query.search);
+  // One box searches titles or developers. It updates at once; the URL (and
+  // the list) follow when typing pauses.
+  const searchMode = query.searchIn;
+  const urlSearch = searchMode === 'creator' ? query.creator : query.search;
+  const [searchInput, setSearchInput] = useState(urlSearch);
+  const pushedSearchRef = useRef(urlSearch);
   useEffect(() => {
     if (searchInput === pushedSearchRef.current) return;
     const timer = setTimeout(() => {
       pushedSearchRef.current = searchInput;
-      updateQuery({ search: searchInput });
+      updateQuery(searchMode === 'creator' ? { creator: searchInput } : { search: searchInput });
     }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [searchInput, updateQuery]);
+  }, [searchInput, searchMode, updateQuery]);
   // Search changed from outside the box (a link, or the URL of a Back).
   useEffect(() => {
-    if (query.search === pushedSearchRef.current) return;
-    pushedSearchRef.current = query.search;
-    setSearchInput(query.search);
-  }, [query.search]);
+    if (urlSearch === pushedSearchRef.current) return;
+    pushedSearchRef.current = urlSearch;
+    setSearchInput(urlSearch);
+  }, [urlSearch]);
+
+  /** Switching title ⇄ developer carries the typed text over. */
+  const changeSearchMode = useCallback(
+    (mode: StoreSearchMode) => {
+      if (mode === searchMode) return;
+      pushedSearchRef.current = searchInput;
+      updateQuery({
+        searchIn: mode,
+        search: mode === 'title' ? searchInput : '',
+        creator: mode === 'creator' ? searchInput : '',
+      });
+    },
+    [searchMode, searchInput, updateQuery],
+  );
 
   const selectedTags = useMemo<SamTag[]>(
     () => query.tagIds.map((id) => ({ id, name: resolveTag(id) })),
     [query.tagIds, resolveTag],
+  );
+  const excludedTags = useMemo<SamTag[]>(
+    () => query.excludedTagIds.map((id) => ({ id, name: resolveTag(id) })),
+    [query.excludedTagIds, resolveTag],
   );
 
   const includePrefixes = useMemo(
@@ -91,11 +112,14 @@ export function StorePage() {
   );
 
   const search = query.search.trim();
+  const creator = query.creator.trim();
   const hasActiveFilters =
     searchInput.trim().length > 0 ||
+    query.date > 0 ||
     includePrefixes.length > 0 ||
     excludePrefixes.length > 0 ||
-    selectedTags.length > 0;
+    selectedTags.length > 0 ||
+    excludedTags.length > 0;
 
   const { items, page, totalPages, totalRows, loading, error, hasMore, loadMore, reload, retry } =
     useSamList(
@@ -103,9 +127,12 @@ export function StorePage() {
         category,
         sort,
         search: search || undefined,
+        creator: creator || undefined,
+        date: query.date || undefined,
         prefixes: includePrefixes.length ? includePrefixes : undefined,
         noprefixes: excludePrefixes.length ? excludePrefixes : undefined,
         tags: query.tagIds.length ? query.tagIds : undefined,
+        notags: query.excludedTagIds.length ? query.excludedTagIds : undefined,
         tagtype: query.tagIds.length ? tagMode : undefined,
       },
       {
@@ -135,21 +162,18 @@ export function StorePage() {
     return () => obs.disconnect();
   }, [infiniteScroll, errored, loadMore]);
 
-  const showFeatured = useMemo(() => {
-    if (sort !== 'date' || search || selectedTags.length > 0) return false;
-    if (includePrefixes.length > 0 || excludePrefixes.length > 0) return false;
-    if (!infiniteScroll && page > 1) return false;
-    return items.length > 0;
-  }, [
-    sort,
-    search,
-    selectedTags.length,
-    includePrefixes.length,
-    excludePrefixes.length,
-    infiniteScroll,
-    page,
-    items.length,
-  ]);
+  // The hero only makes sense on the plain "latest updates" list.
+  const showFeatured =
+    sort === 'date' &&
+    !search &&
+    !creator &&
+    query.date === 0 &&
+    selectedTags.length === 0 &&
+    excludedTags.length === 0 &&
+    includePrefixes.length === 0 &&
+    excludePrefixes.length === 0 &&
+    (infiniteScroll || page <= 1) &&
+    items.length > 0;
 
   const gridItems = useMemo(() => (showFeatured ? items.slice(1) : items), [items, showFeatured]);
 
@@ -168,7 +192,16 @@ export function StorePage() {
       if (next === category) return;
       setSearchInput('');
       pushedSearchRef.current = '';
-      updateQuery({ category: next, search: '', prefixFilter: {}, tagIds: [], tagMode: 'or' });
+      updateQuery({
+        category: next,
+        search: '',
+        creator: '',
+        searchIn: 'title',
+        prefixFilter: {},
+        tagIds: [],
+        excludedTagIds: [],
+        tagMode: 'or',
+      });
     },
     [category, updateQuery],
   );
@@ -176,7 +209,16 @@ export function StorePage() {
   function clearAllFilters() {
     setSearchInput('');
     pushedSearchRef.current = '';
-    updateQuery({ search: '', prefixFilter: {}, tagIds: [], tagMode: 'or' });
+    updateQuery({
+      search: '',
+      creator: '',
+      searchIn: 'title',
+      date: 0,
+      prefixFilter: {},
+      tagIds: [],
+      excludedTagIds: [],
+      tagMode: 'or',
+    });
   }
 
   return (
@@ -187,14 +229,24 @@ export function StorePage() {
           onCategory={handleCategoryChange}
           search={searchInput}
           onSearch={setSearchInput}
+          searchMode={searchMode}
+          onSearchMode={changeSearchMode}
           sort={sort}
           onSort={(next: SamSort) => updateQuery({ sort: next })}
+          date={query.date}
+          onDate={(days: number) => updateQuery({ date: days })}
           prefixFilter={prefixFilter}
           onPrefixFilter={(next: Record<number, PrefixFilterMode>) =>
             updateQuery({ prefixFilter: next })
           }
           selectedTags={selectedTags}
-          onSelectedTags={(tags: SamTag[]) => updateQuery({ tagIds: tags.map((tg) => tg.id) })}
+          excludedTags={excludedTags}
+          onTags={(included: SamTag[], excluded: SamTag[]) =>
+            updateQuery({
+              tagIds: included.map((tg) => tg.id),
+              excludedTagIds: excluded.map((tg) => tg.id),
+            })
+          }
           tagMode={tagMode}
           onTagMode={(next: SamTagMode) => updateQuery({ tagMode: next })}
           onClearAll={clearAllFilters}
