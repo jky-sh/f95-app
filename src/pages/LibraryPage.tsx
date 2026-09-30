@@ -7,6 +7,7 @@ import { ContinuePlayingRow } from '../components/library/ContinuePlayingRow';
 import { GameCardGridSkeleton } from '../components/ui/GameCardSkeleton';
 import { useOffline } from '../contexts/Offline';
 import { useLibraryGameActions } from '../hooks/useLibraryGameActions';
+import { useDownloadsByThread } from '../hooks/useDownloadsByThread';
 import { useSkin } from '../hooks/useSkin';
 import { useT } from '../lib/i18n';
 import { dialog } from '../lib/dialog';
@@ -223,6 +224,7 @@ export function LibraryPage() {
   const { openLibraryContextMenu, playOrStop } = useLibraryGameActions({
     onReload: reload,
   });
+  const downloadsByThread = useDownloadsByThread();
 
   function formatErr(err: unknown): string {
     if (err && typeof err === 'object' && 'message' in err) {
@@ -387,6 +389,7 @@ export function LibraryPage() {
                 game={g}
                 onPrimaryAction={playOrStop}
                 onContextMenu={openLibraryContextMenu}
+                download={downloadsByThread.get(g.threadId)}
               />
             ))}
           </div>

@@ -8,6 +8,9 @@ import * as library from '../lib/library';
 import * as updates from '../lib/updates';
 import * as uninstall from '../lib/uninstall';
 import { useRunningGames } from '../contexts/RunningGames';
+import { useDownloadsByThread } from '../hooks/useDownloadsByThread';
+import { downloadLabel } from '../components/library/LibraryCard';
+import { PlayTimer } from '../components/library/PlayTimer';
 import { useOffline } from '../contexts/Offline';
 import { InstallLocationModal } from '../components/InstallLocationModal';
 import { MoveProgressModal } from '../components/MoveProgressModal';
@@ -84,8 +87,10 @@ export function LibraryGamePage() {
     destPath: string;
     totalBytes: number;
   } | null>(null);
-  const { running, launch } = useRunningGames();
+  const { running, startedAt, launch } = useRunningGames();
   const isRunning = threadId ? running.has(threadId) : false;
+  const runningSince = threadId ? (startedAt[threadId] ?? null) : null;
+  const download = useDownloadsByThread().get(threadId ?? '');
 
   const { openLibraryDetailContextMenu } = useLibraryGameActions({ onReload: reload });
 
@@ -439,7 +444,21 @@ export function LibraryGamePage() {
               className="game-detail-prefix"
               style={{ background: statusBg }}
             >
-              {isRunning ? t('libdetail.running') : t(statusKey(g.installStatus))}
+              {isRunning ? (
+                <>
+                  {t('libdetail.running')}
+                  {runningSince != null && (
+                    <>
+                      {' · '}
+                      <PlayTimer since={runningSince} />
+                    </>
+                  )}
+                </>
+              ) : download ? (
+                downloadLabel(download, t)
+              ) : (
+                t(statusKey(g.installStatus))
+              )}
             </span>
           </>
         }

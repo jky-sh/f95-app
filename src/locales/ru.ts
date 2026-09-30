@@ -619,6 +619,11 @@ const ru: Record<string, string> = {
   'libcard.cta.open': 'Открыть',
   'libcard.cta.open.title': 'Запустить мод',
   'libcard.playing': '▶ Запущено',
+  'libcard.progress.queued': 'В очереди',
+  'libcard.progress.downloading': 'Загрузка {percent}%',
+  'libcard.progress.downloading.unknown': 'Загрузка…',
+  'libcard.progress.extracting': 'Распаковка {percent}%',
+  'libcard.progress.extracting.unknown': 'Распаковка…',
   'libcard.detail': 'Подробнее',
 
   // ─── Library detail ─────────────────────────────────────────────────────

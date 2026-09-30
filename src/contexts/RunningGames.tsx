@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -49,6 +50,8 @@ interface RunningGamesValue {
   running: Set<string>;
   /** PID per running thread (for diagnostics). */
   pids: Record<string, number>;
+  /** When each running game started (ms), for the live play timer. */
+  startedAt: Record<string, number>;
   /** Games currently in the "launching" state — between the click on Play
    *  and the moment the Rust waiter reports the process is up. The map
    *  carries the full game so an overlay can render its art/title without
@@ -70,6 +73,7 @@ interface RunningGamesValue {
 const Ctx = createContext<RunningGamesValue>({
   running: new Set(),
   pids: {},
+  startedAt: {},
   launching: new Map(),
   launch: async () => {},
   cancelLaunch: () => {},
@@ -95,6 +99,7 @@ export const MIN_OVERLAY_DURATION_MS = 2500;
 export function RunningGamesProvider({ children }: { children: ReactNode }) {
   const [running, setRunning] = useState<Set<string>>(new Set());
   const [pids, setPids] = useState<Record<string, number>>({});
+  const [startedAt, setStartedAt] = useState<Record<string, number>>({});
   const [launching, setLaunching] = useState<Map<string, LaunchEntry>>(new Map());
   const launchingRef = useRef(launching);
   launchingRef.current = launching;
@@ -162,6 +167,12 @@ export function RunningGamesProvider({ children }: { children: ReactNode }) {
       const map: Record<string, number> = {};
       for (const r of list) map[r.threadId] = r.pid;
       setPids(map);
+      const now = Date.now();
+      setStartedAt((prev) => {
+        const next: Record<string, number> = {};
+        for (const r of list) next[r.threadId] = prev[r.threadId] ?? now - r.elapsedSeconds * 1000;
+        return next;
+      });
     } catch (err) {
       console.warn('[running-games] refresh failed', err);
     }
@@ -187,6 +198,9 @@ export function RunningGamesProvider({ children }: { children: ReactNode }) {
           return next;
         });
         setPids((prev) => ({ ...prev, [e.payload.threadId]: e.payload.pid }));
+        setStartedAt((prev) =>
+          prev[e.payload.threadId] ? prev : { ...prev, [e.payload.threadId]: Date.now() },
+        );
         setLaunching((launchPrev) => {
           const entry = launchPrev.get(e.payload.threadId);
           if (!entry) return launchPrev;
@@ -245,6 +259,11 @@ export function RunningGamesProvider({ children }: { children: ReactNode }) {
           delete next[e.payload.threadId];
           return next;
         });
+        setStartedAt((prev) => {
+          const next = { ...prev };
+          delete next[e.payload.threadId];
+          return next;
+        });
       });
       if (cancelled) {
         onExited();
@@ -259,15 +278,23 @@ export function RunningGamesProvider({ children }: { children: ReactNode }) {
     };
   }, [refresh]);
 
-  return (
-    <Ctx.Provider value={{ running, pids, launching, launch, cancelLaunch, refresh }}>
-      {children}
-    </Ctx.Provider>
+  // A stable value: consumers re-render when the running set changes, not
+  // whenever the provider does.
+  const value = useMemo(
+    () => ({ running, pids, startedAt, launching, launch, cancelLaunch, refresh }),
+    [running, pids, startedAt, launching, launch, cancelLaunch, refresh],
   );
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
 export function useRunningGames(): RunningGamesValue {
   return useContext(Ctx);
+}
+
+/** When the game started (ms) while it runs, else null. */
+export function useRunningSince(threadId: string | undefined | null): number | null {
+  const { startedAt } = useRunningGames();
+  return threadId ? (startedAt[threadId] ?? null) : null;
 }
 
 export function useIsRunning(threadId: string | undefined | null): boolean {

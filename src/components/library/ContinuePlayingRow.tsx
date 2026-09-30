@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { useIsRunning } from '../../contexts/RunningGames';
+import { useIsRunning, useRunningSince } from '../../contexts/RunningGames';
+import { PlayTimer } from './PlayTimer';
 import { useT } from '../../lib/i18n';
 import type { LibraryGame } from '../../types/library';
 import { formatPlaytime } from '../../types/library';
@@ -52,6 +53,7 @@ function ContinuePlayingCard({
 }) {
   const { t } = useT();
   const isRunning = useIsRunning(game.threadId);
+  const runningSince = useRunningSince(game.threadId);
   const lastPlayed = parseDbTime(game.lastPlayedAt)?.toLocaleDateString() ?? null;
   const playable = !!game.exePath;
 
@@ -68,7 +70,17 @@ function ContinuePlayingCard({
           <div style={thumbFallback}>{game.title.slice(0, 1).toUpperCase()}</div>
         )}
         <div style={overlayStyle} />
-        {isRunning && <div style={runningPillStyle}>{t('libcard.playing')}</div>}
+        {isRunning && (
+          <div style={runningPillStyle}>
+            {t('libcard.playing')}
+            {runningSince != null && (
+              <>
+                {' · '}
+                <PlayTimer since={runningSince} />
+              </>
+            )}
+          </div>
+        )}
       </Link>
 
       <div style={infoStyle}>

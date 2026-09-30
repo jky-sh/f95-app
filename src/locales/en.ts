@@ -625,6 +625,11 @@ const en: Record<string, string> = {
   'libcard.cta.open': 'Open',
   'libcard.cta.open.title': 'Run mod',
   'libcard.playing': '▶ Playing',
+  'libcard.progress.queued': 'Queued',
+  'libcard.progress.downloading': 'Downloading {percent}%',
+  'libcard.progress.downloading.unknown': 'Downloading…',
+  'libcard.progress.extracting': 'Extracting {percent}%',
+  'libcard.progress.extracting.unknown': 'Extracting…',
   'libcard.detail': 'Details',
 
   // ─── Library game detail page ───────────────────────────────────────────
