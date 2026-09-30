@@ -90,7 +90,12 @@
 .store-pagination-gap{color:var(--text-faint);font-size:12px;padding:0 4px;user-select:none}
 .store-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
 .store-sentinel{height:1px}
-.store-error{background:var(--status-danger-bg);border:1px solid var(--accent-strong);color:var(--status-danger-text);padding:12px 16px;border-radius:6px;margin-bottom:16px;font-size:13px}
+.store-error{background:var(--status-danger-bg);border:1px solid var(--accent-strong);color:var(--status-danger-text);padding:12px 16px;border-radius:6px;margin-bottom:16px;font-size:13px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.store-error-text{flex:1;min-width:200px;word-break:break-word}
+.store-retry-btn{background:var(--bg-elevated);border:1px solid var(--border-strong);color:var(--text-secondary);padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .12s,color .12s,border-color .12s}
+.store-retry-btn:hover:not(:disabled){background:var(--bg-hover);color:var(--text-primary);border-color:var(--accent)}
+.store-retry-btn:disabled{opacity:.6;cursor:default}
+.game-detail-error-retry{margin-top:12px}
 .store-empty{text-align:center;color:var(--text-muted);padding:60px 0;font-size:14px}
 .store-end{text-align:center;color:var(--text-faint);padding:20px 0;font-size:11px}
 .store-section-title{font-size:14px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:1.2px;margin:8px 0 14px}

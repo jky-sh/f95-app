@@ -105,6 +105,12 @@ const de: Record<string, string> = {
   'common.saving': 'Speichert…',
   'common.clearing': 'Leert…',
   'common.adding': 'Fügt hinzu…',
+  'errors.cloudflare': 'F95Zone zeigt gerade eine Cloudflare-Prüfung. Warte ein paar Sekunden und versuche es erneut.',
+  'errors.not_initialized': 'Die App startet noch. Versuche es gleich noch einmal.',
+  'errors.sidecar_timeout': 'F95Zone hat zu lange nicht geantwortet.',
+  'errors.sidecar_crash': 'Der F95Zone-Dienst wurde beendet. Starte die App neu, um die Verbindung wiederherzustellen.',
+  'errors.protocol': 'Unerwartete Antwort vom F95Zone-Dienst.',
+  'errors.io': 'Der F95Zone-Dienst ist nicht erreichbar.',
 
   // ─── Login ──────────────────────────────────────────────────────────────
   'login.title': 'Bei F95Zone anmelden',

@@ -105,6 +105,12 @@ const ru: Record<string, string> = {
   'common.saving': 'Сохранение…',
   'common.clearing': 'Очистка…',
   'common.adding': 'Добавление…',
+  'errors.cloudflare': 'F95Zone показывает проверку Cloudflare. Подождите несколько секунд и попробуйте снова.',
+  'errors.not_initialized': 'Приложение ещё запускается. Попробуйте чуть позже.',
+  'errors.sidecar_timeout': 'F95Zone слишком долго не отвечает.',
+  'errors.sidecar_crash': 'Служба F95Zone остановилась. Перезапустите приложение, чтобы переподключиться.',
+  'errors.protocol': 'Служба F95Zone вернула неожиданный ответ.',
+  'errors.io': 'Не удалось связаться со службой F95Zone.',
 
   // ─── Login ──────────────────────────────────────────────────────────────
   'login.title': 'Вход на F95Zone',

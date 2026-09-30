@@ -384,12 +384,17 @@ export function GameDetailLoading() {
   return <GameDetailSkeleton />;
 }
 
-export function GameDetailError({ message }: { message: string }) {
+export function GameDetailError({ message, onRetry }: { message: string; onRetry?: () => void }) {
   const { t } = useT();
   return (
-    <div className="game-detail-error">
+    <div className="game-detail-error" role="alert">
       <strong>{t('gamedetail.error')}</strong>
       <div style={{ marginTop: 6 }}>{message}</div>
+      {onRetry && (
+        <button type="button" className="store-retry-btn game-detail-error-retry" onClick={onRetry}>
+          {t('common.retry')}
+        </button>
+      )}
     </div>
   );
 }

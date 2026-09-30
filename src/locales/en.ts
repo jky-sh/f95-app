@@ -107,6 +107,12 @@ const en: Record<string, string> = {
   'common.saving': 'Saving…',
   'common.clearing': 'Clearing…',
   'common.adding': 'Adding…',
+  'errors.cloudflare': 'F95Zone is showing a Cloudflare check. Wait a few seconds and try again.',
+  'errors.not_initialized': 'The app is still starting up. Try again in a moment.',
+  'errors.sidecar_timeout': 'F95Zone took too long to answer.',
+  'errors.sidecar_crash': 'The F95Zone service stopped. Restart the app to reconnect.',
+  'errors.protocol': 'Got an unexpected answer from the F95Zone service.',
+  'errors.io': 'Couldn\'t reach the F95Zone service.',
 
   // ─── Login ──────────────────────────────────────────────────────────────
   'login.title': 'Sign in to F95Zone',

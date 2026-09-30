@@ -9,7 +9,8 @@ export interface SamListState {
   totalPages: number;
   totalRows: number;
   loading: boolean;
-  error: string | null;
+  /** Raw IPC failure of the last request (describe it with `describeIpcError`). */
+  error: unknown;
   hasMore: boolean;
 }
 
@@ -19,13 +20,15 @@ export function useSamList(filters: SamFilters): SamListState & {
   loadMore: () => void;
   goToPage: (target: number) => void;
   reload: () => void;
+  /** Re-run the request that failed. */
+  retry: () => void;
 } {
   const [items, setItems] = useState<SamGameCard[]>([]);
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [totalRows, setTotalRows] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
 
   // Keep a stable key of filters that should trigger a reload. Excludes `page`
   // because we manage page internally.
@@ -43,12 +46,15 @@ export function useSamList(filters: SamFilters): SamListState & {
   });
 
   const reqIdRef = useRef(0);
+  /** Request that failed last, re-run as-is by `retry`. */
+  const failedRef = useRef<{ target: number; append: boolean } | null>(null);
 
   const fetchPage = useCallback(
     async (target: number, append: boolean) => {
       const myId = ++reqIdRef.current;
       setLoading(true);
       setError(null);
+      failedRef.current = null;
       try {
         const result: SamPage = await samList({
           category: filters.category ?? 'games',
@@ -72,7 +78,8 @@ export function useSamList(filters: SamFilters): SamListState & {
         cacheItems(result.items).catch(() => undefined);
       } catch (err) {
         if (reqIdRef.current !== myId) return;
-        setError(formatError(err));
+        failedRef.current = { target, append };
+        setError(err ?? 'unknown error');
       } finally {
         if (reqIdRef.current === myId) setLoading(false);
       }
@@ -96,11 +103,20 @@ export function useSamList(filters: SamFilters): SamListState & {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterKey]);
 
+  // Infinite scroll calls this whenever the sentinel is visible. After a
+  // failure it must wait for an explicit retry: re-creating the observer
+  // fires it again at once, which used to loop against F95.
   const loadMore = useCallback(() => {
-    if (loading) return;
+    if (loading || error) return;
     if (page >= totalPages) return;
     fetchPage(page + 1, true);
-  }, [loading, page, totalPages, fetchPage]);
+  }, [loading, error, page, totalPages, fetchPage]);
+
+  const retry = useCallback(() => {
+    const failed = failedRef.current;
+    if (loading || !failed) return;
+    fetchPage(failed.target, failed.append);
+  }, [loading, fetchPage]);
 
   const goToPage = useCallback(
     (target: number) => {
@@ -129,6 +145,7 @@ export function useSamList(filters: SamFilters): SamListState & {
     loadMore,
     goToPage,
     reload,
+    retry,
   };
 }
 
@@ -183,11 +200,4 @@ async function cacheItems(items: SamGameCard[]): Promise<void> {
       ],
     );
   }
-}
-
-function formatError(err: unknown): string {
-  if (err && typeof err === 'object' && 'message' in err) {
-    return String((err as { message: string }).message);
-  }
-  return String(err);
 }

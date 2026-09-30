@@ -105,6 +105,12 @@ const pt: Record<string, string> = {
   'common.saving': 'Salvando…',
   'common.clearing': 'Limpando…',
   'common.adding': 'Adicionando…',
+  'errors.cloudflare': 'O F95Zone está exibindo uma verificação do Cloudflare. Aguarde alguns segundos e tente de novo.',
+  'errors.not_initialized': 'O app ainda está iniciando. Tente de novo em instantes.',
+  'errors.sidecar_timeout': 'O F95Zone demorou demais para responder.',
+  'errors.sidecar_crash': 'O serviço do F95Zone parou. Reinicie o app para reconectar.',
+  'errors.protocol': 'O serviço do F95Zone respondeu algo inesperado.',
+  'errors.io': 'Não foi possível falar com o serviço do F95Zone.',
 
   // ─── Login ──────────────────────────────────────────────────────────────
   'login.title': 'Entrar no F95Zone',

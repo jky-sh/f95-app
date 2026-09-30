@@ -9,6 +9,7 @@ import { useSamList } from '../hooks/useSamList';
 import { useStoreSettings } from '../contexts/StoreSettings';
 import { OfflineGate } from '../components/OfflineGate';
 import { useT } from '../lib/i18n';
+import { describeIpcError } from '../lib/ipcError';
 import type {
   PrefixFilterMode,
   SamCategory,
@@ -49,16 +50,27 @@ export function StorePage() {
     excludePrefixes.length > 0 ||
     selectedTags.length > 0;
 
-  const { items, page, totalPages, totalRows, loading, error, hasMore, loadMore, goToPage, reload } =
-    useSamList({
-      category,
-      sort,
-      search: search.trim() || undefined,
-      prefixes: includePrefixes.length ? includePrefixes : undefined,
-      noprefixes: excludePrefixes.length ? excludePrefixes : undefined,
-      tags: selectedTags.length ? selectedTags.map((tg) => tg.id) : undefined,
-      tagtype: selectedTags.length ? tagMode : undefined,
-    });
+  const {
+    items,
+    page,
+    totalPages,
+    totalRows,
+    loading,
+    error,
+    hasMore,
+    loadMore,
+    goToPage,
+    reload,
+    retry,
+  } = useSamList({
+    category,
+    sort,
+    search: search.trim() || undefined,
+    prefixes: includePrefixes.length ? includePrefixes : undefined,
+    noprefixes: excludePrefixes.length ? excludePrefixes : undefined,
+    tags: selectedTags.length ? selectedTags.map((tg) => tg.id) : undefined,
+    tagtype: selectedTags.length ? tagMode : undefined,
+  });
 
   const scrollModeRef = useRef(storeSettings.scrollMode);
   useEffect(() => {
@@ -67,9 +79,11 @@ export function StorePage() {
     reload();
   }, [storeSettings.scrollMode, reload]);
 
+  // The sentinel unmounts while a page failed; re-attach once it is back.
+  const errored = error != null;
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
-    if (!infiniteScroll) return;
+    if (!infiniteScroll || errored) return;
     const el = sentinelRef.current;
     if (!el) return;
     const obs = new IntersectionObserver(
@@ -82,7 +96,7 @@ export function StorePage() {
     );
     obs.observe(el);
     return () => obs.disconnect();
-  }, [infiniteScroll, loadMore]);
+  }, [infiniteScroll, errored, loadMore]);
 
   const showFeatured = useMemo(() => {
     if (sort !== 'date' || search || selectedTags.length > 0) return false;
@@ -165,7 +179,7 @@ export function StorePage() {
             </div>
           </header>
 
-          {error && <div className="store-error">{t('store.loadFailed', { error })}</div>}
+          {error != null && items.length === 0 && <StoreError error={error} onRetry={retry} />}
 
           {loading && items.length === 0 && !error && <GameCardGridSkeleton count={10} />}
 
@@ -183,12 +197,15 @@ export function StorePage() {
             ))}
           </div>
 
-          {infiniteScroll && <div ref={sentinelRef} className="store-sentinel" />}
+          {/* A failed "next page" keeps what is already on screen and waits for a retry. */}
+          {error != null && items.length > 0 && <StoreError error={error} onRetry={retry} />}
+
+          {infiniteScroll && error == null && <div ref={sentinelRef} className="store-sentinel" />}
 
           {infiniteScroll && loading && items.length > 0 && (
             <LoadingState label={t('common.loading')} variant="inline" />
           )}
-          {infiniteScroll && !loading && !hasMore && items.length > 0 && (
+          {infiniteScroll && !loading && !hasMore && items.length > 0 && error == null && (
             <div className="store-end">—</div>
           )}
 
@@ -203,5 +220,20 @@ export function StorePage() {
         </section>
       </div>
     </OfflineGate>
+  );
+}
+
+/** Retrying clears the error right away, so the button never needs a busy state. */
+function StoreError({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+  const { t } = useT();
+  return (
+    <div className="store-error" role="alert">
+      <span className="store-error-text">
+        {t('store.loadFailed', { error: describeIpcError(error, t) })}
+      </span>
+      <button type="button" className="store-retry-btn" onClick={onRetry}>
+        {t('common.retry')}
+      </button>
+    </div>
   );
 }

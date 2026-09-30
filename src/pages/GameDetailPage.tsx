@@ -40,11 +40,12 @@ import { useContextMenu } from '../components/contextMenu';
 import { useOffline } from '../contexts/Offline';
 import { buildStoreMenu } from '../lib/contextMenus/buildStoreMenu';
 import { useT } from '../lib/i18n';
+import { describeIpcError, formatIpcError } from '../lib/ipcError';
 import type { GameDetail, GamePrefix } from '../types/game';
 
 type State =
   | { kind: 'loading' }
-  | { kind: 'error'; message: string }
+  | { kind: 'error'; error: unknown }
   | { kind: 'ready'; data: GameDetail };
 
 const FIELD_ORDER = [
@@ -78,6 +79,8 @@ function GameDetailPageInner() {
   const { isOffline } = useOffline();
   const { openMenuAt } = useContextMenu();
   const [state, setState] = useState<State>({ kind: 'loading' });
+  /** Bumped by the Retry button to run the fetch again. */
+  const [attempt, setAttempt] = useState(0);
   const [inLibrary, setInLibrary] = useState(false);
   const [adding, setAdding] = useState(false);
 
@@ -124,7 +127,7 @@ function GameDetailPageInner() {
       })
       .catch((err) => {
         if (cancelled) return;
-        setState({ kind: 'error', message: formatError(err) });
+        setState({ kind: 'error', error: err });
       });
     library
       .isInLibrary(threadId)
@@ -135,7 +138,7 @@ function GameDetailPageInner() {
     return () => {
       cancelled = true;
     };
-  }, [threadId]);
+  }, [threadId, attempt]);
 
   useEffect(() => {
     if (state.kind !== 'ready') return;
@@ -167,7 +170,7 @@ function GameDetailPageInner() {
       });
       setInLibrary(true);
     } catch (err) {
-      await dialog.alert(formatError(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     } finally {
       setAdding(false);
     }
@@ -208,7 +211,10 @@ function GameDetailPageInner() {
           breadcrumbTo="/store"
           breadcrumbLabel={t('nav.store')}
         />
-        <GameDetailError message={state.message} />
+        <GameDetailError
+          message={describeIpcError(state.error, t)}
+          onRetry={() => setAttempt((n) => n + 1)}
+        />
       </GameDetailShell>
     );
   }
@@ -473,13 +479,6 @@ function normalizeDetailPrefixes(
     out.push(p);
   }
   return out;
-}
-
-function formatError(err: unknown): string {
-  if (err && typeof err === 'object' && 'message' in err) {
-    return String((err as { message: string }).message);
-  }
-  return String(err);
 }
 
 /** Seta de download (traço + seta pra baixo), no tamanho do texto do botão. */
