@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useT } from '../../lib/i18n';
 import { GameDetailSkeleton } from '../ui/GameDetailSkeleton';
 import '../../styles/game-description.css';
+import '../../styles/game-page.css';
 
 /* ── Back navigation ───────────────────────────────────────────────────── */
 

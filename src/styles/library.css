@@ -132,3 +132,16 @@
 .lib-toolbar { margin: 14px 0 20px; }
 .lib-section { margin-bottom: 28px; }
 .lib-collection-icon { color: var(--accent); }
+
+/* Library game page ----------------------------------------------------------- */
+.lib-stats {
+  display: flex; flex-wrap: wrap; gap: 10px 36px; padding: 14px 32px;
+  background: var(--bg-sunken); border-bottom: 1px solid var(--border-faint);
+}
+.lib-stat { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.lib-stat > .ui-icon { color: var(--text-faint); }
+.lib-stat-label { display: block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted); }
+.lib-stat-value { display: block; margin-top: 2px; font-size: 14px; font-weight: 700; color: var(--text-primary); white-space: nowrap; }
+.lib-info-tags { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-faint); }
+.game-detail-btn { gap: 7px; }
+.game-detail-btn-icon { width: 40px; padding: 0; }

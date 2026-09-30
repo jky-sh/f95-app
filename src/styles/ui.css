@@ -131,3 +131,19 @@
 .ui-empty-title { margin: 0; font-size: 15px; font-weight: 700; color: var(--text-secondary); }
 .ui-empty-text { margin: 0; font-size: 13px; max-width: 420px; line-height: 1.5; }
 .ui-empty .ui-btn { margin-top: 8px; }
+
+/* Tabs ---------------------------------------------------------------------- */
+.ui-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 16px; overflow-x: auto; scrollbar-width: none; }
+.ui-tab {
+  position: relative; flex: none; padding: 10px 14px; border: 0; background: none;
+  color: var(--text-muted); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+  transition: color var(--ui-ease);
+}
+.ui-tab:hover { color: var(--text-primary); }
+.ui-tab:focus-visible { outline: none; box-shadow: var(--ui-focus-ring); border-radius: var(--ui-radius); }
+.ui-tab[aria-selected='true'] { color: var(--text-primary); }
+.ui-tab[aria-selected='true']::after {
+  content: ''; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px;
+  border-radius: 2px; background: var(--accent);
+}
+.ui-tab-count { margin-left: 6px; color: var(--text-faint); font-weight: 600; }

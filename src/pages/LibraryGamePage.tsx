@@ -1,16 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
 import { dialog } from '../lib/dialog';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import * as ipc from '../lib/ipc';
 import * as library from '../lib/library';
-import * as updates from '../lib/updates';
 import * as uninstall from '../lib/uninstall';
 import { useRunningGames } from '../contexts/RunningGames';
 import { useDownloadsByThread } from '../hooks/useDownloadsByThread';
 import { downloadLabel } from '../components/library/LibraryGameViews';
 import { PlayTimer } from '../components/library/PlayTimer';
+import { Icon } from '../components/ui/Icon';
+import { Tabs } from '../components/ui/Tabs';
+import { formatBytes } from '../types/download';
+import { formatWhen } from '../lib/memberPresence';
+import '../styles/library.css';
 import { useOffline } from '../contexts/Offline';
 import { InstallLocationModal } from '../components/InstallLocationModal';
 import { MoveProgressModal } from '../components/MoveProgressModal';
@@ -44,8 +48,6 @@ import {
   GameDetailMain,
   GameDetailShell,
   GameDetailSection,
-  GameDetailStat,
-  GameDetailStatGrid,
   GameDetailAside,
 } from '../components/game/GameDetailLayout';
 import { useLibraryGameActions } from '../hooks/useLibraryGameActions';
@@ -66,14 +68,32 @@ function categoryLabelKey(cat: SamCategory): string {
 }
 
 export function LibraryGamePage() {
-  const { t } = useT();
+  const { t, locale } = useT();
   const { isOffline } = useOffline();
   const { threadId } = useParams<{ threadId: string }>();
   const navigate = useNavigate();
   // Actions and library changes anywhere in the app refresh this page in
   // place; only opening another game shows the loading state.
-  const { state, sessions: playSessions, libraryId: currentLibId, refresh: reload } =
-    useLibraryGame(threadId);
+  const {
+    state,
+    sessions: playSessions,
+    libraryId: currentLibId,
+    sizeBytes,
+    refresh: reload,
+  } = useLibraryGame(threadId);
+  // The open tab lives in the URL, so Back returns to it.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const selectTab = (id: GameTab) =>
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (id === 'overview') next.delete('tab');
+        else next.set('tab', id);
+        return next;
+      },
+      { replace: true },
+    );
   const storeDetail = useStoreDetail(threadId, isOffline);
   const onContentClick = useF95ContentLinks();
   /** null = not edited: the textarea shows the saved notes. */
@@ -282,26 +302,6 @@ export function LibraryGamePage() {
     }
   }
 
-  async function onCheckUpdate() {
-    if (isOffline) {
-      await dialog.alert(t('offline.actionBlocked'), { kind: 'info' });
-      return;
-    }
-    try {
-      const result = await updates.checkOne(g);
-      await reload();
-      if (result.error) {
-        await dialog.alert(t('libdetail.update.failed', { error: result.error }));
-      } else if (result.hasUpdate) {
-        await dialog.alert(t('libdetail.update.found', { version: result.latestVersion ?? '' }));
-      } else {
-        await dialog.alert(t('libdetail.update.uptodate'));
-      }
-    } catch (err) {
-      await dialog.alert(t('libdetail.update.generic', { error: formatError(err) }));
-    }
-  }
-
   function onUpdateNow() {
     // Modal de escolha de host — atualiza sem sair da página do jogo.
     openGameDownloadModal({
@@ -419,6 +419,15 @@ export function LibraryGamePage() {
   }
 
   const statusBg = isRunning ? 'var(--status-success)' : statusColor(g.installStatus);
+  const lastPlayed = parseDbTime(g.lastPlayedAt);
+  const tabs: { id: GameTab; label: string; count?: number }[] = [
+    { id: 'overview', label: t('libdetail.tabs.overview') },
+    ...(changelog ? [{ id: 'changelog' as const, label: t('libdetail.tabs.changelog') }] : []),
+    ...(isGame ? [{ id: 'achievements' as const, label: t('libdetail.tabs.achievements') }] : []),
+    ...(isGame ? [{ id: 'sessions' as const, label: t('libdetail.tabs.sessions'), count: playSessions.total }] : []),
+    { id: 'notes', label: t('libdetail.tabs.notes') },
+  ];
+  const tab: GameTab = tabs.some((x) => x.id === tabParam) ? (tabParam as GameTab) : 'overview';
 
   return (
     <Shell
@@ -481,138 +490,140 @@ export function LibraryGamePage() {
           </>
         }
         actions={
-          isGame ? (
-            <>
-              {isRunning ? (
-                <GameDetailBtnPrimary
-                  onClick={onStop}
-                  className="game-detail-btn-stop"
-                >
+          <>
+            {isGame ? (
+              isRunning ? (
+                <GameDetailBtnPrimary onClick={onStop} className="game-detail-btn-stop">
+                  <Icon name="stop" size={14} />
                   {t('libdetail.action.stop')}
                 </GameDetailBtnPrimary>
-              ) : g.availableVersion &&
-                g.installStatus === 'update_available' &&
-                !g.exePath ? (
+              ) : g.availableVersion && g.installStatus === 'update_available' && !g.exePath ? (
                 // Sem exe não há o que jogar — o update segue como primário.
                 <GameDetailBtnPrimary
                   onClick={onUpdateNow}
                   className="game-detail-btn-update"
-                  title={t('libdetail.action.update.title', {
-                    version: g.availableVersion,
-                  })}
+                  title={t('libdetail.action.update.title', { version: g.availableVersion })}
                 >
+                  <Icon name="download" size={14} />
                   {t('libdetail.action.update', { version: g.availableVersion })}
                 </GameDetailBtnPrimary>
-              ) : (
+              ) : g.exePath ? (
                 // Jogar continua primário mesmo com update pendente — a versão
                 // instalada nunca fica injogável por causa de um update.
-                <>
-                  <GameDetailBtnPrimary
-                    onClick={onPlay}
-                    disabled={!g.exePath || launching}
-                    title={
-                      !g.exePath
-                        ? t('libdetail.action.play.hintExe')
-                        : launching
-                          ? t('libdetail.action.play.hintLaunch')
-                          : t('libdetail.action.play.title')
-                    }
-                  >
-                    {launching ? t('libdetail.action.launching') : t('libdetail.action.play')}
-                  </GameDetailBtnPrimary>
-                  {g.availableVersion && g.installStatus === 'update_available' && (
-                    <GameDetailBtnSecondary
-                      onClick={onUpdateNow}
-                      className="game-detail-btn-update"
-                      title={t('libdetail.action.update.title', {
-                        version: g.availableVersion,
-                      })}
-                    >
-                      {t('libdetail.action.update', { version: g.availableVersion })}
-                    </GameDetailBtnSecondary>
-                  )}
-                </>
-              )}
-              <GameDetailBtnSecondary onClick={onPickExe}>
-                {g.exePath ? t('libdetail.action.switchExe') : t('libdetail.action.setExe')}
-              </GameDetailBtnSecondary>
-              <GameDetailBtnSecondary onClick={onCheckUpdate}>
-                {t('libdetail.action.checkUpdate')}
-              </GameDetailBtnSecondary>
-            </>
-          ) : (
-            <>
-              {canOpenViewer && (
-                <GameDetailBtnPrimary onClick={onOpenViewer}>
-                  {t('libdetail.action.openViewer')}
-                </GameDetailBtnPrimary>
-              )}
-              {g.category === 'mods' && g.exePath && (
-                <GameDetailBtnSecondary onClick={onPlay} disabled={launching}>
+                <GameDetailBtnPrimary
+                  onClick={onPlay}
+                  disabled={launching}
+                  className="game-detail-btn-play"
+                  title={launching ? t('libdetail.action.play.hintLaunch') : t('libdetail.action.play.title')}
+                >
+                  <Icon name="play" size={14} />
                   {launching ? t('libdetail.action.launching') : t('libdetail.action.play')}
+                </GameDetailBtnPrimary>
+              ) : (
+                <GameDetailBtnPrimary onClick={onPickExe} title={t('libdetail.action.play.hintExe')}>
+                  <Icon name="folder" size={14} />
+                  {t('libdetail.action.setExe')}
+                </GameDetailBtnPrimary>
+              )
+            ) : (
+              <>
+                {canOpenViewer && (
+                  <GameDetailBtnPrimary onClick={onOpenViewer}>
+                    <Icon name="play" size={14} />
+                    {t('libdetail.action.openViewer')}
+                  </GameDetailBtnPrimary>
+                )}
+                {g.category === 'mods' && g.exePath && (
+                  <GameDetailBtnSecondary onClick={onPlay} disabled={launching}>
+                    {launching ? t('libdetail.action.launching') : t('libdetail.action.play')}
+                  </GameDetailBtnSecondary>
+                )}
+                <GameDetailBtnSecondary onClick={onOpenInstallFolder}>
+                  <Icon name="folder" size={14} />
+                  {t('common.open')}
                 </GameDetailBtnSecondary>
-              )}
-              <GameDetailBtnSecondary onClick={onOpenInstallFolder}>
-                {t('common.open')}
+              </>
+            )}
+            {isGame && !isRunning && g.exePath && g.availableVersion && g.installStatus === 'update_available' && (
+              <GameDetailBtnSecondary
+                onClick={onUpdateNow}
+                className="game-detail-btn-update"
+                title={t('libdetail.action.update.title', { version: g.availableVersion })}
+              >
+                <Icon name="download" size={14} />
+                {t('libdetail.action.update', { version: g.availableVersion })}
               </GameDetailBtnSecondary>
-            </>
-          )
+            )}
+            {/* Everything else (pick .exe, check for updates, folder,
+                collections, uninstall…) lives in the game's menu. */}
+            <button
+              type="button"
+              className="game-detail-btn game-detail-btn-secondary game-detail-btn-icon"
+              aria-label={t('libcard.more')}
+              title={t('libcard.more')}
+              onClick={(e) => openLibraryDetailContextMenu(e, g, { onPickExe, onOpenStore: onUpdateNow })}
+            >
+              <Icon name="more" size={18} strokeWidth={3} />
+            </button>
+          </>
         }
       />
 
-      <GameDetailStatGrid>
-        <GameDetailStat
-          label={t('libdetail.location.status')}
-          value={isRunning ? t('libdetail.running') : t(statusKey(g.installStatus))}
-          highlight={isRunning}
-        />
-        {isGame && (
-          <GameDetailStat
-            label={t('libdetail.stats.playtime')}
-            value={formatPlaytime(g.totalPlaytimeSeconds)}
-          />
-        )}
-        <GameDetailStat
-          label={t('libdetail.location.version')}
-          value={g.currentVersion ?? '—'}
-          highlight={!!g.availableVersion && g.availableVersion !== g.currentVersion}
-        />
+      <div className="lib-stats">
         {isGame && (
           <>
-            <GameDetailStat
-              label={t('libdetail.stats.sessions')}
-              value={playSessions.total}
+            <LibStat icon="clock" label={t('libdetail.stats.playtime')} value={formatPlaytime(g.totalPlaytimeSeconds)} />
+            <LibStat icon="gamepad" label={t('libdetail.stats.sessions')} value={String(playSessions.total)} />
+            <LibStat
+              icon="play"
+              label={t('libdetail.stats.lastPlayed')}
+              value={lastPlayed ? formatWhen(lastPlayed.getTime(), locale) : '—'}
+              title={lastPlayed?.toLocaleString(locale)}
             />
-            {g.lastPlayedAt && (
-              <GameDetailStat
-                label={t('libdetail.stats.lastPlayed')}
-                value={parseDbTime(g.lastPlayedAt)?.toLocaleDateString() ?? '—'}
-              />
-            )}
           </>
         )}
-      </GameDetailStatGrid>
+        {sizeBytes != null && sizeBytes > 0 && (
+          <LibStat icon="folder" label={t('libdetail.stats.size')} value={formatBytes(sizeBytes)} />
+        )}
+        <LibStat
+          icon="check"
+          label={t('libdetail.location.version')}
+          value={g.currentVersion ?? '—'}
+        />
+      </div>
 
       <GameDetailBody>
         <GameDetailMain>
-          {storeDetail && storeDetail.screenshots.length > 0 && (
-            <GameDetailSection title={t('gamedetail.section.screenshots')}>
-              <ScreenshotGallery images={storeDetail.screenshots} />
-            </GameDetailSection>
+          <Tabs label={t('libdetail.tabs.label')} tabs={tabs} value={tab} onChange={selectTab} />
+
+          {tab === 'overview' && (
+            <>
+              {storeDetail && storeDetail.screenshots.length > 0 && (
+                <GameDetailSection title={t('gamedetail.section.screenshots')}>
+                  <ScreenshotGallery images={storeDetail.screenshots} />
+                </GameDetailSection>
+              )}
+              {sanitized ? (
+                <GameDetailSection title={t('gamedetail.section.about')}>
+                  <div onClick={onContentClick}>
+                    <GameDescription
+                      html={sanitized}
+                      style={{ fontSize: 13.5, lineHeight: 1.65, wordBreak: 'break-word' }}
+                    />
+                  </div>
+                </GameDetailSection>
+              ) : (
+                <div className="ui-empty">
+                  <Icon name="sparkle" size={28} />
+                  <p className="ui-empty-text">
+                    {isOffline ? t('libdetail.overview.offline') : t('libdetail.overview.loading')}
+                  </p>
+                </div>
+              )}
+            </>
           )}
 
-          {sanitized && (
-            <GameDetailSection title={t('gamedetail.section.about')}>
-              <div onClick={onContentClick}>
-                <GameDescription
-                  html={sanitized}
-                  style={{ fontSize: 13.5, lineHeight: 1.65, wordBreak: 'break-word' }}
-                />
-              </div>
-            </GameDetailSection>
-          )}
-
-          {changelog && (
+          {tab === 'changelog' && changelog && (
             <GameDetailSection title={t('gamedetail.section.changelog')}>
               <div onClick={onContentClick}>
                 <CollapsibleHtml html={changelog} />
@@ -620,101 +631,95 @@ export function LibraryGamePage() {
             </GameDetailSection>
           )}
 
-          {storeDetail && storeDetail.tags.length > 0 && (
-            <GameDetailSection title={t('libdetail.section.f95Tags')}>
-              <StoreTagList tags={storeDetail.tags} category={g.category} />
+          {tab === 'achievements' && isGame && (
+            <GameAchievementsSection game={g} storeDetail={storeDetail} onChanged={() => void reload()} />
+          )}
+
+          {tab === 'sessions' && isGame && (
+            <GameDetailSection title={t('libdetail.section.sessions')}>
+              {playSessions.recent.length === 0 ? (
+                <div className="game-detail-empty-hint">{t('libdetail.sessions.empty')}</div>
+              ) : (
+                <ul className="game-detail-session-list">
+                  {playSessions.recent.map((s) => (
+                    <li key={s.id} className="game-detail-session-row">
+                      <span className="game-detail-session-when">
+                        {parseDbTime(s.startedAt)?.toLocaleString()}
+                      </span>
+                      <span className="game-detail-session-dur">
+                        {s.endedAt
+                          ? formatPlaytime(s.durationSeconds ?? 0)
+                          : isRunning
+                            ? t('libdetail.sessions.running')
+                            : t('libdetail.sessions.interrupted')}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </GameDetailSection>
           )}
 
-          {isGame && (
-            <GameAchievementsSection
-              game={g}
-              storeDetail={storeDetail}
-              onChanged={() => void reload()}
-            />
-          )}
+          {tab === 'notes' && (
+            <>
+              <GameDetailSection title={t('libdetail.section.notes')}>
+                <textarea
+                  value={notesValue}
+                  onChange={(e) => {
+                    setNotesDraft(e.target.value);
+                    setNotesStatus('idle');
+                  }}
+                  onBlur={() => void saveNotes()}
+                  placeholder={t('libdetail.notes.placeholder')}
+                  rows={8}
+                  className="game-detail-notes"
+                />
+                <div className="game-detail-notes-status" aria-live="polite">
+                  {notesStatus === 'saving'
+                    ? t('common.saving')
+                    : notesStatus === 'saved'
+                      ? t('libdetail.notes.saved')
+                      : ''}
+                </div>
+              </GameDetailSection>
 
-          <GameDetailSection title={t('libdetail.section.notes')}>
-            <textarea
-              value={notesValue}
-              onChange={(e) => {
-                setNotesDraft(e.target.value);
-                setNotesStatus('idle');
-              }}
-              onBlur={() => void saveNotes()}
-              placeholder={t('libdetail.notes.placeholder')}
-              rows={6}
-              className="game-detail-notes"
-            />
-            <div className="game-detail-notes-status" aria-live="polite">
-              {notesStatus === 'saving'
-                ? t('common.saving')
-                : notesStatus === 'saved'
-                  ? t('libdetail.notes.saved')
-                  : ''}
-            </div>
-          </GameDetailSection>
-
-          {isGame && (
-          <GameDetailSection title={t('libdetail.section.sessions')}>
-            {playSessions.recent.length === 0 ? (
-              <div className="game-detail-empty-hint">{t('libdetail.sessions.empty')}</div>
-            ) : (
-              <ul className="game-detail-session-list">
-                {playSessions.recent.map((s) => (
-                  <li key={s.id} className="game-detail-session-row">
-                    <span className="game-detail-session-when">
-                      {parseDbTime(s.startedAt)?.toLocaleString()}
+              <GameDetailSection title={t('libdetail.section.tags')}>
+                <div className="game-detail-tags">
+                  {g.customTags.length === 0 && (
+                    <span className="game-detail-empty-hint">{t('libdetail.tags.empty')}</span>
+                  )}
+                  {g.customTags.map((tag) => (
+                    <span key={tag} className="game-detail-custom-tag">
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={() => onRemoveTag(tag)}
+                        className="game-detail-tag-remove"
+                        aria-label={t('common.remove')}
+                      >
+                        ×
+                      </button>
                     </span>
-                    <span className="game-detail-session-dur">
-                      {s.endedAt
-                        ? formatPlaytime(s.durationSeconds ?? 0)
-                        : isRunning
-                          ? t('libdetail.sessions.running')
-                          : t('libdetail.sessions.interrupted')}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </GameDetailSection>
-          )}
-
-          <GameDetailSection title={t('libdetail.section.tags')}>
-            <div className="game-detail-tags">
-              {g.customTags.length === 0 && (
-                <span className="game-detail-empty-hint">{t('libdetail.tags.empty')}</span>
-              )}
-              {g.customTags.map((tag) => (
-                <span key={tag} className="game-detail-custom-tag">
-                  {tag}
-                  <button
-                    type="button"
-                    onClick={() => onRemoveTag(tag)}
-                    className="game-detail-tag-remove"
-                    aria-label={t('common.remove')}
-                  >
-                    ×
+                  ))}
+                </div>
+                <div className="game-detail-tag-input-row">
+                  <input
+                    type="text"
+                    value={tagDraft}
+                    onChange={(e) => setTagDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') onAddTag();
+                    }}
+                    placeholder={t('libdetail.tags.input')}
+                    className="game-detail-tag-input"
+                  />
+                  <button type="button" onClick={onAddTag} className="game-detail-tag-add">
+                    {t('common.add')}
                   </button>
-                </span>
-              ))}
-            </div>
-            <div className="game-detail-tag-input-row">
-              <input
-                type="text"
-                value={tagDraft}
-                onChange={(e) => setTagDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') onAddTag();
-                }}
-                placeholder={t('libdetail.tags.input')}
-                className="game-detail-tag-input"
-              />
-              <button type="button" onClick={onAddTag} className="game-detail-tag-add">
-                {t('common.add')}
-              </button>
-            </div>
-          </GameDetailSection>
+                </div>
+              </GameDetailSection>
+            </>
+          )}
         </GameDetailMain>
 
         <GameDetailAside>
@@ -765,6 +770,11 @@ export function LibraryGamePage() {
           {storeDetail && (
             <GameDetailSection title={t('gamedetail.section.info')}>
               <StoreInfoFields detail={storeDetail} category={g.category} omit={['Version']} />
+              {storeDetail.tags.length > 0 && (
+                <div className="lib-info-tags">
+                  <StoreTagList tags={storeDetail.tags} category={g.category} />
+                </div>
+              )}
             </GameDetailSection>
           )}
 
@@ -843,6 +853,30 @@ function Shell({
       />
       {children}
     </GameDetailShell>
+  );
+}
+
+type GameTab = 'overview' | 'changelog' | 'achievements' | 'sessions' | 'notes';
+
+function LibStat({
+  icon,
+  label,
+  value,
+  title,
+}: {
+  icon: 'clock' | 'gamepad' | 'play' | 'folder' | 'check';
+  label: string;
+  value: string;
+  title?: string;
+}) {
+  return (
+    <div className="lib-stat" title={title}>
+      <Icon name={icon} size={18} />
+      <span>
+        <span className="lib-stat-label">{label}</span>
+        <span className="lib-stat-value">{value}</span>
+      </span>
+    </div>
   );
 }
 
