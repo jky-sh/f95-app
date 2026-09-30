@@ -26,6 +26,7 @@ import './styles/ui.css';
 // Page sheets that refine App.css rules: after it, so they win.
 import './styles/library.css';
 import './styles/game-page.css';
+import './styles/downloads.css';
 import './styles/steam-skin.css';
 import './styles/store-filter.css';
 import './styles/offline.css';

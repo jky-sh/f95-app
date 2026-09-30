@@ -1,0 +1,10 @@
+/* Downloads: refinements over App.css. */
+
+/* Thumbnails are 16:9 like the rest of the app (library-cover fills them). */
+.dl-active-thumb { position: relative; width: 128px; height: auto; aspect-ratio: 16 / 9; align-self: flex-start; }
+.dl-history-thumb { position: relative; width: 72px; height: auto; aspect-ratio: 16 / 9; }
+.dl-history-table { grid-template-columns: 84px minmax(200px, 1fr) minmax(88px, 108px) 108px 76px 92px 132px minmax(180px, max-content); }
+@media (max-width: 1100px) {
+  .dl-active-thumb { width: 96px; }
+  .dl-history-thumb { width: 64px; }
+}
