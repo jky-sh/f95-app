@@ -20,6 +20,7 @@ export interface OverlayCompactGeom {
 }
 
 export interface ExperimentalFeatures {
+  game: boolean;
   notes: boolean;
   guides: boolean;
   browser: boolean;
@@ -54,6 +55,7 @@ const COMPACT_MIN_H = 280;
 const COMPACT_MARGIN = 24;
 
 const DEFAULT_FEATURES: ExperimentalFeatures = {
+  game: true,
   notes: true,
   guides: true,
   browser: true,
@@ -98,6 +100,7 @@ function parseFeatures(raw: string | null): ExperimentalFeatures {
   try {
     const o = JSON.parse(raw) as Partial<ExperimentalFeatures>;
     return {
+      game: o.game !== false,
       notes: o.notes !== false,
       guides: o.guides !== false,
       browser: o.browser !== false,

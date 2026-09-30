@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { useT } from '../../lib/i18n';
 import {
   getExperimentalSettings,
@@ -25,6 +26,7 @@ import { OverlayBrandBar } from './OverlayBrandBar';
 import { closeOverlayEmbeddedBrowser, OverlayBrowserPanel } from './OverlayBrowserPanel';
 import { OverlayDock } from './OverlayDock';
 import { OverlayFloatPanel } from './OverlayFloatPanel';
+import { OverlayGamePanel } from './OverlayGamePanel';
 import { OverlayGuidesPanel } from './OverlayGuidesPanel';
 import { OverlayHotkeyBadge } from './OverlayHotkeyBadge';
 import { OverlayNotesPanel } from './OverlayNotesPanel';
@@ -34,19 +36,12 @@ import {
   type OverlayPanelLayout,
   type OverlayPanelLayouts,
 } from './overlayPanelLayouts';
-import { OVERLAY_TAB_ORDER, type OverlayTab } from './overlayTypes';
+import { OVERLAY_TAB_LABEL_KEYS, OVERLAY_TAB_ORDER, type OverlayTab } from './overlayTypes';
 
 interface RunningOption {
   threadId: string;
   title: string;
 }
-
-const TAB_LABEL_KEYS: Record<OverlayTab, string> = {
-  notes: 'overlay.tab.notes',
-  guides: 'overlay.tab.guides',
-  browser: 'overlay.tab.browser',
-  achievements: 'overlay.tab.achievements',
-};
 
 export function GameOverlayApp() {
   const { t } = useT();
@@ -58,6 +53,10 @@ export function GameOverlayApp() {
     () => getExperimentalSettings().overlayPanelLayouts,
   );
   const [focusedPanel, setFocusedPanel] = useState<OverlayTab | null>('notes');
+  /** A link the game or guides panel asked the browser panel to open. */
+  const [browserRequest, setBrowserRequest] = useState<{ url: string; nonce: number } | null>(null);
+  /** Counts showings: the browser page is torn down whenever the overlay closes. */
+  const [showKey, setShowKey] = useState(0);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refreshRunning = useCallback(async () => {
@@ -88,8 +87,11 @@ export function GameOverlayApp() {
     });
     void refreshRunning();
     const unsubs: Array<() => void> = [];
+    // Rust sends the context each time it shows the overlay.
     void listen<OverlayContext>('overlay:context', (e) => {
-      if (!cancelled) setContext(e.payload);
+      if (cancelled) return;
+      setContext(e.payload);
+      setShowKey((k) => k + 1);
     }).then((fn) => unsubs.push(fn));
     void listen<{ pid: number; attachMode?: string }>('overlay:anchored', () => {
       if (!cancelled) void ipc.overlayGetAnchorStatus().then(setAnchor);
@@ -196,6 +198,28 @@ export function GameOverlayApp() {
     [panelLayouts, updatePanelLayout],
   );
 
+  /** Brings a tool up (opening it when closed) and in front of the others. */
+  const showPanel = useCallback(
+    (tab: OverlayTab) => {
+      if (!panelLayouts[tab].open) updatePanelLayout(tab, { open: true });
+      setFocusedPanel(tab);
+    },
+    [panelLayouts, updatePanelLayout],
+  );
+
+  /** Links from the panels open in the overlay's browser, or outside when it is off. */
+  const openLink = useCallback(
+    (url: string) => {
+      if (!exp.features.browser) {
+        void openUrl(url);
+        return;
+      }
+      setBrowserRequest({ url, nonce: Date.now() });
+      showPanel('browser');
+    },
+    [exp.features.browser, showPanel],
+  );
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -258,16 +282,26 @@ export function GameOverlayApp() {
       );
     }
     switch (tab) {
+      case 'game':
+        return (
+          <OverlayGamePanel
+            threadId={threadId}
+            onOpenLink={openLink}
+            onShowAchievements={() => showPanel('achievements')}
+          />
+        );
       case 'notes':
         return <OverlayNotesPanel threadId={threadId} enabled={exp.features.notes} />;
       case 'guides':
-        return <OverlayGuidesPanel enabled={exp.features.guides} />;
+        return <OverlayGuidesPanel threadId={threadId} enabled={exp.features.guides} onOpenLink={openLink} />;
       case 'browser':
         return (
           <OverlayBrowserPanel
             enabled={exp.features.browser}
             homeUrl={exp.browserHomeUrl}
             boundsKey={`${panelLayouts.browser.x}-${panelLayouts.browser.y}-${panelLayouts.browser.w}-${panelLayouts.browser.h}`}
+            request={browserRequest}
+            showKey={showKey}
           />
         );
       case 'achievements':
@@ -310,6 +344,7 @@ export function GameOverlayApp() {
 
       <OverlayDock
         context={context}
+        fallbackTitle={running.find((r) => r.threadId === threadId)?.title ?? null}
         anchor={anchor}
         running={running}
         threadId={threadId}
@@ -331,7 +366,7 @@ export function GameOverlayApp() {
           return (
             <OverlayFloatPanel
               key={tab}
-              title={t(TAB_LABEL_KEYS[tab])}
+              title={t(OVERLAY_TAB_LABEL_KEYS[tab])}
               layout={layout}
               zIndex={panelZ(tab)}
               onFocus={() => setFocusedPanel(tab)}

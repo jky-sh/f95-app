@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useT } from '../../lib/i18n';
 import {
@@ -10,6 +10,10 @@ interface Props {
   enabled: boolean;
   homeUrl: string;
   boundsKey: string;
+  /** A link another panel asked to open; a new nonce navigates again. */
+  request?: { url: string; nonce: number } | null;
+  /** Bumped each time the overlay is shown: closing it tears the page down. */
+  showKey?: number;
 }
 
 function normalizeUrl(input: string, fallback: string): string {
@@ -19,12 +23,13 @@ function normalizeUrl(input: string, fallback: string): string {
   return `https://${trimmed}`;
 }
 
-export function OverlayBrowserPanel({ enabled, homeUrl, boundsKey }: Props) {
+export function OverlayBrowserPanel({ enabled, homeUrl, boundsKey, request = null, showKey = 0 }: Props) {
   const { t } = useT();
   const frameRef = useRef<HTMLDivElement>(null);
-  const [urlInput, setUrlInput] = useState(homeUrl);
-  const [currentUrl, setCurrentUrl] = useState(() => normalizeUrl(homeUrl, homeUrl));
-  const [history, setHistory] = useState<string[]>([normalizeUrl(homeUrl, homeUrl)]);
+  const firstUrl = normalizeUrl(request?.url ?? homeUrl, homeUrl);
+  const [urlInput, setUrlInput] = useState(firstUrl);
+  const [currentUrl, setCurrentUrl] = useState(firstUrl);
+  const [history, setHistory] = useState<string[]>([firstUrl]);
   const [historyIdx, setHistoryIdx] = useState(0);
   const [loading, setLoading] = useState(false);
   const [reloadNonce, setReloadNonce] = useState(0);
@@ -34,7 +39,7 @@ export function OverlayBrowserPanel({ enabled, homeUrl, boundsKey }: Props) {
     currentUrl,
     enabled,
     boundsKey,
-    reloadNonce,
+    reloadNonce * 1000 + showKey,
   );
 
   const navigate = useCallback(
@@ -49,6 +54,14 @@ export function OverlayBrowserPanel({ enabled, homeUrl, boundsKey }: Props) {
     },
     [historyIdx, homeUrl],
   );
+
+  // Links from the other panels (guides, the game's thread) open here.
+  const lastRequest = useRef(request?.nonce ?? 0);
+  useEffect(() => {
+    if (!request || request.nonce === lastRequest.current) return;
+    lastRequest.current = request.nonce;
+    navigate(request.url);
+  }, [request, navigate]);
 
   const goBack = useCallback(() => {
     if (historyIdx <= 0) return;

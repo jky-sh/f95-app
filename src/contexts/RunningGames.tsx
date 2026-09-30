@@ -13,7 +13,7 @@ import * as ipc from '../lib/ipc';
 import * as library from '../lib/library';
 import * as sessions from '../lib/sessions';
 import { dialog } from '../lib/dialog';
-import { consumeUserStop } from '../lib/gameStops';
+import { consumeUserStop, listenForUserStops } from '../lib/gameStops';
 import { tStandalone } from '../lib/i18n';
 import {
   clearOverlayHintSession,
@@ -298,6 +298,13 @@ export function RunningGamesProvider({ children }: { children: ReactNode }) {
         return;
       }
       unlisten.push(onExited);
+      // The overlay can stop a game too; its stops are not crashes either.
+      const onOverlayStop = await listenForUserStops();
+      if (cancelled) {
+        onOverlayStop();
+        return;
+      }
+      unlisten.push(onOverlayStop);
     })();
 
     return () => {

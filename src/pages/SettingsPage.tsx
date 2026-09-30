@@ -2315,6 +2315,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                   <div className="settings-checklist">
                     {(
                       [
+                        ['game', 'settings.experimental.featureGame'],
                         ['notes', 'settings.experimental.featureNotes'],
                         ['guides', 'settings.experimental.featureGuides'],
                         ['browser', 'settings.experimental.featureBrowser'],
