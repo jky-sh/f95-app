@@ -4,6 +4,7 @@ import { useT } from '../../lib/i18n';
 import { APP_TOAST_EVENT, type AppToast } from '../../lib/updateNotifier';
 import { Icon } from '../ui/Icon';
 import { useBp } from './BpContext';
+import { useInputMethod } from './bpInput';
 import { useProgressiveArt } from './BpParts';
 import { playSound } from './bpSound';
 
@@ -12,11 +13,14 @@ const TOAST_MS = 7000;
 /**
  * Update notices over Big Picture: Windows mutes its own banners over a
  * fullscreen app. Out of the controller's way (never focused); a click
- * opens what it is about, and the top bar and Home carry the same news.
+ * opens what it is about. The controller's buttons belong to the screen,
+ * so with a pad or the keyboard the toast says where the same news waits:
+ * the top bar's update button for the app, Home's updates shelf for games.
  */
 export function BpToast() {
   const { t } = useT();
   const bp = useBp();
+  const method = useInputMethod();
   const [current, setCurrent] = useState<{ id: number; toast: AppToast } | null>(null);
 
   useEffect(() => {
@@ -42,6 +46,10 @@ export function BpToast() {
   if (!current || !toast) return null;
   // The desktop text points at the status bar, which Big Picture covers.
   const body = toast.kind === 'app_update' ? t('bp.appUpdate.hint') : toast.body;
+  const hint =
+    toast.kind === 'game_update' && method !== 'mouse'
+      ? t('bp.toast.gameHint', { home: t('bp.tab.home'), shelf: t('bp.home.updates') })
+      : null;
 
   const open = () => {
     setCurrent(null);
@@ -70,6 +78,7 @@ export function BpToast() {
       <span className="bp-toast-text">
         <span className="bp-toast-title">{toast.title}</span>
         {body && <span className="bp-toast-body">{body}</span>}
+        {hint && <span className="bp-toast-hint">{hint}</span>}
       </span>
     </button>
   );
