@@ -624,10 +624,17 @@ const de: Record<string, string> = {
   'tray.quit': 'Beenden',
 
   'settings.changelog.section': 'Änderungsprotokoll',
-  'settings.changelog.hint': 'Wichtige Änderungen nach App-Version.',
+  'settings.changelog.hint': 'Versionshinweise zu jeder auf GitHub veröffentlichten Version.',
   'settings.changelog.unreleased': 'Unveröffentlicht',
   'settings.changelog.showMore': 'Mehr Versionen anzeigen',
   'settings.changelog.showLess': 'Weniger anzeigen',
+  'settings.changelog.loading': 'Versionshinweise werden von GitHub geladen…',
+  'settings.changelog.bundled': 'Die Versionshinweise konnten nicht von GitHub geladen werden; das hier sind die, die mit dieser Version geliefert wurden.',
+  'settings.changelog.refreshFailed': 'Die Versionshinweise konnten nicht von GitHub aktualisiert werden; angezeigt wird die zuvor gespeicherte Kopie.',
+  'settings.changelog.current': 'Deine Version',
+  'settings.changelog.prerelease': 'Vorabversion',
+  'settings.changelog.noNotes': 'Keine Hinweise zu dieser Version.',
+  'settings.changelog.viewAll': 'Alle Versionen auf GitHub',
 
   'settings.about.section': 'Über',
   'settings.about.app': 'App',

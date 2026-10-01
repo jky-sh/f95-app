@@ -21,10 +21,30 @@
 }
 
 .settings-changelog-version {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
   margin: 0;
   font-size: 14px;
   font-weight: 700;
   color: var(--text-primary);
+}
+
+.settings-changelog-badge {
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-soft-bg);
+}
+
+.settings-changelog-badge--muted {
+  color: var(--text-muted);
+  background: var(--bg-hover);
 }
 
 .settings-changelog-date {
@@ -56,4 +76,143 @@
 
 .settings-changelog-list li + li {
   margin-top: 4px;
+}
+
+/* Release notes as GitHub renders them. */
+.settings-changelog-notes {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.settings-changelog-notes > :first-child {
+  margin-top: 0;
+}
+
+.settings-changelog-notes > :last-child {
+  margin-bottom: 0;
+}
+
+.settings-changelog-notes :is(h1, h2, h3, h4, h5, h6) {
+  margin: 12px 0 6px;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.settings-changelog-notes :is(p, ul, ol, blockquote, pre, table) {
+  margin: 6px 0;
+}
+
+.settings-changelog-notes :is(ul, ol) {
+  padding-left: 18px;
+}
+
+.settings-changelog-notes li + li {
+  margin-top: 4px;
+}
+
+.settings-changelog-notes strong {
+  color: var(--text-primary);
+}
+
+.settings-changelog-notes a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.settings-changelog-notes a:hover {
+  text-decoration: underline;
+}
+
+.settings-changelog-notes code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 12px;
+  background: var(--bg-hover);
+}
+
+.settings-changelog-notes pre {
+  overflow: auto;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--bg-hover);
+}
+
+.settings-changelog-notes pre code {
+  padding: 0;
+  background: none;
+}
+
+.settings-changelog-notes blockquote {
+  padding-left: 10px;
+  border-left: 3px solid var(--border-faint);
+  color: var(--text-muted);
+}
+
+.settings-changelog-notes img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+
+.settings-changelog-notes table {
+  border-collapse: collapse;
+}
+
+.settings-changelog-notes :is(th, td) {
+  padding: 4px 8px;
+  border: 1px solid var(--border-faint);
+}
+
+.settings-changelog-notes hr {
+  margin: 10px 0;
+  border: none;
+  border-top: 1px solid var(--border-faint);
+}
+
+.settings-changelog-empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.settings-changelog-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.settings-changelog-link {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.settings-changelog-link:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.settings-changelog-link:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.settings-changelog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
 }

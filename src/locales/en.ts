@@ -630,10 +630,17 @@ const en: Record<string, string> = {
   'tray.quit': 'Quit',
 
   'settings.changelog.section': 'Changelog',
-  'settings.changelog.hint': 'Notable changes by app version.',
+  'settings.changelog.hint': 'Release notes of every version published on GitHub.',
   'settings.changelog.unreleased': 'Unreleased',
   'settings.changelog.showMore': 'Show more versions',
   'settings.changelog.showLess': 'Show less',
+  'settings.changelog.loading': 'Loading the release notes from GitHub…',
+  'settings.changelog.bundled': 'Couldn\'t load the release notes from GitHub, so these are the ones that came with this version.',
+  'settings.changelog.refreshFailed': 'Couldn\'t refresh the release notes from GitHub; showing the copy saved earlier.',
+  'settings.changelog.current': 'Your version',
+  'settings.changelog.prerelease': 'Pre-release',
+  'settings.changelog.noNotes': 'No notes for this version.',
+  'settings.changelog.viewAll': 'All releases on GitHub',
 
   'settings.about.section': 'About',
   'settings.about.app': 'App',

@@ -629,10 +629,17 @@ const pt: Record<string, string> = {
   'tray.quit': 'Sair',
 
   'settings.changelog.section': 'Changelog',
-  'settings.changelog.hint': 'Mudanças relevantes por versão do app.',
+  'settings.changelog.hint': 'Notas de cada versão publicada no GitHub.',
   'settings.changelog.unreleased': 'Não publicado',
   'settings.changelog.showMore': 'Mostrar mais versões',
   'settings.changelog.showLess': 'Mostrar menos',
+  'settings.changelog.loading': 'Carregando as notas de versão do GitHub…',
+  'settings.changelog.bundled': 'Não foi possível carregar as notas do GitHub; estas são as que vieram com esta versão.',
+  'settings.changelog.refreshFailed': 'Não foi possível atualizar as notas do GitHub; mostrando a cópia salva antes.',
+  'settings.changelog.current': 'Sua versão',
+  'settings.changelog.prerelease': 'Pré-lançamento',
+  'settings.changelog.noNotes': 'Sem notas para esta versão.',
+  'settings.changelog.viewAll': 'Todas as versões no GitHub',
 
   'settings.about.section': 'Sobre',
   'settings.about.app': 'App',

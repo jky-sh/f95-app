@@ -624,10 +624,17 @@ const ru: Record<string, string> = {
   'tray.quit': 'Выйти',
 
   'settings.changelog.section': 'Список изменений',
-  'settings.changelog.hint': 'Важные изменения по версиям приложения.',
+  'settings.changelog.hint': 'Примечания к каждой версии, опубликованной на GitHub.',
   'settings.changelog.unreleased': 'Не выпущено',
   'settings.changelog.showMore': 'Показать больше версий',
   'settings.changelog.showLess': 'Показать меньше',
+  'settings.changelog.loading': 'Загрузка примечаний к выпускам с GitHub…',
+  'settings.changelog.bundled': 'Не удалось загрузить примечания с GitHub — показаны те, что поставляются с этой версией.',
+  'settings.changelog.refreshFailed': 'Не удалось обновить примечания с GitHub — показана сохранённая ранее копия.',
+  'settings.changelog.current': 'Ваша версия',
+  'settings.changelog.prerelease': 'Предварительный выпуск',
+  'settings.changelog.noNotes': 'Для этой версии нет примечаний.',
+  'settings.changelog.viewAll': 'Все выпуски на GitHub',
 
   'settings.about.section': 'О приложении',
   'settings.about.app': 'Приложение',
