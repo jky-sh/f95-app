@@ -15,9 +15,10 @@ const BATCH_SIZE = 24;
 /**
  * Member tooltip cards (last seen, cover, badges) for the friends list.
  * Shows saved cards right away and refreshes stale ones in batches, so a
- * long list never holds the sidecar for long.
+ * long list never holds the sidecar for long. A new `revision` checks for
+ * stale cards again (a list that stays mounted, coming back into view).
  */
-export function useMemberCards(ownerId: string, userIds: string[], offline: boolean) {
+export function useMemberCards(ownerId: string, userIds: string[], offline: boolean, revision = 0) {
   const [cache, setCache] = useState<CardCache>({});
   const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
   const cacheRef = useRef<CardCache>({});
@@ -68,7 +69,7 @@ export function useMemberCards(ownerId: string, userIds: string[], offline: bool
       cancelled = true;
       setPending(new Set());
     };
-  }, [ownerId, idsKey, offline]);
+  }, [ownerId, idsKey, offline, revision]);
 
   const cards = useMemo(() => {
     const out: Record<string, MemberCardDto> = {};
