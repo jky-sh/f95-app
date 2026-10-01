@@ -993,7 +993,10 @@ impl Manager {
                 Ok(())
             }
             ResolveResult::NeedsBrowser { url, host } => {
-                let captcha = needs_verify_window(&host);
+                // Only a link the window can open (a folder or an odd URL
+                // shape goes to the browser instead).
+                let captcha = needs_verify_window(&host)
+                    && (host == "mixdrop" || super::verify::page_url(&host, &url).is_some());
                 let _ = app.emit(
                     "download:needs-browser",
                     json!({

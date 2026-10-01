@@ -295,16 +295,17 @@ export async function markCancelled(
  * Rows left in progress by an earlier run of the app (it was closed or
  * crashed mid-download) become `failed` with `message`, so they offer Retry
  * instead of a Cancel that does nothing. `activeIds` are the downloads the
- * backend is still working on; those are left alone.
+ * backend is still working on; those are left alone. Returns the games of
+ * the rows it failed.
  */
-export async function failInterrupted(activeIds: number[], message: string): Promise<number> {
-  const rows = await query<{ id: number }>(
-    `SELECT id FROM downloads
+export async function failInterrupted(activeIds: number[], message: string): Promise<string[]> {
+  const rows = await query<{ id: number; thread_id: string }>(
+    `SELECT id, thread_id FROM downloads
        WHERE state IN ('pending','resolving','awaiting_choice','downloading')`,
   );
   const active = new Set(activeIds);
-  const stale = rows.map((r) => r.id).filter((id) => !active.has(id));
-  for (const id of stale) {
+  const stale = rows.filter((r) => !active.has(r.id));
+  for (const { id } of stale) {
     await execute(
       `UPDATE downloads
           SET state = 'failed',
@@ -314,7 +315,7 @@ export async function failInterrupted(activeIds: number[], message: string): Pro
       [message, id],
     );
   }
-  return stale.length;
+  return stale.map((r) => r.thread_id);
 }
 
 /**

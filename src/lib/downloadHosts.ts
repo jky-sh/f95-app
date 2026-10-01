@@ -43,7 +43,40 @@ export function hostDelivery(host: string): HostDelivery {
 export function canVerifyInApp(row: Pick<DownloadRow, 'state' | 'host' | 'resolvedUrl'>): boolean {
   if (row.state !== 'needs_browser' || !row.resolvedUrl) return false;
   if (/^https?:\/\/f95zone\.to\/masked\//i.test(row.resolvedUrl)) return false;
-  return needsVerifyWindow(row.host);
+  return needsVerifyWindow(row.host) && verifyWindowOpens(row.host, row.resolvedUrl);
+}
+
+/**
+ * Links the window can open, as `verify::page_url` in Rust decides: a
+ * VikingFile `/f/<hash>` page, an AkiraBox file or folder page. Anything
+ * else (a VikingFile folder…) only opens in the browser.
+ */
+function verifyWindowOpens(host: string, url: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return false;
+  }
+  const site = u.hostname.replace(/^www\./, '');
+  const [first = '', second = ''] = u.pathname.split('/').filter(Boolean);
+  switch (host.trim().toLowerCase()) {
+    case 'vikingfile':
+      return (
+        ['vikingfile.com', 'vik1ngfile.site', 'vikingf1le.us.to'].includes(site) &&
+        first === 'f' &&
+        /^[A-Za-z0-9]{6,16}$/.test(second)
+      );
+    case 'akirabox':
+      return (
+        ['akirabox.com', 'akirabox.to'].includes(site) &&
+        /^[A-Za-z0-9]{6,32}$/.test(first) &&
+        (second === 'file' || second === 'folder')
+      );
+    default:
+      // MixDrop: its page is rebuilt from any of its links.
+      return true;
+  }
 }
 
 export const HOST_COLORS: Record<string, string> = {

@@ -63,17 +63,26 @@ pub(crate) fn verify_page_url(raw: &str) -> Option<String> {
     }
 }
 
-/// What the verification window should hand to the downloader: the `/d/`
-/// link, or the signed storage URL it redirects to when the user clicked
-/// the page's own Download button.
+/// VikingFile's own Cloudflare R2 account, where `/d/` links redirect.
+const R2_ACCOUNT_SUFFIX: &str = ".04b3d96d52475741e6b10f97f0a84a16.r2.cloudflarestorage.com";
+
+/// The `/d/` link the page produces once its check passes: the only thing
+/// the window takes from a navigation (any page script can navigate).
 pub(crate) fn is_download_link(u: &Url) -> bool {
+    match u.host_str() {
+        Some(host) => is_vikingfile_host(host) && u.path().starts_with("/d/"),
+        None => false,
+    }
+}
+
+/// Also VikingFile's storage behind that link (its regional servers, its R2
+/// account): where a download the user started from the page itself ends up.
+pub(crate) fn is_storage_link(u: &Url) -> bool {
     let Some(host) = u.host_str() else {
         return false;
     };
-    if is_vikingfile_host(host) {
-        return u.path().starts_with("/d/");
-    }
-    host.ends_with(".r2.cloudflarestorage.com")
+    is_download_link(u)
+        || host.ends_with(R2_ACCOUNT_SUFFIX)
         || (host.ends_with(".vikingfile.com") && host != "upload.vikingfile.com")
 }
 
@@ -230,21 +239,25 @@ mod tests {
 
     #[test]
     fn recognizes_captured_links() {
-        let yes = [
-            "https://vikingfile.com/d/30zNxeO6vB/Game.zip",
+        let url = |raw: &str| Url::parse(raw).unwrap();
+        assert!(is_download_link(&url("https://vikingfile.com/d/30zNxeO6vB/Game.zip")));
+        // Storage only counts for a download the page itself started.
+        for raw in [
             "https://bucket.04b3d96d52475741e6b10f97f0a84a16.r2.cloudflarestorage.com/x?X-Amz-Signature=1",
             "https://ko.vikingfile.com/file?md5=1&expires=2",
-        ];
-        for raw in yes {
-            assert!(is_download_link(&Url::parse(raw).unwrap()), "{raw}");
+        ] {
+            assert!(!is_download_link(&url(raw)), "{raw}");
+            assert!(is_storage_link(&url(raw)), "{raw}");
         }
-        let no = [
+        for raw in [
             "https://vik1ngfile.site/f/TPRSfLvcIu",
             "https://upload.vikingfile.com/upload",
             "https://ads.example.com/d/x/y",
-        ];
-        for raw in no {
-            assert!(!is_download_link(&Url::parse(raw).unwrap()), "{raw}");
+            // Anyone can presign a URL on their own R2 account.
+            "https://evil.0123456789abcdef0123456789abcdef.r2.cloudflarestorage.com/a.zip",
+        ] {
+            assert!(!is_download_link(&url(raw)), "{raw}");
+            assert!(!is_storage_link(&url(raw)), "{raw}");
         }
         assert!(is_allowed_page(&Url::parse("https://challenges.cloudflare.com/x").unwrap()));
         assert!(!is_allowed_page(&Url::parse("https://popunder.example/").unwrap()));

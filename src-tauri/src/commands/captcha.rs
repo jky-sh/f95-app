@@ -265,7 +265,7 @@ pub async fn open_captcha_window(
             // Backup for when the user starts the page's own download.
             .on_download(move |_, event| {
                 if let DownloadEvent::Requested { url, .. } = event {
-                    if verify::is_download_link(&dl_host, &url) {
+                    if verify::is_storage_link(&dl_host, &url) {
                         deliver_link(&dl_app, &done, download_id, &dl_host, &dl_page, url.to_string());
                     }
                     return false;
@@ -303,7 +303,7 @@ pub async fn download_continue_verified(
 ) -> Result<(), AppError> {
     let host = host.trim().to_lowercase();
     let parsed = Url::parse(&link).map_err(|e| AppError::Other(format!("URL: {e}")))?;
-    if !verify::captures_link(&host) || !verify::is_download_link(&host, &parsed) {
+    if !verify::captures_link(&host) || !verify::is_storage_link(&host, &parsed) {
         return Err(AppError::Other(format!("{host}: not a download link: {link}")));
     }
     let dest_root = library_path

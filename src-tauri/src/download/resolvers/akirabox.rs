@@ -59,18 +59,23 @@ pub(crate) fn verify_page_url(raw: &str) -> Option<String> {
     }
 }
 
-/// The issued link, or the storage URL it leads to when the page's own
-/// download started instead.
+/// The `/download/` link the page is issued: the only thing the window
+/// takes from a navigation (any page script can navigate).
 pub(crate) fn is_download_link(u: &Url) -> bool {
+    match u.host_str() {
+        Some(host) => is_akirabox_host(host) && u.path().starts_with("/download/"),
+        None => false,
+    }
+}
+
+/// Also AkiraBox's own storage servers behind that link: where a download
+/// the user started from the page itself ends up.
+pub(crate) fn is_storage_link(u: &Url) -> bool {
     let Some(host) = u.host_str() else {
         return false;
     };
-    if is_akirabox_host(host) {
-        return u.path().starts_with("/download/");
-    }
     let storage_host = host.ends_with(".akirabox.com") || host.ends_with(".akirabox.xyz");
-    (storage_host && u.path().contains("/uploads/users/"))
-        || (host.ends_with(".r2.cloudflarestorage.com") && u.path().contains("/uploads/users/"))
+    is_download_link(u) || (storage_host && u.path().contains("/uploads/users/"))
 }
 
 /// The same `/download/` link on akirabox.com, which is not behind the
@@ -331,19 +336,24 @@ mod tests {
 
     #[test]
     fn recognizes_captured_links() {
+        let url = |raw: &str| Url::parse(raw).unwrap();
+        assert!(is_download_link(&url("https://akirabox.to/download/eyJpdiI6/game.zip?expiration=1&t=2&s=3")));
+        // Storage only counts for a download the page itself started.
         for raw in [
-            "https://akirabox.to/download/eyJpdiI6/game.zip?expiration=1&t=2&s=3",
             "https://us1.akirabox.com/uploads/users/1/abc-game.zip?access=1.sig",
             "https://eufb.akirabox.xyz/uploads/users/1/abc-game.zip?access=1",
         ] {
-            assert!(is_download_link(&Url::parse(raw).unwrap()), "{raw}");
+            assert!(!is_download_link(&url(raw)), "{raw}");
+            assert!(is_storage_link(&url(raw)), "{raw}");
         }
         for raw in [
             "https://akirabox.to/Z9dzBXkqmk1b/file",
             "https://akirabox.to/api/files/Z9dzBXkqmk1b/download",
             "https://ads.example.com/uploads/users/1/x.zip",
+            "https://x.0123456789abcdef0123456789abcdef.r2.cloudflarestorage.com/uploads/users/1/x.zip",
         ] {
-            assert!(!is_download_link(&Url::parse(raw).unwrap()), "{raw}");
+            assert!(!is_download_link(&url(raw)), "{raw}");
+            assert!(!is_storage_link(&url(raw)), "{raw}");
         }
         assert_eq!(
             alternate_link("https://akirabox.to/download/abc/game.zip?s=1").as_deref(),

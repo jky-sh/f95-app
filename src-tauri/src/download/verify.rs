@@ -26,10 +26,21 @@ pub(crate) fn page_url(host: &str, raw: &str) -> Option<String> {
     }
 }
 
+/// The link the page produces (`/d/`, `/download/`) on the host itself.
 pub(crate) fn is_download_link(host: &str, url: &Url) -> bool {
     match host {
         "vikingfile" => vikingfile::is_download_link(url),
         "akirabox" => akirabox::is_download_link(url),
+        _ => false,
+    }
+}
+
+/// That link or the host's own storage behind it, for a browser download
+/// the window intercepts (the user pressed the page's Download button).
+pub(crate) fn is_storage_link(host: &str, url: &Url) -> bool {
+    match host {
+        "vikingfile" => vikingfile::is_storage_link(url),
+        "akirabox" => akirabox::is_storage_link(url),
         _ => false,
     }
 }

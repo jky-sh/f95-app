@@ -567,8 +567,9 @@ export function useDownloads(options?: UseDownloadsOptions): {
         interruptedChecked = true;
         try {
           const active = await ipc.downloadActiveIds();
-          const n = await downloads.failInterrupted(active, tStandalone('dl.error.interrupted'));
-          if (n > 0 && !cancelled) reload();
+          const threads = await downloads.failInterrupted(active, tStandalone('dl.error.interrupted'));
+          for (const threadId of new Set(threads)) await library.recoverInterruptedDownload(threadId);
+          if (threads.length > 0 && !cancelled) reload();
         } catch (err) {
           console.warn('[downloads] reconcile interrupted rows failed', err);
         }

@@ -381,6 +381,24 @@ export async function setExe(
   notifyLibraryChange(threadId);
 }
 
+/**
+ * A download of this game stopped with the app (marked failed at the next
+ * start): back to what is on disk, so it is not stuck as "downloading".
+ */
+export async function recoverInterruptedDownload(threadId: string): Promise<void> {
+  await execute(
+    `UPDATE library_games
+        SET install_status = CASE
+          WHEN exe_path IS NOT NULL OR install_path IS NOT NULL THEN 'installed'
+          ELSE 'not_installed'
+        END
+      WHERE thread_id = ? AND install_status = 'downloading'`,
+    [threadId],
+  );
+  // Installed again: flag the update it was fetching, if any.
+  await syncUpdateStatus(threadId);
+}
+
 export async function setStatus(threadId: string, status: InstallStatus): Promise<void> {
   await execute(
     `UPDATE library_games SET install_status = ? WHERE thread_id = ?`,
