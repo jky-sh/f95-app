@@ -14,6 +14,8 @@ const MIN_W = 280;
 const MIN_H = 200;
 
 export const DEFAULT_PANEL_LAYOUTS: OverlayPanelLayouts = {
+  // Top right on any screen: clamping pulls the huge x back to the edge.
+  game: { x: 99999, y: 48, w: 380, h: 360, open: true },
   notes: { x: 72, y: 48, w: 400, h: 360, open: true },
   guides: { x: 96, y: 420, w: 360, h: 280, open: false },
   browser: { x: 500, y: 72, w: 540, h: 420, open: false },

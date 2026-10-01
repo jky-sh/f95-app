@@ -13,6 +13,7 @@ import {
   resolveTagName,
   type TagCatalog,
 } from '../lib/tagCatalog';
+import { loadStoredTagCatalog, saveTagCatalog } from '../lib/tagCatalogStorage';
 
 type TagCatalogContextValue = {
   catalog: TagCatalog;
@@ -23,12 +24,26 @@ type TagCatalogContextValue = {
 const TagCatalogContext = createContext<TagCatalogContextValue | null>(null);
 
 export function TagCatalogProvider({ children }: { children: ReactNode }) {
-  const [catalog, setCatalog] = useState<TagCatalog>(() => bundledTagCatalog());
+  const [catalog, setCatalog] = useState<TagCatalog>(() =>
+    mergeTagCatalogs(bundledTagCatalog(), loadStoredTagCatalog()),
+  );
 
   const setFromRecord = useCallback((record: Record<string, string> | null | undefined) => {
     const next = buildTagCatalogFromRecord(record);
     if (next.size === 0) return;
-    setCatalog((prev) => mergeTagCatalogs(prev, next));
+    setCatalog((prev) => {
+      let changed = false;
+      for (const [id, name] of next) {
+        if (prev.get(id) !== name) {
+          changed = true;
+          break;
+        }
+      }
+      if (!changed) return prev;
+      const merged = mergeTagCatalogs(prev, next);
+      saveTagCatalog(merged);
+      return merged;
+    });
   }, []);
 
   const resolve = useCallback((id: number) => resolveTagName(catalog, id), [catalog]);

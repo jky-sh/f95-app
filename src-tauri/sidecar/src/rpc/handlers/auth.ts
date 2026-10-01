@@ -13,6 +13,13 @@ export function createAuthHandlers(ctx: AppContext): Record<string, RpcHandler> 
       return client.login(username, password);
     },
     getProfile: async () => ctx.requireClient().getProfile(),
+    getMemberProfile: async (p) => {
+      const userId = p.userId;
+      if (typeof userId !== 'string' || !userId.trim()) {
+        throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'userId required');
+      }
+      return ctx.requireClient().getMemberProfile(userId.trim());
+    },
     isLoggedIn: async () => ({ loggedIn: await ctx.requireClient().isLoggedIn() }),
     logout: async () => {
       const client = ctx.requireClient();

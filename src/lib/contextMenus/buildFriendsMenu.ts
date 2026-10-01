@@ -3,14 +3,28 @@ import type { ContextMenuItem } from '../../components/contextMenu/types';
 import type { FollowedUser } from '../../types/social';
 import type { TranslateFn } from '../libraryGameActions';
 import { copyTextWithFeedback } from '../clipboard';
-import { item, offlineTitle } from './helpers';
+import { item, offlineTitle, sep } from './helpers';
 
 export function buildFriendsMenu(
   user: FollowedUser,
-  opts: { isOffline: boolean; t: TranslateFn },
+  opts: {
+    isOffline: boolean;
+    t: TranslateFn;
+    onViewProfile?: () => void;
+    onUnfollow?: () => void;
+  },
 ): ContextMenuItem[] {
   const off = offlineTitle(opts.isOffline, opts.t);
-  return [
+  const items: ContextMenuItem[] = [];
+  if (opts.onViewProfile) {
+    items.push(
+      item('view', opts.t('contextMenu.viewProfile'), opts.onViewProfile, {
+        disabled: opts.isOffline,
+        title: off,
+      }),
+    );
+  }
+  items.push(
     item('profile', opts.t('contextMenu.openProfile'), () => openUrl(user.profileUrl), {
       disabled: opts.isOffline,
       title: off,
@@ -18,5 +32,16 @@ export function buildFriendsMenu(
     item('copy', opts.t('contextMenu.copyProfileLink'), () =>
       copyTextWithFeedback(user.profileUrl),
     ),
-  ];
+  );
+  if (opts.onUnfollow) {
+    items.push(
+      sep('sep-unfollow'),
+      item('unfollow', opts.t('contextMenu.unfollow'), opts.onUnfollow, {
+        disabled: opts.isOffline,
+        title: off,
+        danger: true,
+      }),
+    );
+  }
+  return items;
 }

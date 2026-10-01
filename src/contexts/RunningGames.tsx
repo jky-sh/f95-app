@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -11,6 +12,9 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import * as ipc from '../lib/ipc';
 import * as library from '../lib/library';
 import * as sessions from '../lib/sessions';
+import { dialog } from '../lib/dialog';
+import { consumeUserStop, listenForUserStops } from '../lib/gameStops';
+import { tStandalone } from '../lib/i18n';
 import {
   clearOverlayHintSession,
   syncOverlayForLaunch,
@@ -49,6 +53,8 @@ interface RunningGamesValue {
   running: Set<string>;
   /** PID per running thread (for diagnostics). */
   pids: Record<string, number>;
+  /** When each running game started (ms), for the live play timer. */
+  startedAt: Record<string, number>;
   /** Games currently in the "launching" state — between the click on Play
    *  and the moment the Rust waiter reports the process is up. The map
    *  carries the full game so an overlay can render its art/title without
@@ -56,8 +62,10 @@ interface RunningGamesValue {
   launching: Map<string, LaunchEntry>;
   /** Steam/Hydra-style launch helper. Registers the game in `launching`,
    *  creates a session row, calls the IPC, then waits for `game:started`
-   *  (or a timeout) to clear it. */
-  launch: (game: LibraryGame) => Promise<void>;
+   *  (or a timeout) to clear it. `exeOverride` lança um executável diferente
+   *  do ativo — usado pela lista de versões instaladas (jogar uma versão
+   *  antiga sem trocar a ativa). */
+  launch: (game: LibraryGame, exeOverride?: string) => Promise<void>;
   /** Force-clear a launching state — used by the overlay's dismiss button
    *  or when launch errors. */
   cancelLaunch: (threadId: string) => void;
@@ -68,6 +76,7 @@ interface RunningGamesValue {
 const Ctx = createContext<RunningGamesValue>({
   running: new Set(),
   pids: {},
+  startedAt: {},
   launching: new Map(),
   launch: async () => {},
   cancelLaunch: () => {},
@@ -75,6 +84,9 @@ const Ctx = createContext<RunningGamesValue>({
 });
 
 const LAUNCH_TIMEOUT_MS = 30_000;
+
+/** A non-zero exit this soon after launch is a failed start, not a normal quit. */
+const QUICK_EXIT_SECONDS = 10;
 
 /** Minimum visible duration of the launching overlay. Rust fires
  *  `game:started` ~200-500ms after spawn — well before the user can see
@@ -93,6 +105,7 @@ export const MIN_OVERLAY_DURATION_MS = 2500;
 export function RunningGamesProvider({ children }: { children: ReactNode }) {
   const [running, setRunning] = useState<Set<string>>(new Set());
   const [pids, setPids] = useState<Record<string, number>>({});
+  const [startedAt, setStartedAt] = useState<Record<string, number>>({});
   const [launching, setLaunching] = useState<Map<string, LaunchEntry>>(new Map());
   const launchingRef = useRef(launching);
   launchingRef.current = launching;
@@ -114,8 +127,9 @@ export function RunningGamesProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const launch = useCallback(
-    async (game: LibraryGame) => {
-      if (!game.exePath) {
+    async (game: LibraryGame, exeOverride?: string) => {
+      const exePath = exeOverride ?? game.exePath;
+      if (!exePath) {
         throw new Error('exe path not set');
       }
       const entry: LaunchEntry = { game, startedAt: Date.now() };
@@ -139,7 +153,7 @@ export function RunningGamesProvider({ children }: { children: ReactNode }) {
         await ipc.launchGame({
           threadId: game.threadId,
           title: game.title,
-          exePath: game.exePath,
+          exePath,
           sessionId,
         });
       } catch (err) {
@@ -159,6 +173,12 @@ export function RunningGamesProvider({ children }: { children: ReactNode }) {
       const map: Record<string, number> = {};
       for (const r of list) map[r.threadId] = r.pid;
       setPids(map);
+      const now = Date.now();
+      setStartedAt((prev) => {
+        const next: Record<string, number> = {};
+        for (const r of list) next[r.threadId] = prev[r.threadId] ?? now - r.elapsedSeconds * 1000;
+        return next;
+      });
     } catch (err) {
       console.warn('[running-games] refresh failed', err);
     }
@@ -184,6 +204,9 @@ export function RunningGamesProvider({ children }: { children: ReactNode }) {
           return next;
         });
         setPids((prev) => ({ ...prev, [e.payload.threadId]: e.payload.pid }));
+        setStartedAt((prev) =>
+          prev[e.payload.threadId] ? prev : { ...prev, [e.payload.threadId]: Date.now() },
+        );
         setLaunching((launchPrev) => {
           const entry = launchPrev.get(e.payload.threadId);
           if (!entry) return launchPrev;
@@ -229,6 +252,28 @@ export function RunningGamesProvider({ children }: { children: ReactNode }) {
           console.error('[running-games] failed to close session', err);
         }
 
+        // Tell the user when a game dies right after starting (missing
+        // files, wrong exe) instead of it silently disappearing.
+        const stoppedByUser = consumeUserStop(e.payload.threadId);
+        const failedStart =
+          e.payload.error != null ||
+          (e.payload.exitCode !== 0 && e.payload.durationSeconds < QUICK_EXIT_SECONDS);
+        if (!stoppedByUser && failedStart) {
+          void library.get(e.payload.threadId).then((game) => {
+            const title = game?.title ?? e.payload.threadId;
+            void dialog.alert(
+              e.payload.error
+                ? tStandalone('libdetail.quickExit.error', { title, error: e.payload.error })
+                : tStandalone('libdetail.quickExit', {
+                    title,
+                    seconds: e.payload.durationSeconds,
+                    code: e.payload.exitCode,
+                  }),
+              { title: tStandalone('libdetail.quickExit.title'), kind: 'warning' },
+            );
+          });
+        }
+
         setRunning((prev) => {
           if (!prev.has(e.payload.threadId)) return prev;
           const next = new Set(prev);
@@ -242,12 +287,24 @@ export function RunningGamesProvider({ children }: { children: ReactNode }) {
           delete next[e.payload.threadId];
           return next;
         });
+        setStartedAt((prev) => {
+          const next = { ...prev };
+          delete next[e.payload.threadId];
+          return next;
+        });
       });
       if (cancelled) {
         onExited();
         return;
       }
       unlisten.push(onExited);
+      // The overlay can stop a game too; its stops are not crashes either.
+      const onOverlayStop = await listenForUserStops();
+      if (cancelled) {
+        onOverlayStop();
+        return;
+      }
+      unlisten.push(onOverlayStop);
     })();
 
     return () => {
@@ -256,15 +313,23 @@ export function RunningGamesProvider({ children }: { children: ReactNode }) {
     };
   }, [refresh]);
 
-  return (
-    <Ctx.Provider value={{ running, pids, launching, launch, cancelLaunch, refresh }}>
-      {children}
-    </Ctx.Provider>
+  // A stable value: consumers re-render when the running set changes, not
+  // whenever the provider does.
+  const value = useMemo(
+    () => ({ running, pids, startedAt, launching, launch, cancelLaunch, refresh }),
+    [running, pids, startedAt, launching, launch, cancelLaunch, refresh],
   );
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
 export function useRunningGames(): RunningGamesValue {
   return useContext(Ctx);
+}
+
+/** When the game started (ms) while it runs, else null. */
+export function useRunningSince(threadId: string | undefined | null): number | null {
+  const { startedAt } = useRunningGames();
+  return threadId ? (startedAt[threadId] ?? null) : null;
 }
 
 export function useIsRunning(threadId: string | undefined | null): boolean {

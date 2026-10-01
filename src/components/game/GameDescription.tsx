@@ -20,7 +20,8 @@ function isNearViewport(img: HTMLImageElement): boolean {
 }
 
 /**
- * Descrição: thumb F95 imediato (sem ícone quebrado) → preview ~720px em cache (fila).
+ * Descrição: preview F95 de 400px imediato → a mesma imagem em cache local
+ * (fila), que continua aparecendo offline.
  */
 export function GameDescription({ html, className, style }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);

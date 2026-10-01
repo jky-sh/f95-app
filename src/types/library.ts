@@ -24,6 +24,13 @@ export interface LibraryGame {
   totalPlaytimeSeconds: number;
   customTags: string[];
   notes: string;
+  /** AppID Steam vinculado (para achievements). Null = nunca vinculado
+   *  (autodetecção pode rodar); '' = desvinculado pelo usuário (não
+   *  re-detectar sozinho). */
+  steamAppid: string | null;
+  /** Modo experimental: detectar conquistas nos saves do próprio jogo
+   *  (builds DRM-free sem emulador Steam). */
+  achSaveScan: boolean;
 }
 
 export interface LibraryFilter {
@@ -33,7 +40,15 @@ export interface LibraryFilter {
   sort?: LibrarySort;
 }
 
-export type LibrarySort = 'added' | 'title' | 'last_played' | 'playtime';
+export type LibrarySort =
+  | 'added'
+  | 'title'
+  | 'last_played'
+  | 'playtime'
+  /** Disk used by every installed version. */
+  | 'size'
+  /** F95 rating last seen in the store. */
+  | 'rating';
 
 /**
  * Translation key for an install status. Callers pass the result through

@@ -8,15 +8,21 @@ export interface PrefixMeta {
   cssClass: string | null;
 }
 
+/** SAM sends names HTML-escaped ("Ren&#039;Py"). */
+function decodeEntities(text: string): string {
+  if (!text.includes('&')) return text;
+  return new DOMParser().parseFromString(text, 'text/html').documentElement.textContent ?? text;
+}
+
 export function buildPrefixCatalog(groups: SamPrefixGroup[]): Map<number, PrefixMeta> {
   const map = new Map<number, PrefixMeta>();
   for (const group of groups) {
     for (const p of group.prefixes) {
       map.set(p.id, {
         id: p.id,
-        name: p.name,
+        name: decodeEntities(p.name),
         groupId: group.id,
-        groupName: group.name,
+        groupName: decodeEntities(group.name),
         cssClass: p.cssClass,
       });
     }

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { getVersion, getName, getTauriVersion } from '@tauri-apps/api/app';
 import { appConfigDir } from '@tauri-apps/api/path';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
@@ -13,7 +14,7 @@ import { useT, LOCALES, type Locale } from '../lib/i18n';
 import { execute, query } from '../lib/db';
 import { clearCredentials } from '../lib/stronghold';
 import type { InstallLibraryWithDisk } from '../types/install-library';
-import type { ThemeId } from '../lib/theme';
+import type { SkinId, ThemeId } from '../lib/theme';
 import { useDownloadSettings } from '../contexts/DownloadSettings';
 import { useStoreSettings } from '../contexts/StoreSettings';
 import type { StoreScrollMode } from '../lib/storeSettings';
@@ -41,7 +42,21 @@ import {
   syncOverlayHotkey,
 } from '../lib/overlayHotkey';
 import { LoadingState } from '../components/ui/LoadingState';
-import { useScrollSpy } from '../hooks/useScrollSpy';
+import { AchievementsSettingsCard } from '../components/settings/AchievementsSettingsCard';
+import { BigPictureSettingsCard } from '../components/settings/BigPictureSettingsCard';
+import { UpdatesSettingsCard } from '../components/settings/UpdatesSettingsCard';
+import { AppUpdateStatus } from '../components/settings/AppUpdateStatus';
+import { Icon, type IconName } from '../components/ui/Icon';
+import {
+  loadAppRuntimeSettings,
+  saveAppRuntimeSettings,
+  subscribeAppRuntimeSettings,
+  type AppRuntimeSettings,
+} from '../lib/appRuntimeSettings';
+import { checkForAppUpdateInteractive } from '../lib/appUpdater';
+import { getChangelogEntries } from '../lib/changelog';
+import { syncTrayIcon } from '../lib/tray';
+import { clearStoredGameDetails } from '../lib/gameDetailCache';
 
 interface AppInfo {
   name: string;
@@ -63,6 +78,7 @@ type SettingsSectionId =
   | 'hosts'
   | 'system'
   | 'experimental'
+  | 'about'
   | 'account';
 
 const SETTINGS_SECTION_IDS: SettingsSectionId[] = [
@@ -72,8 +88,12 @@ const SETTINGS_SECTION_IDS: SettingsSectionId[] = [
   'hosts',
   'system',
   'experimental',
+  'about',
   'account',
 ];
+
+const isSectionId = (v: string | null): v is SettingsSectionId =>
+  SETTINGS_SECTION_IDS.includes(v as SettingsSectionId);
 
 interface Props {
   onLoggedOut: () => void;
@@ -99,6 +119,10 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
     return false;
   }
   const [devDebug, setDevDebug] = useState<DevDebugSettings | null>(null);
+  const [runtime, setRuntime] = useState<AppRuntimeSettings | null>(null);
+  const [updateBusy, setUpdateBusy] = useState(false);
+  const [changelogExpanded, setChangelogExpanded] = useState(false);
+  const changelogEntries = useMemo(() => getChangelogEntries(), []);
   const [experimental, setExperimental] = useState<ExperimentalSettings | null>(null);
   const [runningCount, setRunningCount] = useState(0);
   const [overlayAnchorProbe, setOverlayAnchorProbe] = useState<string | null>(null);
@@ -108,8 +132,14 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
   const [busy, setBusy] = useState<string | null>(null);
   const [libs, setLibs] = useState<InstallLibraryWithDisk[]>([]);
   const [libsLoading, setLibsLoading] = useState(true);
-  const [activeSection, setActiveSection] = useState<SettingsSectionId>('appearance');
+  // One section at a time; the open one lives in the URL (?section=) so
+  // other screens can link straight to it.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const sectionParam = searchParams.get('section');
+  const activeSection: SettingsSectionId = isSectionId(sectionParam) ? sectionParam : 'appearance';
+  const { hash } = useLocation();
   const [activeTheme, setActiveTheme] = useState<ThemeId>(theme.currentTheme());
+  const [activeSkin, setActiveSkin] = useState<SkinId>(theme.currentSkin());
   const [gofileToken, setGofileToken] = useState('');
   const [gofileAccountId, setGofileAccountId] = useState('');
   const [gofileSaved, setGofileSaved] = useState<{ token: string | null; accountId: string | null }>({
@@ -164,26 +194,23 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
   }>({ state: 'idle' });
 
   const navItems = useMemo(
-    (): { id: SettingsSectionId; label: string }[] => [
-      { id: 'appearance', label: t('settings.nav.appearance') },
-      { id: 'storage', label: t('settings.nav.storage') },
-      { id: 'downloads', label: t('settings.nav.downloads') },
-      { id: 'hosts', label: t('settings.nav.hosts') },
-      { id: 'system', label: t('settings.nav.system') },
-      { id: 'experimental', label: t('settings.nav.experimental') },
-      { id: 'account', label: t('settings.nav.account') },
+    (): { id: SettingsSectionId; label: string; icon: IconName }[] => [
+      { id: 'appearance', label: t('settings.nav.appearance'), icon: 'palette' },
+      { id: 'storage', label: t('settings.nav.storage'), icon: 'hardDrive' },
+      { id: 'downloads', label: t('settings.nav.downloads'), icon: 'download' },
+      { id: 'hosts', label: t('settings.nav.hosts'), icon: 'server' },
+      { id: 'system', label: t('settings.nav.system'), icon: 'monitor' },
+      { id: 'experimental', label: t('settings.nav.experimental'), icon: 'flask' },
+      { id: 'about', label: t('settings.nav.about'), icon: 'info' },
+      { id: 'account', label: t('settings.nav.account'), icon: 'user' },
     ],
     [t],
   );
 
-  const onSpySection = useCallback((id: SettingsSectionId) => {
-    setActiveSection((prev) => (prev === id ? prev : id));
-  }, []);
-
-  const { pauseScrollSpy } = useScrollSpy(SETTINGS_SECTION_IDS, onSpySection, {
-    idPrefix: 'settings-',
-    anchorOffset: 100,
-  });
+  // A link to one card (`?section=system#settings-offline`) scrolls to it.
+  useEffect(() => {
+    if (hash) document.getElementById(hash.slice(1))?.scrollIntoView({ block: 'start' });
+  }, [hash, activeSection]);
 
   useEffect(() => {
     (async () => {
@@ -208,6 +235,11 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
     if (!isDevDebugPanelAvailable()) return;
     void loadDevDebugSettings().then(setDevDebug);
     return subscribeDevDebugSettings(setDevDebug);
+  }, []);
+
+  useEffect(() => {
+    void loadAppRuntimeSettings().then(setRuntime);
+    return subscribeAppRuntimeSettings(setRuntime);
   }, []);
 
   useEffect(() => {
@@ -636,6 +668,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
     setBusy('games');
     try {
       await execute('DELETE FROM games_cache');
+      await clearStoredGameDetails();
       await refreshCounts();
     } finally {
       setBusy(null);
@@ -754,6 +787,15 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
     }
   }
 
+  async function onPickSkin(id: SkinId) {
+    setActiveSkin(id);
+    try {
+      await theme.setSkin(id);
+    } catch (err) {
+      console.warn('[skin] persist failed', err);
+    }
+  }
+
   async function onPickLocale(id: Locale) {
     try {
       await setLocale(id);
@@ -791,10 +833,9 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
     }
   }
 
-  function scrollToSection(id: SettingsSectionId) {
-    setActiveSection(id);
-    pauseScrollSpy();
-    document.getElementById(`settings-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  function selectSection(id: SettingsSectionId) {
+    setSearchParams(id === 'appearance' ? {} : { section: id }, { replace: true });
+    document.querySelector('.app-main')?.scrollTo({ top: 0 });
   }
 
   const gofileDirty =
@@ -813,9 +854,14 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
           <p className="settings-subtitle">{t('settings.subtitle')}</p>
         </div>
         {info && (
-          <div className="settings-version-badge" title={t('settings.about.appLine', { name: info.name, version: info.version })}>
+          <button
+            type="button"
+            className="settings-version-badge"
+            title={t('settings.about.appLine', { name: info.name, version: info.version })}
+            onClick={() => selectSection('about')}
+          >
             v{info.version}
-          </div>
+          </button>
         )}
       </header>
 
@@ -826,15 +872,17 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
               key={item.id}
               type="button"
               className={`settings-nav-item${activeSection === item.id ? ' settings-nav-item-active' : ''}`}
-              onClick={() => scrollToSection(item.id)}
+              aria-current={activeSection === item.id ? 'page' : undefined}
+              onClick={() => selectSection(item.id)}
             >
+              <Icon name={item.icon} size={15} className="settings-nav-icon" />
               {item.label}
             </button>
           ))}
         </nav>
 
         <div className="settings-content">
-          <section id="settings-appearance" className="settings-section">
+          <section id="settings-appearance" className="settings-section" hidden={activeSection !== 'appearance'}>
             <SectionHeader title={t('settings.nav.appearance')} />
 
             <div className="settings-card">
@@ -855,7 +903,9 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                         {l.flag}
                       </span>
                       <span className="settings-locale-label">{l.label}</span>
-                      {selected && <span className="settings-pill">{t('settings.theme.active')}</span>}
+                      {selected && (
+                        <Icon name="check" size={15} className="settings-locale-check" label={t('settings.theme.active')} />
+                      )}
                     </button>
                   );
                 })}
@@ -906,6 +956,76 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
             </div>
 
             <div className="settings-card">
+              <h3 className="settings-card-title">{t('settings.skin.section')}</h3>
+              <p className="settings-card-hint">{t('settings.skin.hint')}</p>
+              <div className="settings-theme-grid">
+                {theme.SKINS.map((sk) => {
+                  const selected = sk.id === activeSkin;
+                  const isSteam = sk.id === 'steam';
+                  return (
+                    <button
+                      key={sk.id}
+                      type="button"
+                      className={`settings-theme-card${selected ? ' settings-theme-card-active' : ''}`}
+                      onClick={() => onPickSkin(sk.id)}
+                      title={sk.description}
+                    >
+                      {/* Mini mockup drawn with the ACTIVE theme's variables, so it
+                          shows how each skin looks with the colors picked above. */}
+                      <div
+                        className="settings-theme-swatch"
+                        style={{
+                          background: 'var(--bg-base)',
+                          border: '1px solid var(--border)',
+                        }}
+                      >
+                        <div
+                          className="settings-theme-swatch-inner"
+                          style={{
+                            background: isSteam
+                              ? 'linear-gradient(180deg, color-mix(in srgb, var(--bg-elevated) 96%, #fff), color-mix(in srgb, var(--bg-elevated) 93%, #000))'
+                              : 'var(--bg-elevated)',
+                            border: isSteam
+                              ? '1px solid color-mix(in srgb, var(--border) 65%, #000)'
+                              : '1px solid var(--border)',
+                            borderRadius: isSteam ? 2 : 10,
+                          }}
+                        >
+                          <span
+                            style={{
+                              color: 'var(--text-secondary)',
+                              fontFamily: isSteam
+                                ? "'Motiva Sans', Arial, 'Segoe UI', sans-serif"
+                                : undefined,
+                            }}
+                          >
+                            Aa
+                          </span>
+                          <span
+                            style={{
+                              width: 34,
+                              height: 13,
+                              flexShrink: 0,
+                              borderRadius: isSteam ? 2 : 999,
+                              background: isSteam
+                                ? 'linear-gradient(90deg, color-mix(in srgb, var(--accent) 78%, #fff), color-mix(in srgb, var(--accent) 80%, #000))'
+                                : 'var(--accent)',
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <div className="settings-theme-meta">
+                        <strong>{sk.label}</strong>
+                        {selected && <span className="settings-pill">{t('settings.theme.active')}</span>}
+                      </div>
+                      <span className="settings-theme-desc">{sk.description}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="settings-card">
               <h3 className="settings-card-title">{t('settings.store.section')}</h3>
               <p className="settings-card-hint">{t('settings.store.hint')}</p>
               <div className="settings-store-scroll-grid">
@@ -939,9 +1059,11 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                 )}
               </div>
             </div>
+
+            <BigPictureSettingsCard />
           </section>
 
-          <section id="settings-storage" className="settings-section">
+          <section id="settings-storage" className="settings-section" hidden={activeSection !== 'storage'}>
             <SectionHeader
               title={t('settings.libraries.section')}
               hint={t('settings.libraries.hint')}
@@ -982,7 +1104,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
             </div>
           </section>
 
-          <section id="settings-downloads" className="settings-section">
+          <section id="settings-downloads" className="settings-section" hidden={activeSection !== 'downloads'}>
             <SectionHeader
               title={t('settings.downloads.section')}
               hint={t('settings.downloads.hint')}
@@ -1023,11 +1145,19 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                   />
                   <span>{t('settings.downloads.createShortcuts')}</span>
                 </label>
+                <label className="settings-check-row" title={t('settings.downloads.keepOldVersions.hint')}>
+                  <input
+                    type="checkbox"
+                    checked={dlSettings.keepOldVersions}
+                    onChange={(e) => updateDlSettings({ keepOldVersions: e.target.checked })}
+                  />
+                  <span>{t('settings.downloads.keepOldVersions')}</span>
+                </label>
               </div>
             </div>
           </section>
 
-          <section id="settings-hosts" className="settings-section">
+          <section id="settings-hosts" className="settings-section" hidden={activeSection !== 'hosts'}>
             <SectionHeader title={t('settings.hosts.section')} hint={t('settings.hosts.hint')} />
 
             <div className="settings-host-panel">
@@ -1735,8 +1865,34 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
             </div>
           </section>
 
-          <section id="settings-system" className="settings-section">
+          <section id="settings-system" className="settings-section" hidden={activeSection !== 'system'}>
             <SectionHeader title={t('settings.nav.system')} />
+
+            {runtime && (
+              <div className="settings-card">
+                <h3 className="settings-card-title">{t('settings.tray.section')}</h3>
+                <p className="settings-card-hint">{t('settings.tray.hint')}</p>
+                <div className="settings-checklist">
+                  <label className="settings-check-row">
+                    <input
+                      type="checkbox"
+                      checked={runtime.trayIconEnabled}
+                      onChange={(e) => {
+                        const enabled = e.target.checked;
+                        void saveAppRuntimeSettings({ trayIconEnabled: enabled }).then(() =>
+                          syncTrayIcon(t),
+                        );
+                      }}
+                    />
+                    <span>{t('settings.tray.enabled')}</span>
+                  </label>
+                </div>
+              </div>
+            )}
+
+            <UpdatesSettingsCard />
+
+            <AchievementsSettingsCard />
 
             <div id="settings-offline" className="settings-card">
               <h3 className="settings-card-title">{t('settings.offline.section')}</h3>
@@ -1862,27 +2018,9 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                 hint={t('settings.maintenance.sessionsHint')}
               />
             </div>
-
-            <div className="settings-card settings-about-card">
-              <h3 className="settings-card-title">{t('settings.about.section')}</h3>
-              <dl className="settings-about-dl">
-                <div>
-                  <dt>{t('settings.about.app')}</dt>
-                  <dd>
-                    {info
-                      ? t('settings.about.appLine', { name: info.name, version: info.version })
-                      : '…'}
-                  </dd>
-                </div>
-                <div>
-                  <dt>{t('settings.about.tauri')}</dt>
-                  <dd>{info?.tauriVersion ?? '…'}</dd>
-                </div>
-              </dl>
-            </div>
           </section>
 
-          <section id="settings-experimental" className="settings-section">
+          <section id="settings-experimental" className="settings-section" hidden={activeSection !== 'experimental'}>
             <SectionHeader
               title={t('settings.experimental.section')}
               hint={t('settings.experimental.banner')}
@@ -2184,6 +2322,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                   <div className="settings-checklist">
                     {(
                       [
+                        ['game', 'settings.experimental.featureGame'],
                         ['notes', 'settings.experimental.featureNotes'],
                         ['guides', 'settings.experimental.featureGuides'],
                         ['browser', 'settings.experimental.featureBrowser'],
@@ -2212,7 +2351,112 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
             )}
           </section>
 
-          <section id="settings-account" className="settings-section settings-section-danger">
+          <section id="settings-about" className="settings-section" hidden={activeSection !== 'about'}>
+            <SectionHeader title={t('settings.nav.about')} />
+
+            <div className="settings-card settings-about-card">
+              <dl className="settings-about-dl">
+                <div>
+                  <dt>{t('settings.about.app')}</dt>
+                  <dd>
+                    {info
+                      ? t('settings.about.appLine', { name: info.name, version: info.version })
+                      : '…'}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{t('settings.about.tauri')}</dt>
+                  <dd>{info?.tauriVersion ?? '…'}</dd>
+                </div>
+              </dl>
+            </div>
+
+            {runtime && (
+              <div className="settings-card">
+                <h3 className="settings-card-title">{t('settings.updates.section')}</h3>
+                <p className="settings-card-hint">{t('settings.updates.hint')}</p>
+                <div className="settings-checklist">
+                  <label className="settings-check-row">
+                    <input
+                      type="checkbox"
+                      checked={runtime.autoUpdateEnabled}
+                      onChange={(e) =>
+                        void saveAppRuntimeSettings({ autoUpdateEnabled: e.target.checked })
+                      }
+                    />
+                    <span>{t('settings.updates.auto')}</span>
+                  </label>
+                </div>
+                <AppUpdateStatus />
+                <div className="settings-offline-actions" style={{ marginTop: 12 }}>
+                  <button
+                    type="button"
+                    className="settings-btn"
+                    disabled={updateBusy || isOffline}
+                    onClick={() => {
+                      setUpdateBusy(true);
+                      void checkForAppUpdateInteractive(t).finally(() => setUpdateBusy(false));
+                    }}
+                  >
+                    {updateBusy ? t('settings.updates.checking') : t('settings.updates.checkNow')}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="settings-card">
+              <h3 className="settings-card-title">{t('settings.changelog.section')}</h3>
+              <p className="settings-card-hint">{t('settings.changelog.hint')}</p>
+              <div className="settings-changelog">
+                {(changelogExpanded ? changelogEntries : changelogEntries.slice(0, 3)).map(
+                  (entry) => (
+                    <article key={`${entry.version}-${entry.date ?? 'na'}`} className="settings-changelog-entry">
+                      <header className="settings-changelog-head">
+                        <h4 className="settings-changelog-version">
+                          {entry.version === 'Unreleased'
+                            ? t('settings.changelog.unreleased')
+                            : `v${entry.version.replace(/^v/i, '')}`}
+                        </h4>
+                        {entry.date && (
+                          <time className="settings-changelog-date" dateTime={entry.date}>
+                            {entry.date}
+                          </time>
+                        )}
+                      </header>
+                      {entry.sections.map((section) => (
+                        <div key={section.title} className="settings-changelog-section">
+                          <h5 className="settings-changelog-section-title">{section.title}</h5>
+                          <ul className="settings-changelog-list">
+                            {section.items.map((item) => (
+                              <li key={item}>{item}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </article>
+                  ),
+                )}
+              </div>
+              {changelogEntries.length > 3 && (
+                <button
+                  type="button"
+                  className="settings-toolbar-btn settings-toolbar-btn-ghost"
+                  style={{ marginTop: 12 }}
+                  onClick={() => setChangelogExpanded((v) => !v)}
+                >
+                  {changelogExpanded
+                    ? t('settings.changelog.showLess')
+                    : t('settings.changelog.showMore')}
+                </button>
+              )}
+            </div>
+          </section>
+
+          <section
+            id="settings-account"
+            className="settings-section settings-section-danger"
+            hidden={activeSection !== 'account'}
+          >
             <SectionHeader title={t('settings.account.section')} />
             <div className="settings-card settings-account-card">
               <p className="settings-card-hint">{t('settings.account.confirmLogout')}</p>

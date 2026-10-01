@@ -4,6 +4,7 @@ import { RPC_ERROR, RpcError } from '../../rpc';
 import { cleanDownloadFileName } from '../../shared/filename';
 import { USER_AGENT } from '../../shared/constants';
 import { getPlaywrightBrowser, launchInteractiveBrowser } from '../../infra/playwright/browser';
+import { MIXDROP_HOST_RE } from '../game/hosts';
 
 const API_BASE = 'https://api.mixdrop.ag';
 const PAGE_BASE = 'https://mixdrop.ag';
@@ -11,12 +12,14 @@ const UA = USER_AGENT;
 /** Invisible reCAPTCHA v2 site key (MixDrop / JDownloader). */
 const RECAPTCHA_SITE_KEY = '6LetXaoUAAAAAB6axgg4WLG9oZ_6QLTsFXZj-5sd';
 
-const HOST_RE = /^(www\.)?mixdrop\.(co|ag|sx|to|top|club|gl|ch|ms|nu|bz|vc|is|si|ps)$/i;
+const HOST_RE = MIXDROP_HOST_RE;
 const FAKE_HOST = /miixdrop|mii[x]+drop/i;
 
 /** Prefer mirrors that do not 302 to the ad hijack host miixdrop.net. */
 const PAGE_MIRROR_CANDIDATES = [
   'https://mixdrop.is',
+  // Where most mirrors redirect to now.
+  'https://mxdrop.top',
   'https://mixdrop.ch',
   'https://www.mixdrop.ch',
   'https://mixdrop.ag',

@@ -20,6 +20,19 @@ export function createSamHandlers(ctx: AppContext): Record<string, RpcHandler> {
   };
 }
 
+function threadIdParam(p: Record<string, unknown> | undefined): string {
+  const id = p?.threadId;
+  if (typeof id !== 'string' || !/^\d+$/.test(id)) {
+    throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'numeric threadId required');
+  }
+  return id;
+}
+
+function pageParam(value: unknown): number {
+  const n = Number(value ?? 1);
+  return Number.isInteger(n) && n > 0 ? n : 1;
+}
+
 export function createGameHandlers(ctx: AppContext): Record<string, RpcHandler> {
   return {
     gameDetail: async (p) => {
@@ -29,6 +42,11 @@ export function createGameHandlers(ctx: AppContext): Record<string, RpcHandler> 
       }
       return ctx.getGame().getDetail(id);
     },
+    gamePosts: async (p) => {
+      const page = p?.page === 'last' ? 'last' : pageParam(p?.page);
+      return ctx.getGame().getPosts(threadIdParam(p), page);
+    },
+    gameReviews: async (p) => ctx.getGame().getReviews(threadIdParam(p), pageParam(p?.page)),
     getFollowing: async () => ctx.getSocial().getFollowing(),
   };
 }

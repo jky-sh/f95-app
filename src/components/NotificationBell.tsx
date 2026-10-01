@@ -6,9 +6,19 @@ import { useNotifications } from '../contexts/Notifications';
 import { useOffline } from '../contexts/Offline';
 import { formatRelativeDate } from '../lib/formatDate';
 import { useT } from '../lib/i18n';
+import { localSourceLabelKey, openLocalNotification } from '../lib/notificationLinks';
 import { extractThreadIdFromUrl } from '../lib/rssUpdates';
 
-export function NotificationBell() {
+interface NotificationBellProps {
+  /**
+   * Where the panel opens relative to the button. `side` (default) suits the
+   * left sidebar; `below` suits the Steam top nav, dropping the panel under
+   * the bell aligned to its right edge.
+   */
+  placement?: 'side' | 'below';
+}
+
+export function NotificationBell({ placement = 'side' }: NotificationBellProps) {
   const { t, locale } = useT();
   const navigate = useNavigate();
   const { isOffline } = useOffline();
@@ -24,6 +34,14 @@ export function NotificationBell() {
     const rect = btn.getBoundingClientRect();
     const panelWidth = 360;
     const gap = 8;
+
+    if (placement === 'below') {
+      const top = rect.bottom + gap;
+      const left = Math.max(12, Math.min(rect.right - panelWidth, window.innerWidth - panelWidth - 12));
+      setPanelPos({ top, left });
+      return;
+    }
+
     let left = rect.right + gap;
     const top = rect.top;
 
@@ -32,7 +50,7 @@ export function NotificationBell() {
     }
 
     setPanelPos({ top, left });
-  }, []);
+  }, [placement]);
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -88,8 +106,7 @@ export function NotificationBell() {
                           onClick={() => {
                             void markRead(n.id, 'local');
                             setOpen(false);
-                            if (n.url?.startsWith('/')) navigate(n.url);
-                            else if (n.threadId) navigate(`/store/game/${n.threadId}?cat=games`);
+                            openLocalNotification(n, navigate);
                           }}
                         >
                           {n.thumbnailUrl ? (
@@ -99,7 +116,7 @@ export function NotificationBell() {
                           )}
                           <div className="notification-item-body">
                             <div className="notification-item-source">
-                              {t('notifications.source.library')}
+                              {t(localSourceLabelKey(n.source))}
                             </div>
                             <div className="notification-item-text">{n.title}</div>
                             {n.body && <div className="notification-item-meta">{n.body}</div>}

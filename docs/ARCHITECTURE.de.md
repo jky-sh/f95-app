@@ -79,7 +79,7 @@ Befehlsgruppen:
 - **Auth / Netzwerk** — `login`, `logout`, `get_profile`, `is_logged_in`, `has_local_session`, `check_network`, `ping_sidecar`
 - **Katalog** — `sam_list`, `sam_tag_search`, `sam_options`, `game_detail`
 - **Social / Feeds** — `get_following`, `fetch_rss_feed`, `fetch_alerts_popup`, `fetch_alerts_list`
-- **Downloads** — `download_start`, `download_cancel`, `download_continue_choice`, `download_continue_captcha`, `open_captcha_window`, `close_captcha_window`
+- **Downloads** — `download_start`, `download_cancel`, `download_continue_choice`, `download_continue_captcha`, `download_continue_verified`, `download_active_ids`, `open_captcha_window`, `close_captcha_window`
 - **Host-Credentials** — `set_*` / `verify_*` / `login_*` für GoFile, MEGA, UploadHaven, BuzzHeavier, Datanodes, MixDrop
 - **Dateisystem** — `extract_archive`, `scan_install_media`, `resolve_media_preview`, `migrate_saves`, `move_install_start`, `disk_info`, `reveal_in_explorer`
 - **Launcher** — `launch_game`, `stop_game`, `running_games`, `create_game_shortcuts`
@@ -120,7 +120,7 @@ Downloads werden in `src-tauri/src/download/` orchestriert. Ablauf:
 
 1. Frontend ruft `download_start` mit Thread-ID, Host-URL, Bibliothekspfad
 2. Rust löst Direkt-URL auf:
-   - Manche Hoster in Rust (`mega.rs`, `gdrive.rs`, `uploadhaven.rs`, `buzzheavier.rs`)
+   - Manche Hoster in Rust (`mega.rs`, `gdrive.rs`, `uploadhaven.rs` und `download/resolvers/`: Pixeldrain, MediaFire, die GoFile-API, VikingFile, AkiraBox, BowFile, UploadNow, Terminal)
    - Andere an Sidecar-Resolver delegiert
 3. `reqwest` streamt Bytes auf Disk; Fortschritts-Events ans Frontend
 4. Nach Abschluss entpackt `extraction.rs` zip/7z/rar bei aktiviertem Auto-Extract
@@ -129,10 +129,10 @@ Downloads werden in `src-tauri/src/download/` orchestriert. Ablauf:
 Sonderfälle:
 
 - **GoFile Multi-Build** — Resolver liefert mehrere Dateien; UI fragt via `download_continue_choice`
-- **MixDrop Captcha** — `open_captcha_window` lädt Webview; Nutzer löst Captcha; `download_continue_captcha` setzt fort
+- **Prüffenster** — `open_captcha_window` öffnet ein Webview-Fenster im Vordergrund für die Hoster in `VERIFY_WINDOW_HOSTS` (`download/host.rs`). MixDrop: der Nutzer besteht reCAPTCHA und `download_continue_captcha` gibt die Cookies des Fensters an den Sidecar. VikingFile / AkiraBox: Turnstile läuft durch, das Fenster fängt den Download-Link ab und sendet `download:verified`, die UI ruft `download_continue_verified`
 - **MEGA / UploadHaven** — Session in Stronghold oder `app_settings`; vor Download verifiziert
 
-Unterstützte Hoster: GoFile, MEGA, UploadHaven, BuzzHeavier, Datanodes, MixDrop, Google Drive, WorkUpload, MediaFire, Pixeldrain.
+Unterstützte Hoster: GoFile, MEGA, UploadHaven, BuzzHeavier, Datanodes, MixDrop, Google Drive, WorkUpload, MediaFire, Pixeldrain, VikingFile, AkiraBox, BowFile, UploadNow, Terminal. Links zu KrakenFiles, wdho.ru, qu.ax und files.dp.ua werden angezeigt und öffnen im Browser.
 
 ---
 

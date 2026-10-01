@@ -1,16 +1,44 @@
 use super::state::{ensure_sidecar, AppState};
+use crate::download::host::needs_verify_window;
+use crate::download::verify;
 use crate::error::AppError;
 use reqwest::Url;
+use serde_json::json;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use tauri::{AppHandle, Manager, State, WebviewUrl, WebviewWindowBuilder};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use tauri::webview::{DownloadEvent, NewWindowResponse};
+use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
 
 pub(crate) fn captcha_window_label(download_id: i64) -> String {
     format!("captcha-{download_id}")
 }
 
 pub(crate) fn supports_in_app_captcha(host: &str) -> bool {
-    matches!(host.trim().to_lowercase().as_str(), "mixdrop")
+    needs_verify_window(host)
+}
+
+/// Hand a captured link to the UI (which re-queues the row and calls
+/// `download_continue_verified`), then close the window. Runs once.
+fn deliver_link(app: &AppHandle, done: &AtomicBool, id: i64, host: &str, page: &str, link: String) {
+    if done.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    crate::dev_debug::log(Some(app), host, format!("verification window captured {link}"));
+    let _ = app.emit(
+        "download:verified",
+        json!({ "id": id, "host": host, "pageUrl": page, "url": link }),
+    );
+    // Closing from inside a navigation callback is not safe on every
+    // platform; do it right after.
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        if let Some(win) = app.get_webview_window(&captcha_window_label(id)) {
+            let _ = win.close();
+        }
+    });
 }
 
 /// Blocks fake ad captchas (miixdrop.net) and trims page chrome inside the webview.
@@ -169,21 +197,32 @@ fn collect_mixdrop_cookie_header(
         .join("; "))
 }
 
-/// Opens (or focuses) the in-app verification webview for MixDrop.
+/// Opens (or focuses) the in-app verification webview for a host that needs
+/// a human check (`download::host::VERIFY_WINDOW_HOSTS`). It stays on top so
+/// it also shows over full-screen Big Picture. `title` comes translated from
+/// the UI.
 #[tauri::command]
 pub async fn open_captcha_window(
     app: AppHandle,
     download_id: i64,
     url: String,
     host: String,
+    title: Option<String>,
 ) -> Result<(), AppError> {
+    let host = host.trim().to_lowercase();
     if !supports_in_app_captcha(&host) {
         return Err(AppError::Other(format!(
             "Verificação embutida não disponível para {host}"
         )));
     }
 
-    let page_url = normalize_mixdrop_page_url(&url)?;
+    let captures = verify::captures_link(&host);
+    let page_url = if captures {
+        verify::page_url(&host, &url)
+            .ok_or_else(|| AppError::Other(format!("{host}: link not supported here: {url}")))?
+    } else {
+        normalize_mixdrop_page_url(&url)?
+    };
     let external = Url::parse(&page_url).map_err(|e| AppError::Other(format!("URL: {e}")))?;
     let label = captcha_window_label(download_id);
 
@@ -194,20 +233,87 @@ pub async fn open_captcha_window(
         return Ok(());
     }
 
-    let window = WebviewWindowBuilder::new(&app, &label, WebviewUrl::External(external))
-        .title("MixDrop — verificação")
+    let title = title
+        .map(|t| t.trim().to_string())
+        .filter(|t| !t.is_empty())
+        .unwrap_or_else(|| format!("{host} — verificação"));
+    let mut builder = WebviewWindowBuilder::new(&app, &label, WebviewUrl::External(external))
+        .title(title)
         .inner_size(520.0, 680.0)
         .min_inner_size(420.0, 480.0)
         .center()
         .decorations(true)
         .resizable(true)
-        .initialization_script(CAPTCHA_INIT_SCRIPT)
+        .always_on_top(true)
+        // Ads open pop-unders; nothing in a check needs a second window.
+        .on_new_window(|_, _| NewWindowResponse::Deny);
+
+    if captures {
+        let done = Arc::new(AtomicBool::new(false));
+        let (nav_app, nav_done, nav_host, nav_page) =
+            (app.clone(), done.clone(), host.clone(), page_url.clone());
+        let (dl_app, dl_host, dl_page) = (app.clone(), host.clone(), page_url.clone());
+        builder = builder
+            .initialization_script(verify::CAPTURE_INIT_SCRIPT)
+            .on_navigation(move |u| {
+                if let Some(link) = verify::captured_link(&nav_host, u) {
+                    deliver_link(&nav_app, &nav_done, download_id, &nav_host, &nav_page, link);
+                    return false;
+                }
+                verify::allowed_page(&nav_host, u)
+            })
+            // Backup for when the user starts the page's own download.
+            .on_download(move |_, event| {
+                if let DownloadEvent::Requested { url, .. } = event {
+                    if verify::is_storage_link(&dl_host, &url) {
+                        deliver_link(&dl_app, &done, download_id, &dl_host, &dl_page, url.to_string());
+                    }
+                    return false;
+                }
+                true
+            });
+    } else {
+        builder = builder.initialization_script(CAPTCHA_INIT_SCRIPT);
+    }
+
+    let window = builder
         .build()
         .map_err(|e| AppError::Other(format!("criar janela de verificação: {e}")))?;
 
     let _ = window.show();
     let _ = window.set_focus();
     Ok(())
+}
+
+/// Starts the download of a link the verification window captured (see
+/// `download:verified`). The UI passes the row's library so the file lands
+/// where the user chose.
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+pub async fn download_continue_verified(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: i64,
+    source_url: String,
+    host: String,
+    page_url: String,
+    link: String,
+    thread_id: String,
+    library_path: Option<String>,
+) -> Result<(), AppError> {
+    let host = host.trim().to_lowercase();
+    let parsed = Url::parse(&link).map_err(|e| AppError::Other(format!("URL: {e}")))?;
+    if !verify::captures_link(&host) || !verify::is_storage_link(&host, &parsed) {
+        return Err(AppError::Other(format!("{host}: not a download link: {link}")));
+    }
+    let dest_root = library_path
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .map(PathBuf::from);
+    state
+        .downloader
+        .start_verified(app, id, source_url, host, page_url, link, thread_id, dest_root)
+        .await
 }
 
 #[tauri::command]

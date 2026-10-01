@@ -19,7 +19,7 @@ pub(crate) async fn resolve_gdrive(
             crate::dev_debug::log(
                 Some(app),
                 "gdrive",
-                format!("ok (playwright) â†’ {file_name} ({direct_url})"),
+                format!("ok (playwright) → {file_name} ({direct_url})"),
             );
             return Ok(ResolveResult::Direct {
                 url: direct_url,
@@ -33,7 +33,7 @@ pub(crate) async fn resolve_gdrive(
             crate::dev_debug::log_warn(
                 Some(app),
                 "gdrive",
-                format!("playwright failed: {e} â€” trying http"),
+                format!("playwright failed: {e} — trying http"),
             );
         }
     }
@@ -43,7 +43,7 @@ pub(crate) async fn resolve_gdrive(
             crate::dev_debug::log(
                 Some(app),
                 "gdrive",
-                format!("ok (http) â†’ {} ({})", d.file_name, d.url),
+                format!("ok (http) → {} ({})", d.file_name, d.url),
             );
             Ok(ResolveResult::Direct {
                 url: d.url,

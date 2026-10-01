@@ -1,6 +1,7 @@
-use super::state::{ensure_sidecar, AppState, ProfileDto};
+use super::state::{ensure_sidecar, AppState};
 use crate::error::AppError;
 use crate::sidecar;
+use serde_json::Value;
 use tauri::State;
 
 #[tauri::command]
@@ -13,10 +14,22 @@ pub async fn login(
     client.login(&username, &password).await
 }
 
+/// The logged-in user's profile. Raw JSON passthrough (typed on the
+/// frontend as `ProfileDto`) so new sidecar fields reach the UI untouched.
 #[tauri::command]
-pub async fn get_profile(state: State<'_, AppState>) -> Result<ProfileDto, AppError> {
+pub async fn get_profile(state: State<'_, AppState>) -> Result<Value, AppError> {
     let client = ensure_sidecar(&state).await?;
     client.get_profile().await
+}
+
+/// Public profile of an arbitrary member (friend profile pages).
+#[tauri::command]
+pub async fn get_member_profile(
+    state: State<'_, AppState>,
+    user_id: String,
+) -> Result<Value, AppError> {
+    let client = ensure_sidecar(&state).await?;
+    client.get_member_profile(&user_id).await
 }
 
 /// No-op RPC used by the frontend to pre-spawn + init the sidecar without

@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import * as ipc from '../../lib/ipc';
 import { useContextMenu } from '../contextMenu';
 import { useOffline } from '../../contexts/Offline';
+import { useRssFeed } from '../../hooks/useRssFeed';
 import { buildRssItemMenu } from '../../lib/contextMenus/buildRssMenu';
 import { formatRelativeDate } from '../../lib/formatDate';
+import { formatIpcError } from '../../lib/ipcError';
 import { storePathForRssItem } from '../../lib/rssUpdates';
 import { useT } from '../../lib/i18n';
 import { Spinner } from '../ui/Spinner';
-import type { RssFeedItem } from '../../types/rss';
 
 interface Props {
   onLoaded?: () => void;
@@ -22,9 +22,7 @@ export function RssFeedSection({ onLoaded }: Props) {
   const { isOffline } = useOffline();
   const { openContextMenu } = useContextMenu();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [items, setItems] = useState<RssFeedItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { items, loading, error, reload } = useRssFeed({ enabled: !isOffline });
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
 
@@ -35,28 +33,11 @@ export function RssFeedSection({ onLoaded }: Props) {
     setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
   }, []);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const feed = await ipc.fetchRssFeed({ category: 'games' });
-      setItems(feed.items);
-    } catch (err) {
-      setError(
-        err && typeof err === 'object' && 'message' in err
-          ? String((err as { message: string }).message)
-          : String(err),
-      );
-    } finally {
-      setLoading(false);
-      onLoaded?.();
-    }
-  }, [onLoaded]);
-
+  // Once per load: when the feed arrives or fails.
+  const settled = !isOffline && !loading;
   useEffect(() => {
-    if (!isOffline) void load();
-    else setLoading(false);
-  }, [isOffline, load]);
+    if (settled) onLoaded?.();
+  }, [settled]);
 
   useEffect(() => {
     updateArrows();
@@ -95,11 +76,11 @@ export function RssFeedSection({ onLoaded }: Props) {
     );
   }
 
-  if (error) {
+  if (error != null) {
     return (
       <div className="rss-rail-error">
-        {t('news.loadFailed', { error })}
-        <button type="button" onClick={() => void load()} className="rss-rail-retry">
+        {t('news.loadFailed', { error: formatIpcError(error) })}
+        <button type="button" onClick={() => void reload()} className="rss-rail-retry">
           {t('common.retry')}
         </button>
       </div>

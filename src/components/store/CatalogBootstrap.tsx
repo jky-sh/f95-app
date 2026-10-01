@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import * as ipc from '../../lib/ipc';
+import { loadSamOptions } from '../../lib/samOptionsCache';
 import { usePrefixCatalog } from '../../contexts/PrefixCatalogContext';
 import { useTagCatalog } from '../../contexts/TagCatalogContext';
 import { fallbackPrefixGroupsForCategory } from '../../lib/fallbackPrefixGroups';
@@ -12,8 +12,7 @@ export function CatalogBootstrap() {
 
   useEffect(() => {
     let cancelled = false;
-    ipc
-      .samOptions('games')
+    loadSamOptions('games')
       .then((result) => {
         if (cancelled) return;
         const stored = loadStoredPrefixGroups();

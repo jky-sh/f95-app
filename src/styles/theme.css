@@ -140,6 +140,47 @@
   color-scheme: light;
 }
 
+:root[data-theme='steam'] {
+  /* STEAM — the Steam client's navy palette: dark blue-gray chrome,
+   * pale blue-tinted text, signature light-blue accent. */
+  --bg-base: #1b2838;
+  --bg-elevated: #22344a;
+  --bg-sunken: #171a21;
+  --bg-sidebar: #171d25;
+  --bg-hover: #2a475e;
+
+  --border-faint: #202c39;
+  --border: #2e4257;
+  --border-strong: #4b6b8c;
+
+  --text-primary: #ffffff;
+  --text-secondary: #c7d5e0;
+  --text-tertiary: #a4b6c4;
+  --text-muted: #8f98a0;
+  --text-faint: #5e6b77;
+
+  --accent: #66c0f4;
+  --accent-strong: #417a9b;
+  --accent-text: #0a2233;
+  --accent-soft-bg: #1d3448;
+
+  --status-success: #5c9e31;
+  --status-info: #66c0f4;
+  --status-warning: #cfa022;
+  --status-danger: #cd5444;
+  --status-purple: #a86fb0;
+  --status-danger-text: #f0a8a0;
+  --status-danger-bg: #3a1d1d;
+  --status-success-text: #bee27d;
+  --status-success-bg: #1c2e14;
+
+  --scrollbar-track: #1b2838;
+  --scrollbar-thumb: #3e5a73;
+  --scrollbar-thumb-hover: #4e6f8d;
+
+  color-scheme: dark;
+}
+
 :root[data-theme='red'] {
   /* RED — F95 brand-forward, deep red wash with cream text. */
   --bg-base: #1f0a0a;

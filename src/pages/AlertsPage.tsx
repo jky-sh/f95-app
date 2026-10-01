@@ -11,6 +11,7 @@ import {
   sortDateGroups,
   type DateGroup,
 } from '../lib/formatDate';
+import { localSourceLabelKey, openLocalNotification } from '../lib/notificationLinks';
 import { extractThreadIdFromUrl } from '../lib/rssUpdates';
 import { useT } from '../lib/i18n';
 import { Spinner } from '../components/ui/Spinner';
@@ -228,8 +229,7 @@ export function AlertsPage() {
                             className={`alerts-row${isUnread ? ' alerts-row--unread' : ''}`}
                             onClick={() => {
                               void markRead(n.id, 'local');
-                              if (n.url?.startsWith('/')) navigate(n.url);
-                              else if (n.threadId) navigate(`/store/game/${n.threadId}?cat=games`);
+                              openLocalNotification(n, navigate);
                             }}
                           >
                             <AlertMedia
@@ -241,7 +241,7 @@ export function AlertsPage() {
                               <div className="alerts-row-text">{n.title}</div>
                               <div className="alerts-row-footer">
                                 <span className="alerts-row-pill alerts-row-pill--library">
-                                  {t('notifications.source.library')}
+                                  {t(localSourceLabelKey(n.source))}
                                 </span>
                                 {n.body && <span className="alerts-row-version">{n.body}</span>}
                                 <span className="alerts-row-date">

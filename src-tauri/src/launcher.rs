@@ -211,6 +211,11 @@ impl LauncherManager {
         Ok(())
     }
 
+    /// PID atual (já re-resolvido pelo pid_refresh) de um jogo em execução.
+    pub async fn pid_for(&self, thread_id: &str) -> Option<u32> {
+        self.inner.lock().await.get(thread_id).map(|rg| rg.pid)
+    }
+
     pub async fn running(&self) -> Vec<RunningInfo> {
         let map = self.inner.lock().await;
         map.iter()

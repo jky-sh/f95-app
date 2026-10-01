@@ -3,17 +3,34 @@ import * as library from './library';
 import * as notifications from './notifications';
 import * as settings from './settings';
 import * as updates from './updates';
+import { announceGameUpdates, type FoundGameUpdate } from './updateNotifier';
 import type { RssFeedItem } from '../types/rss';
 
+/** End of the last successful poll (ms); the background scheduler reads it. */
 export const KEY_RSS_LAST_POLL_AT = 'rss_last_poll_at';
 export const KEY_RSS_GUIDS_SEEDED = 'rss_guids_seeded';
 
-const THREAD_URL_RE = /\/threads\/(\d+)/;
+/** Seen entries older than this are dropped (the feed spans about a day). */
+const SEEN_KEEP_DAYS = 30;
+
+// `/threads/123/` and the usual `/threads/some-title.123/post-456`.
+const THREAD_URL_RE = /\/threads\/(?:[^/?#]*\.)?(\d+)(?:[/?#]|$)/;
 
 /**
- * Poll the F95 RSS feed, cross-check library games for updates, and enqueue
- * local notifications for newly seen [UPDATE] entries. On the first run we
- * only seed guids (no notifications) so historical items don't flood the bell.
+ * An [UPDATE] entry's identity. The guid is the thread URL, the same for
+ * every version of a game, so the version (or the date when the title has
+ * none) tells one update from the next.
+ */
+function seenKey(item: RssFeedItem): string {
+  const version = item.version ? updates.normalizeVersion(item.version) : (item.pubDate ?? '');
+  return `${item.guid}#${version}`;
+}
+
+/**
+ * Poll the F95 RSS feed and cross-check library games that show up with an
+ * update we have not seen yet; new updates are announced (updateNotifier).
+ * The very first poll only records what is in the feed, so history doesn't
+ * flood the bell. Returns how many updates were new.
  */
 export async function pollRssLibraryUpdates(): Promise<number> {
   const feed = await ipc.fetchRssFeed({ category: 'games' });
@@ -25,7 +42,7 @@ export async function pollRssLibraryUpdates(): Promise<number> {
 
   const seeded = (await settings.get(KEY_RSS_GUIDS_SEEDED)) === '1';
   if (!seeded) {
-    await notifications.seedRssGuids(updateItems.map((i) => i.guid));
+    await notifications.seedRssGuids(updateItems.map(seenKey));
     await settings.set(KEY_RSS_GUIDS_SEEDED, '1');
     await settings.set(KEY_RSS_LAST_POLL_AT, String(Date.now()));
     return 0;
@@ -33,41 +50,45 @@ export async function pollRssLibraryUpdates(): Promise<number> {
 
   const games = await library.list();
   const byThread = new Map(games.map((g) => [g.threadId, g]));
-  let created = 0;
+  const fresh: FoundGameUpdate[] = [];
 
-  for (const item of updateItems) {
-    const seen = await notifications.isRssGuidSeen(item.guid);
-    await notifications.markRssGuidSeen(item.guid);
-    if (seen) continue;
+  try {
+    for (const item of updateItems) {
+      const key = seenKey(item);
+      const seen = await notifications.isRssGuidSeen(key);
+      await notifications.markRssGuidSeen(key);
+      if (seen) continue;
 
-    const game = byThread.get(item.threadId);
-    if (!game) continue;
+      const game = byThread.get(item.threadId);
+      if (!game) continue;
 
-    const check = await updates.checkOne(game);
-    if (!check.hasUpdate && item.version && game.currentVersion) {
-      const normalizedItem = item.version.trim().toLowerCase();
-      const normalizedCurrent = game.currentVersion.trim().toLowerCase();
-      if (normalizedItem === normalizedCurrent) continue;
-      await library.setAvailableVersion(game.threadId, item.version);
-    } else if (!check.hasUpdate) {
-      continue;
+      const check = await updates.checkOne(game);
+      let { hasUpdate, isNew } = check;
+      let version = check.latestVersion;
+      if (
+        !hasUpdate &&
+        item.version &&
+        game.currentVersion &&
+        !updates.versionsEqual(item.version, game.currentVersion)
+      ) {
+        // The thread could not be read, or still shows the old version: go
+        // by the feed.
+        ({ hasUpdate, isNew } = await updates.applyLatestVersion(game, item.version));
+        version = item.version;
+      }
+      if (hasUpdate && isNew && version) fresh.push({ game, version });
     }
-
-    const notifId = `rss:${item.guid}`;
-    await notifications.upsert({
-      id: notifId,
-      source: 'rss_library',
-      threadId: item.threadId,
-      title: item.displayTitle,
-      body: item.version ?? game.availableVersion ?? null,
-      url: `/store/game/${item.threadId}?cat=${game.category}`,
-      thumbnailUrl: item.thumbnailUrl,
-    });
-    created += 1;
+  } finally {
+    if (fresh.length > 0) {
+      await announceGameUpdates(fresh).catch((err) =>
+        console.warn('[rss] announcing updates failed', err),
+      );
+    }
   }
 
+  await notifications.pruneRssSeen(SEEN_KEEP_DAYS).catch(() => undefined);
   await settings.set(KEY_RSS_LAST_POLL_AT, String(Date.now()));
-  return created;
+  return fresh.length;
 }
 
 export function extractThreadIdFromUrl(url: string | null): string | null {

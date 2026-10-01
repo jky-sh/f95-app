@@ -20,7 +20,9 @@ fn mixdrop_sidecar_to_direct(res: crate::sidecar::HostResolveResult) -> ResolveR
 
 fn mixdrop_err_needs_browser(e: &AppError) -> bool {
     match e {
-        AppError::Cloudflare(_) => true,
+        // The sidecar's window waited on the user and gave up: the
+        // verification window can still finish it.
+        AppError::Cloudflare(_) | AppError::SidecarTimeout(_) => true,
         AppError::Other(msg) => {
             msg.contains("reCAPTCHA")
                 || msg.contains("captcha")
@@ -128,11 +130,11 @@ pub(crate) async fn resolve_mixdrop_with_cookies(
                 extra_headers,
             })
         }
-        Err(AppError::Cloudflare(msg)) => {
+        Err(e @ (AppError::Cloudflare(_) | AppError::SidecarTimeout(_))) => {
             crate::dev_debug::log(
                 Some(app),
                 "mixdrop",
-                format!("session captcha still pending: {msg} (url={url})"),
+                format!("session captcha still pending: {e} (url={url})"),
             );
             Ok(ResolveResult::NeedsBrowser {
                 url: url.to_string(),

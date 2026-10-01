@@ -1,3 +1,4 @@
+mod achievements;
 mod alerts;
 mod auth;
 mod captcha;
@@ -9,9 +10,12 @@ mod hosts;
 mod network;
 pub mod overlay;
 mod sam;
+mod social;
 mod state;
+pub mod updater;
 mod window;
 
+pub use achievements::*;
 pub use alerts::*;
 pub use auth::*;
 pub use captcha::*;
@@ -23,5 +27,6 @@ pub use hosts::*;
 pub use network::*;
 pub use overlay::*;
 pub use sam::*;
-pub use state::{build_state, ActivityItem, AppState, ProfileDto};
+pub use social::*;
+pub use state::{build_state, AppState};
 pub use window::*;

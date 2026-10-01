@@ -53,9 +53,17 @@ export async function syncOverlayHotkey(): Promise<void> {
 }
 
 export function startOverlayHotkeySync(): () => void {
-  void syncOverlayHotkey();
-  const unsubSettings = subscribeExperimentalSettings(() => {
-    void syncOverlayHotkey();
+  // Settings change often (every panel moved in the overlay saves its
+  // layout): re-register the global shortcut only when it actually changed.
+  let registeredFor = '';
+  const unsubSettings = subscribeExperimentalSettings((s) => {
+    const key = `${s.overlayEnabled}|${s.overlayHotkey.trim()}`;
+    if (key !== registeredFor) {
+      registeredFor = key;
+      void syncOverlayHotkey();
+    }
+    // The hotkey shows the overlay with the layout Rust has cached.
+    if (s.overlayEnabled) void ipc.overlaySetLayout(ipc.buildOverlayLayout()).catch(() => {});
   });
 
   return () => {

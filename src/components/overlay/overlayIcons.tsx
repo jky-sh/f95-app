@@ -7,6 +7,18 @@ interface IconProps {
 export function OverlayTabIcon({ tab, size = 16 }: IconProps & { tab: OverlayTab }) {
   const s = size;
   switch (tab) {
+    case 'game':
+      return (
+        <svg width={s} height={s} viewBox="0 0 24 24" fill="none" aria-hidden>
+          <path
+            d="M7.5 7h9a4.5 4.5 0 0 1 4.4 5.5l-.9 4a2.5 2.5 0 0 1-4.3 1.1L14 16h-4l-1.7 1.6A2.5 2.5 0 0 1 4 16.5l-.9-4A4.5 4.5 0 0 1 7.5 7Z"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinejoin="round"
+          />
+          <path d="M8 10v3M6.5 11.5h3M15.5 11h.01M17.5 13h.01" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        </svg>
+      );
     case 'notes':
       return (
         <svg width={s} height={s} viewBox="0 0 24 24" fill="none" aria-hidden>

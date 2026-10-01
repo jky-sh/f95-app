@@ -112,11 +112,13 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   return createElement(LocaleContext.Provider, { value: { locale, setLocale } }, children);
 }
 
+export type TFunction = (key: string, vars?: Record<string, string | number>) => string;
+
 /** React hook returning the translator + the active locale + setter. */
 export function useT() {
   const { locale, setLocale } = useContext(LocaleContext);
-  const t = useCallback(
-    (key: string, vars?: Record<string, string | number>) => translate(locale, key, vars),
+  const t = useCallback<TFunction>(
+    (key, vars) => translate(locale, key, vars),
     [locale],
   );
   return { t, locale, setLocale };

@@ -12,7 +12,8 @@ use tokio::sync::{oneshot, Mutex};
 use tokio::time::timeout;
 
 const RPC_TIMEOUT: Duration = Duration::from_secs(180);
-const RPC_TIMEOUT_INTERACTIVE: Duration = Duration::from_secs(360);
+/// For sidecar calls that open a visible browser and wait on the user.
+pub(crate) const RPC_TIMEOUT_INTERACTIVE: Duration = Duration::from_secs(360);
 
 #[derive(Debug, Deserialize)]
 struct RpcResponse {
@@ -262,8 +263,42 @@ fn map_rpc_error(err: RpcErrorPayload) -> AppError {
         -32001 => AppError::InvalidCredentials(err.message),
         -32002 => AppError::TwoFactorRequired,
         -32010 => AppError::Cloudflare(err.message),
+        // Unmask hitting F95's login page also uses -32003; keep its message
+        // so the download says "log in again" instead of "still starting".
+        -32003 if err.message.contains("session expired") => {
+            AppError::download("session_expired", err.message)
+        }
         -32003 => AppError::NotInitialized,
         -32700 | -32600 | -32601 | -32602 => AppError::Protocol(err.message),
         _ => AppError::Other(err.message),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn payload(code: i32, message: &str) -> RpcErrorPayload {
+        RpcErrorPayload {
+            code,
+            message: message.into(),
+            data: None,
+        }
+    }
+
+    #[test]
+    fn session_expired_keeps_its_message() {
+        let e = map_rpc_error(payload(
+            -32003,
+            "masked URL hit the login page; session expired — please re-login",
+        ));
+        assert_eq!(e.code(), "session_expired");
+        assert!(e.to_string().contains("session expired"));
+    }
+
+    #[test]
+    fn other_not_initialized_stays_generic() {
+        let e = map_rpc_error(payload(-32003, "not logged in"));
+        assert!(matches!(e, AppError::NotInitialized));
     }
 }

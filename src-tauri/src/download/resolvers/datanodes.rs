@@ -62,7 +62,7 @@ async fn resolve_datanodes_playwright(
             crate::dev_debug::log(
                 Some(app),
                 "datanodes",
-                format!("ok (playwright) â†’ {file_name} ({direct_url})"),
+                format!("ok (playwright) → {file_name} ({direct_url})"),
             );
             Ok(ResolveResult::Direct {
                 url: direct_url,
@@ -72,10 +72,8 @@ async fn resolve_datanodes_playwright(
                 extra_headers: Vec::new(),
             })
         }
-        Err(AppError::Other(msg)) if msg.contains("API key") || msg.contains("api key") => {
-            crate::dev_debug::log_warn(Some(app), "datanodes", format!("needs key: {msg}"));
-            Err(AppError::Other(msg))
-        }
+        // The free page could not be passed headlessly (its message asks
+        // for an API key): the browser still can.
         Err(e) => {
             crate::dev_debug::log(Some(app), "datanodes", format!("playwright err: {e}"));
             Ok(ResolveResult::NeedsBrowser {
@@ -131,7 +129,7 @@ async fn resolve_datanodes_api(
         if key_problem {
             return Err(AppError::Other(format!(
                 "datanodes: API key recusada (status {api_status} {api_msg}). \
-                 Confira em ConfiguraÃ§Ãµes â†’ Hosts â†’ DataNodes â†’ Verificar."
+                 Confira em Configurações → Hosts → DataNodes → Verificar."
             )));
         }
         return Ok(ResolveResult::NeedsBrowser {
@@ -176,7 +174,7 @@ async fn resolve_datanodes_api(
     crate::dev_debug::log(
         Some(app),
         "datanodes",
-        format!("ok (API) â†’ {file_name} ({direct_url})"),
+        format!("ok (API) → {file_name} ({direct_url})"),
     );
     Ok(ResolveResult::Direct {
         url: direct_url.to_string(),

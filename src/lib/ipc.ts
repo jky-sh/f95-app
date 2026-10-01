@@ -1,11 +1,17 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { ProfileDto } from '../types';
+import type { ActivityItem, ProfileDto } from '../types';
 import type { SamFilters, SamOptionsResult, SamPage, SamTag } from '../types/sam';
 import type { SamCategory } from '../types/sam';
-import type { GameDetail } from '../types/game';
+import type { GameDetail, ThreadPostsPage, ThreadReviewsPage } from '../types/game';
 import type { CbzPreviewResult, InstallMediaIndex } from '../types/media';
 import type { F95AlertsListResult, F95AlertsPopupResult } from '../types/alerts';
-import type { FollowedUser } from '../types/social';
+import type {
+  FollowedUser,
+  MemberAboutDto,
+  MemberActivityKind,
+  MemberCardDto,
+  MemberProfileDto,
+} from '../types/social';
 import type { RssFeed, RssFeedOptions } from '../types/rss';
 import type { RunningInfo } from '../types/session';
 import type {
@@ -15,6 +21,7 @@ import type {
   OverlayLayout,
 } from '../types/overlay';
 import * as settings from './settings';
+import { noteUserStop } from './gameStops';
 import {
   getExperimentalSettings,
   loadExperimentalSettings,
@@ -61,12 +68,49 @@ export async function gameDetail(threadId: string): Promise<GameDetail> {
   return invoke<GameDetail>('game_detail', { threadId });
 }
 
+/** One page of a thread's posts; 'last' is the newest page. */
+export async function gamePosts(threadId: string, page: number | 'last'): Promise<ThreadPostsPage> {
+  return invoke<ThreadPostsPage>('game_posts', { threadId, page });
+}
+
+/** One page of a thread's reviews, newest first. */
+export async function gameReviews(threadId: string, page: number): Promise<ThreadReviewsPage> {
+  return invoke<ThreadReviewsPage>('game_reviews', { threadId, page });
+}
+
 export async function getFollowing(): Promise<FollowedUser[]> {
   return invoke<FollowedUser[]>('get_following');
 }
 
 export async function getProfile(): Promise<ProfileDto> {
   return invoke<ProfileDto>('get_profile');
+}
+
+export async function getMemberProfile(userId: string): Promise<MemberProfileDto> {
+  return invoke<MemberProfileDto>('get_member_profile', { userId });
+}
+
+export async function getMemberActivity(
+  userId: string,
+  kind: MemberActivityKind,
+): Promise<ActivityItem[]> {
+  return invoke<ActivityItem[]>('get_member_activity', { userId, kind });
+}
+
+export async function getMemberAbout(userId: string): Promise<MemberAboutDto> {
+  return invoke<MemberAboutDto>('get_member_about', { userId });
+}
+
+/** Tooltip cards for up to 24 members per call (the sidecar serializes RPCs). */
+export async function getMemberCards(userIds: string[]): Promise<MemberCardDto[]> {
+  return invoke<MemberCardDto[]>('get_member_cards', { userIds });
+}
+
+export async function setMemberFollow(
+  userId: string,
+  follow: boolean,
+): Promise<{ following: boolean }> {
+  return invoke<{ following: boolean }>('set_member_follow', { userId, follow });
 }
 
 export async function fetchRssFeed(options: RssFeedOptions = {}): Promise<RssFeed> {
@@ -133,11 +177,14 @@ export async function openCaptchaWindow(args: {
   downloadId: number;
   url: string;
   host: string;
+  /** Window title, already translated. */
+  title?: string;
 }): Promise<void> {
   return invoke('open_captcha_window', {
     downloadId: args.downloadId,
     url: args.url,
     host: args.host,
+    title: args.title ?? null,
   });
 }
 
@@ -157,6 +204,37 @@ export async function downloadContinueCaptcha(args: {
   });
 }
 
+/** Download the link the verification window captured (`download:verified`). */
+export async function downloadContinueVerified(args: {
+  id: number;
+  sourceUrl: string;
+  host: string;
+  pageUrl: string;
+  link: string;
+  threadId: string;
+  libraryPath?: string | null;
+}): Promise<void> {
+  return invoke('download_continue_verified', {
+    id: args.id,
+    sourceUrl: args.sourceUrl,
+    host: args.host,
+    pageUrl: args.pageUrl,
+    link: args.link,
+    threadId: args.threadId,
+    libraryPath: args.libraryPath ?? null,
+  });
+}
+
+/** Downloads the backend is still running or waiting on (file choice). */
+export async function downloadActiveIds(): Promise<number[]> {
+  return invoke('download_active_ids');
+}
+
+/** Closes a download's verification window, if one is open. */
+export async function closeCaptchaWindow(downloadId: number): Promise<void> {
+  return invoke('close_captcha_window', { downloadId });
+}
+
 export async function revealInExplorer(path: string): Promise<void> {
   return invoke('reveal_in_explorer', { path });
 }
@@ -164,6 +242,9 @@ export async function revealInExplorer(path: string): Promise<void> {
 export interface ExtractResult {
   destDir: string;
   exePath: string | null;
+  /** Engine detectada no diretório extraído (slug: renpy, rpgm_mv, unity…). */
+  engine: string | null;
+  sizeBytes: number;
 }
 
 export async function extractArchive(args: {
@@ -171,6 +252,17 @@ export async function extractArchive(args: {
   gameTitle: string;
 }): Promise<ExtractResult> {
   return invoke<ExtractResult>('extract_archive', args);
+}
+
+export interface InstallDirProbe {
+  sizeBytes: number;
+  engine: string | null;
+  exists: boolean;
+}
+
+/** Tamanho + engine de um install existente (seed retroativo de versões). */
+export async function probeInstallDir(path: string): Promise<InstallDirProbe> {
+  return invoke<InstallDirProbe>('probe_install_dir', { path });
 }
 
 export async function deletePath(path: string): Promise<void> {
@@ -206,7 +298,8 @@ export async function resolveMediaPreview(args: {
 
 export async function resolveRemoteImagePreview(args: {
   url: string;
-  variant: 'grid';
+  /** grid: F95's 400 px preview; cover: the original resized to 720 px. */
+  variant: 'grid' | 'cover';
 }): Promise<string> {
   return invoke<string>('resolve_remote_image_preview', args);
 }
@@ -228,6 +321,8 @@ export async function launchGame(args: {
 }
 
 export async function stopGame(threadId: string): Promise<void> {
+  // The killed process exits non-zero; this keeps it from looking like a crash.
+  noteUserStop(threadId);
   return invoke('stop_game', { threadId });
 }
 
@@ -239,6 +334,10 @@ export interface MigrationResult {
   copied: number;
   bytes_copied: number;
   destinations: string[];
+  old_engine: string | null;
+  new_engine: string | null;
+  /** Engines detectadas e diferentes — nada foi copiado. */
+  engine_mismatch: boolean;
 }
 
 export async function migrateSaves(args: {
@@ -434,6 +533,98 @@ export async function verifyMixdropCredentials(): Promise<MixdropVerifyResult> {
   return invoke<MixdropVerifyResult>('verify_mixdrop_credentials');
 }
 
+/* ── Achievements Steam ────────────────────────────────────────────────── */
+
+export interface SteamAchievementSchemaEntry {
+  apiName: string;
+  displayName: string;
+  description: string;
+  iconUrl: string;
+  iconGrayUrl: string;
+  hidden: boolean;
+  globalPercent: number | null;
+}
+
+export async function steamFetchAchievementSchema(args: {
+  appId: string;
+  language: string;
+  apiKey?: string | null;
+}): Promise<SteamAchievementSchemaEntry[]> {
+  return invoke<SteamAchievementSchemaEntry[]>('steam_fetch_achievement_schema', {
+    appId: args.appId,
+    language: args.language,
+    apiKey: args.apiKey ?? null,
+  });
+}
+
+export interface SteamSearchResult {
+  appId: string;
+  name: string;
+}
+
+export async function steamSearchGames(term: string): Promise<SteamSearchResult[]> {
+  return invoke<SteamSearchResult[]>('steam_search_games', { term });
+}
+
+export async function steamDetectAppid(args: {
+  installPath?: string | null;
+  exePath?: string | null;
+}): Promise<string | null> {
+  return invoke<string | null>('steam_detect_appid', {
+    installPath: args.installPath ?? null,
+    exePath: args.exePath ?? null,
+  });
+}
+
+export interface AchievementWatchConfig {
+  threadId: string;
+  appId: string;
+  exePath: string | null;
+  installPath?: string | null;
+  title?: string | null;
+  /** Modo experimental: procurar conquistas nos saves do próprio jogo. */
+  saveScan?: boolean;
+  /** Nomes do schema (api + display) — necessários quando saveScan ativo. */
+  achievementNames?: { apiName: string; displayName: string }[];
+}
+
+export async function achievementsConfigure(
+  games: AchievementWatchConfig[],
+): Promise<void> {
+  return invoke('achievements_configure', { games });
+}
+
+export async function achievementsScanNow(): Promise<void> {
+  return invoke('achievements_scan_now');
+}
+
+export interface AchievementToastItem {
+  title: string;
+  description: string | null;
+  iconUrl: string | null;
+}
+
+/** Toast estilo Hydra sobre a janela do jogo. Retorna false se o jogo não
+ *  está rodando (chamador cai para a notificação do sininho). */
+export async function achievementToast(args: {
+  threadId: string;
+  items: AchievementToastItem[];
+  unlockedCount: number;
+  totalCount: number;
+}): Promise<boolean> {
+  return invoke<boolean>('achievement_toast', args);
+}
+
+/** Stop the sidecar before the app update installer replaces its files. */
+export async function prepareAppUpdate(): Promise<void> {
+  return invoke('prepare_app_update');
+}
+
+/** The install failed after prepareAppUpdate: the sidecar may start again. */
+export async function abortAppUpdate(): Promise<void> {
+  return invoke('abort_app_update');
+}
+
 export async function completeLogin(): Promise<void> {
   return invoke('complete_login');
 }
@@ -486,6 +677,11 @@ export async function overlayHide(): Promise<void> {
   return invoke('overlay_hide');
 }
 
+/** The layout the global hotkey opens the overlay with (fullscreen or compact). */
+export async function overlaySetLayout(layout: OverlayLayout): Promise<void> {
+  return invoke('overlay_set_layout', { layout });
+}
+
 export async function overlayToggle(): Promise<boolean> {
   await loadExperimentalSettings();
   return invoke<boolean>('overlay_toggle', { layout: buildOverlayLayout() });
@@ -502,6 +698,24 @@ export async function overlaySyncHotkey(
   hotkey: string,
 ): Promise<OverlaySyncHotkeyResult> {
   return invoke<OverlaySyncHotkeyResult>('overlay_sync_hotkey', { enabled, hotkey });
+}
+
+/** Which controller shortcuts open Big Picture (watched in Rust, also from the tray). */
+export async function bigPictureSyncController(guide: boolean, chord: boolean): Promise<void> {
+  return invoke('bigpicture_sync_controller', { guide, chord });
+}
+
+export interface BigPictureControllerEnv {
+  /** The Xbox button can be read on this PC. */
+  guideSupported: boolean;
+  /** Windows opens Xbox Game Bar with the Xbox button as well. */
+  gameBarUsesGuide: boolean;
+  /** Steam is open and may react to the Xbox button too. */
+  steamRunning: boolean;
+}
+
+export async function bigPictureControllerEnv(): Promise<BigPictureControllerEnv> {
+  return invoke<BigPictureControllerEnv>('bigpicture_controller_env');
 }
 
 export async function overlayIsVisible(): Promise<boolean> {

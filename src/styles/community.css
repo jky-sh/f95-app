@@ -1,0 +1,86 @@
+/* Store game page: the thread's discussion and reviews (ThreadCommunity) ---------- */
+
+.community { display: flex; flex-direction: column; gap: 12px; }
+.community-head {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+}
+.community-hint { margin: 0; font-size: 12px; color: var(--text-muted); }
+
+/* Average rating: the number, then the stars over the vote and review counts. */
+.community-score { display: flex; align-items: center; gap: 14px; }
+.community-score-value { font-size: 36px; font-weight: 800; line-height: 1; color: var(--text-primary); }
+.community-score > span:last-child { display: flex; flex-direction: column; gap: 4px; }
+
+.community-stars { display: inline-flex; gap: 1px; }
+.community-star { position: relative; display: inline-flex; color: var(--border-strong); }
+.community-star svg { fill: currentColor; stroke: none; }
+.community-star-fill { position: absolute; inset: 0 auto 0 0; display: inline-flex; overflow: hidden; color: #f2b01e; }
+.community-star-fill svg { flex-shrink: 0; }
+
+.community-list {
+  display: flex; flex-direction: column; overflow: hidden;
+  border: 1px solid var(--border); border-radius: var(--ui-radius-lg); background: var(--bg-elevated);
+}
+.community-item { display: flex; gap: 12px; padding: 14px 16px; border-top: 1px solid var(--border-faint); }
+.community-item:first-child { border-top: 0; }
+
+.community-avatar {
+  flex: 0 0 40px; width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: var(--bg-sunken);
+}
+.community-avatar--letter { display: grid; place-items: center; color: #fff; font-size: 16px; font-weight: 800; }
+
+.community-item-main { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
+.community-item-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; min-width: 0; }
+.community-item-author { font-size: 13px; font-weight: 700; color: var(--text-primary); text-decoration: none; }
+.community-item-author:hover { color: var(--accent); }
+.community-item-spacer { flex: 1; }
+.community-item-time { font-size: 12px; color: var(--text-muted); }
+.community-item-number {
+  display: inline-flex; font-size: 12px; color: var(--text-faint); text-decoration: none; font-variant-numeric: tabular-nums;
+}
+.community-item-number:hover { color: var(--accent); }
+.community-item-sub { margin-top: -3px; font-size: 11px; color: var(--text-muted); }
+
+/* Post and review bodies: F95 content, cleaned by the sidecar and DOMPurify. */
+.community-body { font-size: 13px; line-height: 1.6; color: var(--text-secondary); overflow-wrap: anywhere; }
+.community-body a { color: var(--accent); }
+.community-body img { display: block; max-width: 100%; max-height: 360px; margin: 6px 0; border-radius: 4px; }
+.community-body blockquote.x-quote {
+  margin: 4px 0 8px; padding: 8px 12px; border-left: 3px solid var(--border-strong);
+  border-radius: 0 4px 4px 0; background: var(--bg-sunken); color: var(--text-tertiary);
+}
+.community-body blockquote.x-quote cite {
+  display: block; margin-bottom: 4px; font-size: 12px; font-style: normal; font-weight: 700; color: var(--text-muted);
+}
+.community-body details.x-spoiler {
+  margin: 8px 0; padding: 6px 10px; border: 1px solid var(--border); border-radius: 3px; background: var(--bg-sunken);
+}
+.community-body details.x-spoiler > summary { cursor: pointer; font-size: 12px; font-weight: 600; color: var(--text-tertiary); }
+.community-body details.x-spoiler[open] > summary { margin-bottom: 6px; }
+.community-body pre { white-space: pre-wrap; }
+
+.community-reactions {
+  display: inline-flex; align-self: flex-start; align-items: center; gap: 5px; margin-top: 2px;
+  font-size: 12px; color: var(--text-muted);
+}
+.community-reactions .ui-icon { color: var(--accent); }
+
+.community-more { align-self: center; }
+.community-error {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 10px 12px;
+  border: 1px solid var(--border-strong); border-radius: var(--ui-radius); font-size: 13px; color: var(--text-secondary);
+}
+.community-error > .ui-icon { color: var(--status-warning); }
+.community-empty { padding: 36px 16px; }
+
+.community-item--skeleton .community-item-main { gap: 8px; padding-top: 4px; }
+.community-skeleton-line { display: block; height: 10px; }
+
+/* Steam: square corners and panel gradients, like the other lists. */
+:root[data-skin='steam'] .community-list {
+  border-radius: 2px; border-color: var(--sk-border-dark);
+  background: linear-gradient(180deg, var(--sk-panel-top), var(--sk-panel-bottom));
+}
+:root[data-skin='steam'] .community-body blockquote.x-quote,
+:root[data-skin='steam'] .community-body details.x-spoiler,
+:root[data-skin='steam'] .community-error { border-radius: 2px; }

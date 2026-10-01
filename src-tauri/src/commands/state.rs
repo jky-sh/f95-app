@@ -8,8 +8,6 @@ use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Manager};
 use tokio::sync::{oneshot, Mutex as AsyncMutex};
 
-pub use crate::sidecar::{ActivityItem, ProfileDto};
-
 pub struct AppState {
     pub sidecar: AsyncMutex<Option<Arc<SidecarClient>>>,
     pub session_dir: PathBuf,
@@ -18,6 +16,7 @@ pub struct AppState {
     pub downloader: Arc<DownloadManager>,
     pub launcher: Arc<LauncherManager>,
     pub mover: Arc<MoveManager>,
+    pub achievements: Arc<crate::achievements::Watcher>,
     pub overlay_context: Mutex<Option<super::overlay::OverlayContext>>,
     pub overlay_visible: Mutex<bool>,
     pub overlay_target_pid: Mutex<Option<u32>>,
@@ -61,6 +60,7 @@ pub fn build_state(app: &AppHandle) -> Result<AppState, AppError> {
     let downloader = Arc::new(DownloadManager::new(downloads_dir.clone()));
     let launcher = Arc::new(LauncherManager::new());
     let mover = Arc::new(MoveManager::new());
+    let achievements = Arc::new(crate::achievements::Watcher::new());
     Ok(AppState {
         sidecar: AsyncMutex::new(None),
         session_dir,
@@ -69,6 +69,7 @@ pub fn build_state(app: &AppHandle) -> Result<AppState, AppError> {
         downloader,
         launcher,
         mover,
+        achievements,
         overlay_context: Mutex::new(None),
         overlay_visible: Mutex::new(false),
         overlay_target_pid: Mutex::new(None),

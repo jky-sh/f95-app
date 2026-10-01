@@ -2,14 +2,10 @@ import { openUrl } from '@tauri-apps/plugin-opener';
 import type { ContextMenuItem } from '../../components/contextMenu/types';
 import type { NavigateFunction } from 'react-router-dom';
 import { isArchivePath } from '../archives';
+import { canVerifyInApp, verifyNeedsContinue } from '../downloadHosts';
 import type { DownloadRow } from '../../types/download';
 import type { TranslateFn } from '../libraryGameActions';
 import { item, offlineTitle, sep } from './helpers';
-
-function supportsCaptchaWindow(host: string): boolean {
-  const h = host.toLowerCase();
-  return h === 'gdrive' || h === 'workupload' || h === 'mixdrop' || h === 'buzzheavier';
-}
 
 export interface DownloadMenuCallbacks {
   onCancel?: () => void | Promise<void>;
@@ -34,7 +30,7 @@ export function buildDownloadMenu(
 ): ContextMenuItem[] {
   const { navigate, isOffline, t, callbacks } = deps;
   const off = offlineTitle(isOffline, t);
-  const captchaHost = supportsCaptchaWindow(row.host);
+  const verifyInApp = canVerifyInApp(row);
   const isArchive = row.destPath ? isArchivePath(row.destPath) : false;
   const pageUrl = row.resolvedUrl ?? row.sourceUrl;
 
@@ -44,7 +40,12 @@ export function buildDownloadMenu(
     }),
   ];
 
-  if (row.state === 'pending' || row.state === 'resolving' || row.state === 'downloading') {
+  if (
+    row.state === 'pending' ||
+    row.state === 'resolving' ||
+    row.state === 'awaiting_choice' ||
+    row.state === 'downloading'
+  ) {
     if (callbacks.onCancel) {
       items.push(
         item('cancel', t('contextMenu.cancelDownload'), callbacks.onCancel, {
@@ -66,7 +67,7 @@ export function buildDownloadMenu(
   }
 
   if (row.state === 'needs_browser' && row.resolvedUrl) {
-    if (captchaHost && callbacks.onOpenCaptcha) {
+    if (verifyInApp && callbacks.onOpenCaptcha) {
       items.push(
         item('captcha', t('downloads.action.openCaptcha'), callbacks.onOpenCaptcha, {
           disabled: isOffline,
@@ -74,7 +75,7 @@ export function buildDownloadMenu(
         }),
       );
     }
-    if (captchaHost && callbacks.onContinueCaptcha) {
+    if (verifyInApp && verifyNeedsContinue(row.host) && callbacks.onContinueCaptcha) {
       items.push(
         item('continueCaptcha', t('downloads.action.continueCaptcha'), callbacks.onContinueCaptcha, {
           disabled: isOffline,
@@ -82,14 +83,14 @@ export function buildDownloadMenu(
         }),
       );
     }
-    if (!captchaHost) {
-      items.push(
-        item('browser', t('downloads.action.openBrowserShort'), () => openUrl(pageUrl), {
-          disabled: isOffline,
-          title: off,
-        }),
-      );
-    }
+    // Also for verification hosts: the browser is the fallback when the
+    // window can't get past the check.
+    items.push(
+      item('browser', t('downloads.action.openBrowserShort'), () => openUrl(pageUrl), {
+        disabled: isOffline,
+        title: off,
+      }),
+    );
   }
 
   if (row.state === 'completed' && row.destPath) {

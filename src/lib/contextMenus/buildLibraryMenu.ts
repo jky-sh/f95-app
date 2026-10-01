@@ -6,6 +6,7 @@ import {
   openLibraryDetail,
   openMediaViewer,
   openThreadOnF95,
+  openUpdateModal,
   canUninstallGame,
   hasInstalledFiles,
   pickExeFor,
@@ -14,6 +15,7 @@ import {
   uninstallGameFromMenu,
 } from '../libraryGameActions';
 import type { LibraryGame } from '../../types/library';
+import { openManageCollections } from '../collections';
 import { item, offlineTitle, sep } from './helpers';
 
 function primaryLabel(
@@ -39,6 +41,11 @@ function primaryLabel(
       if (game.exePath) return { label: t('contextMenu.play'), disabled: false, hidden: false };
       return { label: t('contextMenu.pickExe'), disabled: false, hidden: false };
     case 'update_available':
+      // Com exe configurado o primário volta a ser Jogar (o update vira item
+      // próprio logo abaixo) — update pendente não bloqueia jogar.
+      if (game.category === 'games' && game.exePath) {
+        return { label: t('contextMenu.play'), disabled: false, hidden: false };
+      }
       return {
         label: game.availableVersion
           ? t('contextMenu.updateTo', { version: game.availableVersion })
@@ -75,8 +82,26 @@ export function buildLibraryMenu(
     );
   }
 
+  // Quando Jogar assumiu o primário mesmo com update pendente, o update
+  // ganha item dedicado para continuar a um clique de distância.
+  if (game.installStatus === 'update_available' && game.category === 'games' && game.exePath) {
+    items.push(
+      item(
+        'update',
+        game.availableVersion
+          ? t('contextMenu.updateTo', { version: game.availableVersion })
+          : t('contextMenu.update'),
+        () => openUpdateModal(game),
+        { disabled: isOffline, title: off },
+      ),
+    );
+  }
+
   items.push(
     item('detail', t('contextMenu.openDetail'), () => openLibraryDetail(game, navigate)),
+    item('collections', t('contextMenu.addToCollection'), () =>
+      openManageCollections({ threadId: game.threadId, title: game.title }),
+    ),
   );
 
   if (game.installPath) {

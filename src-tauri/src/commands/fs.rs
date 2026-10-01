@@ -4,7 +4,7 @@ use crate::error::AppError;
 use fs4::available_space;
 use serde::Serialize;
 use std::path::PathBuf;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 #[derive(Debug, Serialize)]
 pub struct ExtractResult {
@@ -12,16 +12,25 @@ pub struct ExtractResult {
     pub dest_dir: String,
     #[serde(rename = "exePath")]
     pub exe_path: Option<String>,
+    /// Engine detectada por marcadores no diretório (slug de `engine_detect`).
+    pub engine: Option<String>,
+    #[serde(rename = "sizeBytes")]
+    pub size_bytes: u64,
 }
 
 /// Extract a downloaded archive next to itself (folder named after the file
 /// stem) and pick the most likely game executable inside. The CPU work runs
-/// on a blocking thread so it doesn't block the Tokio runtime.
+/// on a blocking thread so it doesn't block the Tokio runtime. Progress lands
+/// no evento `extract:progress` (percentual por arquivo) e o fim — sucesso ou
+/// erro — em `extract:done`, para a UI limpar o estado.
 #[tauri::command]
 pub async fn extract_archive(
+    app: AppHandle,
     archive_path: String,
     game_title: String,
 ) -> Result<ExtractResult, AppError> {
+    let event_path = archive_path.clone();
+    let app_events = app.clone();
     let result = tokio::task::spawn_blocking(move || -> Result<ExtractResult, AppError> {
         let archive = PathBuf::from(&archive_path);
         if !archive.exists() {
@@ -45,16 +54,78 @@ pub async fn extract_archive(
             })
             .unwrap_or_else(|| "extracted".to_string());
         let dest = parent.join(stem);
-        crate::extraction::extract(&archive, &dest)?;
+        let mut last_pct = u8::MAX;
+        let mut on_progress = |pct: u8| {
+            if pct == last_pct {
+                return;
+            }
+            last_pct = pct;
+            let _ = app_events.emit(
+                "extract:progress",
+                serde_json::json!({ "archivePath": archive_path, "percent": pct }),
+            );
+        };
+        crate::extraction::extract(&archive, &dest, &mut on_progress)?;
         let exe = crate::extraction::find_main_exe(&dest, &game_title);
         Ok(ExtractResult {
+            engine: crate::engine_detect::detect_engine(&dest).map(str::to_string),
+            size_bytes: dir_size_of(&dest),
             dest_dir: dest.to_string_lossy().into_owned(),
             exe_path: exe.map(|p| p.to_string_lossy().into_owned()),
         })
     })
     .await
-    .map_err(|e| AppError::Other(format!("extract task join: {e}")))??;
-    Ok(result)
+    .map_err(|e| AppError::Other(format!("extract task join: {e}")))?;
+    let _ = app.emit(
+        "extract:done",
+        serde_json::json!({ "archivePath": event_path }),
+    );
+    result
+}
+
+/// Soma rasa do tamanho em disco de um diretório (bytes lógicos dos arquivos).
+fn dir_size_of(root: &std::path::Path) -> u64 {
+    let mut total = 0u64;
+    for entry in walkdir::WalkDir::new(root).into_iter().flatten() {
+        if entry.file_type().is_file() {
+            if let Ok(meta) = entry.metadata() {
+                total = total.saturating_add(meta.len());
+            }
+        }
+    }
+    total
+}
+
+#[derive(Debug, Serialize)]
+pub struct InstallDirProbe {
+    #[serde(rename = "sizeBytes")]
+    pub size_bytes: u64,
+    pub engine: Option<String>,
+    pub exists: bool,
+}
+
+/// Tamanho + engine de um diretório de instalação. Usado para semear em
+/// `install_versions` as instalações feitas antes do versionamento existir
+/// (que não passaram pelo extract_archive novo).
+#[tauri::command]
+pub async fn probe_install_dir(path: String) -> Result<InstallDirProbe, AppError> {
+    tokio::task::spawn_blocking(move || {
+        let dir = PathBuf::from(&path);
+        if !dir.is_dir() {
+            return Ok(InstallDirProbe {
+                size_bytes: 0,
+                engine: None,
+                exists: false,
+            });
+        }
+        Ok(InstallDirProbe {
+            size_bytes: dir_size_of(&dir),
+            engine: crate::engine_detect::detect_engine(&dir).map(str::to_string),
+            exists: true,
+        })
+    })
+    .await
+    .map_err(|e| AppError::Other(format!("probe task join: {e}")))?
 }
 
 /// Downscaled cached image for sidebar (thumb) or reader (display). GIF display uses the original file.

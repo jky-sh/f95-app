@@ -21,6 +21,7 @@ export const KEY_DL_AUTO_EXTRACT = 'dl_auto_extract';
 export const KEY_DL_SPEED_MBPS = 'dl_speed_mbps';
 export const KEY_DL_DELETE_ARCHIVE = 'dl_delete_archive';
 export const KEY_DL_CREATE_SHORTCUTS = 'dl_create_shortcuts';
+export const KEY_DL_KEEP_OLD_VERSIONS = 'dl_keep_old_versions';
 
 export const KEY_DEV_DEBUG_PANEL = 'dev_debug_panel';
 export const KEY_DEV_DEBUG_LAYOUT = 'dev_debug_layout';
@@ -29,6 +30,12 @@ export const KEY_DEV_DEBUG_COLLAPSED = 'dev_debug_collapsed';
 
 export const KEY_OFFLINE_MODE_MANUAL = 'offline_mode_manual';
 export const KEY_PROFILE_CACHE = 'profile_cache';
+
+export const KEY_AUTO_UPDATE_ENABLED = 'auto_update_enabled';
+export const KEY_TRAY_ICON_ENABLED = 'tray_icon_enabled';
+
+export const KEY_ACHIEVEMENTS_NOTIFY = 'achievements_notify';
+export const KEY_STEAM_API_KEY = 'steam_api_key';
 
 export const KEY_EXP_OVERLAY_ENABLED = 'exp_overlay_enabled';
 export const KEY_EXP_OVERLAY_HOTKEY = 'exp_overlay_hotkey';

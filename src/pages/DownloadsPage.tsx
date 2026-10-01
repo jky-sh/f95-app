@@ -12,6 +12,7 @@ import * as library from '../lib/library';
 import * as ipc from '../lib/ipc';
 import { OfflineGate } from '../components/OfflineGate';
 import { useContextMenu } from '../components/contextMenu';
+import { Icon } from '../components/ui/Icon';
 import { useOffline } from '../contexts/Offline';
 import { buildDownloadMenu } from '../lib/contextMenus/buildDownloadMenu';
 import type { DownloadMenuCallbacks } from '../lib/contextMenus/buildDownloadMenu';
@@ -24,10 +25,11 @@ export function DownloadsPage() {
   const navigate = useNavigate();
   const { isOffline } = useOffline();
   const { openContextMenu } = useContextMenu();
-  const { rows, progress, reload } = useDownloads();
+  const { rows, progress, extractProgress, reload } = useDownloads();
   const { settings: dlSettings } = useDownloadSettings();
   const [libraryMap, setLibraryMap] = useState<Record<string, DownloadGameInfo>>({});
   const [clearing, setClearing] = useState(false);
+  const [historyFilter, setHistoryFilter] = useState<HistoryFilter>('all');
 
   const loadLibraryMeta = useCallback(async () => {
     try {
@@ -58,17 +60,19 @@ export function DownloadsPage() {
     [rows],
   );
   const completed = useMemo(() => rows.filter((r) => r.state === 'completed'), [rows]);
-  const other = useMemo(
-    () =>
-      rows.filter(
-        (r) =>
-          r.state === 'failed' ||
-          r.state === 'cancelled' ||
-          r.state === 'needs_browser',
-      ),
+  const other = useMemo(() => rows.filter((r) => HISTORY_OTHER.includes(r.state)), [rows]);
+  const history = useMemo(
+    () => rows.filter((r) => r.state === 'completed' || HISTORY_OTHER.includes(r.state)),
     [rows],
   );
-  const history = useMemo(() => [...completed, ...other], [completed, other]);
+  // The filter only matters while both kinds exist; otherwise show everything.
+  const showHistoryFilter = completed.length > 0 && other.length > 0;
+  const shownHistory = useMemo(() => {
+    if (!showHistoryFilter || historyFilter === 'all') return history;
+    return history.filter((r) =>
+      historyFilter === 'completed' ? r.state === 'completed' : r.state !== 'completed',
+    );
+  }, [history, historyFilter, showHistoryFilter]);
 
   const totalSpeed = useMemo(() => {
     let bps = 0;
@@ -117,6 +121,7 @@ export function DownloadsPage() {
         sourceUrl: row.sourceUrl,
         pageUrl,
         threadId: row.threadId,
+        libraryPath: row.libraryPath,
       });
       await reload();
     } catch (err) {
@@ -132,11 +137,18 @@ export function DownloadsPage() {
       return;
     }
     const pageUrl = row.resolvedUrl ?? row.sourceUrl;
-    await ipc.openCaptchaWindow({
-      downloadId: row.id,
-      url: pageUrl,
-      host: row.host,
-    });
+    try {
+      await ipc.openCaptchaWindow({
+        downloadId: row.id,
+        url: pageUrl,
+        host: row.host,
+        title: t('downloads.verify.windowTitle', { host: row.host }),
+      });
+    } catch (err) {
+      await dialog.alert(t('downloads.captcha.failed', { error: formatError(err) }), {
+        kind: 'error',
+      });
+    }
   }
 
   async function onRetry(row: DownloadRow) {
@@ -145,10 +157,13 @@ export function DownloadsPage() {
       return;
     }
     await downloads.markRetry(row.id);
+    // Same library and section as the first try, so the `.part` resumes.
     await ipc.downloadStart({
       id: row.id,
       sourceUrl: row.sourceUrl,
       threadId: row.threadId,
+      libraryPath: row.libraryPath,
+      platformGroup: row.platformGroup,
     });
     await reload();
   }
@@ -218,14 +233,16 @@ export function DownloadsPage() {
           {canClearHistory && (
             <button
               type="button"
-              className="downloads-toolbar-btn"
+              className="ui-btn ui-btn--secondary ui-btn--sm"
               onClick={onClearHistory}
               disabled={clearing}
             >
+              <Icon name="trash" size={13} />
               {clearing ? t('downloads.action.clearing') : t('downloads.action.clearHistory')}
             </button>
           )}
-          <button type="button" className="downloads-toolbar-btn" onClick={() => reload()}>
+          <button type="button" className="ui-btn ui-btn--secondary ui-btn--sm" onClick={() => reload()}>
+            <Icon name="refresh" size={13} />
             {t('common.refresh')}
           </button>
         </div>
@@ -257,14 +274,13 @@ export function DownloadsPage() {
       )}
 
       {rows.length === 0 && (
-        <div className="downloads-empty">
-          <div className="downloads-empty-icon" aria-hidden>
-            ↓
-          </div>
-          <p className="downloads-empty-title">{t('downloads.empty.title')}</p>
-          <p className="downloads-empty-hint">{t('downloads.empty.hint')}</p>
-          <Link to="/store" className="dl-action-btn dl-action-btn-accent downloads-empty-cta">
-            {t('downloads.empty.cta')} →
+        <div className="ui-empty downloads-empty">
+          <Icon name="download" size={36} />
+          <p className="ui-empty-title">{t('downloads.empty.title')}</p>
+          <p className="ui-empty-text">{t('downloads.empty.hint')}</p>
+          <Link to="/store" className="ui-btn ui-btn--primary">
+            {t('downloads.empty.cta')}
+            <Icon name="chevronRight" size={14} />
           </Link>
         </div>
       )}
@@ -297,6 +313,24 @@ export function DownloadsPage() {
                 {t('downloads.section.history')}
                 <span className="downloads-block-count">{history.length}</span>
               </h2>
+              {showHistoryFilter && (
+                <div className="ui-chips" role="group" aria-label={t('downloads.filter.label')}>
+                  {HISTORY_FILTERS.map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      className="ui-chip"
+                      aria-pressed={historyFilter === f.id}
+                      onClick={() => setHistoryFilter(f.id)}
+                    >
+                      {t(f.labelKey)}
+                      <span className="ui-chip-count">
+                        {f.id === 'all' ? history.length : f.id === 'completed' ? completed.length : other.length}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
               <p className="dl-history-panel-meta">
                 {t('downloads.panel.meta', {
                   completed: completed.length,
@@ -315,11 +349,12 @@ export function DownloadsPage() {
                 <span>{t('downloads.col.date')}</span>
                 <span className="dl-history-head-actions">{t('downloads.col.actions')}</span>
               </div>
-              {history.map((r) => (
+              {shownHistory.map((r) => (
                 <DownloadHistoryRow
                   key={r.id}
                   row={r}
                   game={libraryMap[r.threadId]}
+                  extractPct={r.destPath != null ? extractProgress[r.destPath] : undefined}
                   onRemove={() => onRemove(r)}
                   onReveal={() => onReveal(r)}
                   onRetry={() => onRetry(r)}
@@ -346,6 +381,17 @@ export function DownloadsPage() {
     </OfflineGate>
   );
 }
+
+type HistoryFilter = 'all' | 'completed' | 'other';
+
+const HISTORY_FILTERS: { id: HistoryFilter; labelKey: string }[] = [
+  { id: 'all', labelKey: 'downloads.filter.all' },
+  { id: 'completed', labelKey: 'downloads.filter.completed' },
+  { id: 'other', labelKey: 'downloads.filter.other' },
+];
+
+/** Finished without a file: shown in the history next to completed ones. */
+const HISTORY_OTHER: readonly DownloadRow['state'][] = ['failed', 'cancelled', 'needs_browser'];
 
 function SummaryItem({
   label,

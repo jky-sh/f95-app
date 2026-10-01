@@ -25,7 +25,13 @@ export function buildLibraryDetailMenu(
     );
   }
 
-  if (game.installStatus === 'update_available' && extra.onOpenStore) {
+  // O menu base já traz um item 'update' quando Jogar assumiu o primário
+  // (jogo com exe e update pendente) — não duplica nesse caso.
+  if (
+    game.installStatus === 'update_available' &&
+    extra.onOpenStore &&
+    !items.some((i) => i.id === 'update')
+  ) {
     items.splice(
       0,
       0,

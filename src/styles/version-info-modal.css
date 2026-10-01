@@ -1,0 +1,112 @@
+.version-info-dialog {
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(80vh, 720px);
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 0;
+}
+
+.version-info-current {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.version-info-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 18px 12px;
+}
+
+.version-info-section-title {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.version-info-hint {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.version-info-changelog {
+  margin-top: 0;
+}
+
+.version-info-more {
+  margin-top: 12px;
+}
+
+.version-info-footer {
+  flex-shrink: 0;
+  margin-top: 0;
+  padding: 12px 18px 16px;
+  border-top: 1px solid var(--border-faint);
+}
+
+.status-bar-version {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  font-size: 10px;
+  color: var(--text-faint);
+  border: none;
+  border-left: 1px solid var(--border-faint);
+  font-variant-numeric: tabular-nums;
+  background: transparent;
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 0.12s ease, background 0.12s ease;
+}
+
+.status-bar-version:hover {
+  color: var(--text-secondary);
+  background: var(--bg-hover);
+}
+
+/* An app update waiting: an accent pill instead of the plain version. */
+.status-bar-version--update {
+  gap: 6px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.status-bar-version--update::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.status-bar-version--update:hover {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+/* What the version modal says about an update that is waiting. */
+.version-info-update {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.version-info-update strong {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.version-info-update p {
+  margin: 4px 0 0;
+  white-space: pre-line;
+}

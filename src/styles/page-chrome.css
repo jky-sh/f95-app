@@ -1,0 +1,55 @@
+/**
+ * One page chrome for the top-level pages: the same side padding and title
+ * size everywhere, so switching pages doesn't shift the content or the
+ * heading. Loaded after every page sheet.
+ */
+
+.lib-page,
+.store-main,
+.downloads-page,
+.settings-page,
+.alerts-page,
+.friends-page,
+.news-page {
+  padding: 20px 24px 40px;
+}
+
+.lib-head-title,
+.store-main-title,
+.downloads-title,
+.settings-title,
+.alerts-page-title,
+.friends-title,
+.ach-hub-title,
+.news-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+  color: var(--text-primary);
+}
+
+@media (max-width: 800px) {
+  .lib-page,
+  .store-main,
+  .downloads-page,
+  .settings-page,
+  .alerts-page,
+  .friends-page,
+  .news-page {
+    padding: 16px 16px 40px;
+  }
+}
+
+/* Steam titles are lighter and slightly tracked, on every page alike. */
+:root[data-skin='steam'] .lib-head-title,
+:root[data-skin='steam'] .store-main-title,
+:root[data-skin='steam'] .downloads-title,
+:root[data-skin='steam'] .settings-title,
+:root[data-skin='steam'] .alerts-page-title,
+:root[data-skin='steam'] .friends-title,
+:root[data-skin='steam'] .ach-hub-title,
+:root[data-skin='steam'] .news-title {
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
