@@ -33,8 +33,70 @@ describe('classifyHost', () => {
 
   it('classifies F95 masked URLs by embedded host', () => {
     expect(
-      classifyHost('https://f95zone.to/masked/pixeldrain/12345/67890/key'),
+      classifyHost('https://f95zone.to/masked/pixeldrain.com/161330/5617588/aB1cD2/eF3gH4/iJ5kL6'),
     ).toEqual({ host: 'pixeldrain', category: 'direct' });
+  });
+
+  // F95 masks with the full domain: /masked/<domain>/<thread>/<post>/<k1>/<k2>/<k3>.
+  const masked = (domain: string) =>
+    `https://f95zone.to/masked/${domain}/161330/5617588/aB1cD2/eF3gH4/iJ5kL6`;
+
+  it.each([
+    ['vikingfile.com', 'vikingfile'],
+    ['vik1ngfile.site', 'vikingfile'],
+    ['vikingf1le.us.to', 'vikingfile'],
+    ['terminal.lc', 'terminal'],
+    ['akirabox.com', 'akirabox'],
+    ['akirabox.to', 'akirabox'],
+    ['bowfile.com', 'bowfile'],
+    ['uploadnow.io', 'uploadnow'],
+    ['uploadnow.co', 'uploadnow'],
+    ['krakenfiles.com', 'krakenfiles'],
+    ['wdho.ru', 'wdho'],
+    ['qu.ax', 'qu.ax'],
+    ['files.dp.ua', 'files.dp.ua'],
+    ['bzzhr.to', 'buzzheavier'],
+    ['bzzhr.co', 'buzzheavier'],
+    ['buzzheavier.com', 'buzzheavier'],
+    ['mixdrop.ag', 'mixdrop'],
+    ['mixdrop.is', 'mixdrop'],
+    ['mixdrop.ps', 'mixdrop'],
+    ['mxdrop.to', 'mixdrop'],
+    ['m1xdrop.net', 'mixdrop'],
+    ['mixdrp.co', 'mixdrop'],
+  ])('classifies masked %s as %s', (domain, host) => {
+    expect(classifyHost(masked(domain))).toEqual({ host, category: 'direct' });
+  });
+
+  it.each([
+    ['https://vikingfile.com/f/TPRSfLvcIu', 'vikingfile'],
+    ['https://vik1ngfile.site/f/A0N4oHXRDy', 'vikingfile'],
+    ['https://terminal.lc/r5y9d_6op-z_k7gw', 'terminal'],
+    ['https://akirabox.com/LJlGnVb8AG15/file', 'akirabox'],
+    ['https://akirabox.to/Z9dzBXkqmk1b/file', 'akirabox'],
+    ['https://bowfile.com/4aOer', 'bowfile'],
+    ['https://www.bowfile.com/99iW', 'bowfile'],
+    ['https://uploadnow.io/f/1jbTQ1Y', 'uploadnow'],
+    ['https://krakenfiles.com/view/abc123/file.html', 'krakenfiles'],
+    ['https://wdho.ru/abc', 'wdho'],
+    ['https://qu.ax/AbCd.zip', 'qu.ax'],
+    ['https://files.dp.ua/abc', 'files.dp.ua'],
+    ['https://bzzhr.to/abc12345', 'buzzheavier'],
+    ['https://mixdrop.is/f/abc123', 'mixdrop'],
+    ['https://mxdrop.top/f/abc123', 'mixdrop'],
+  ])('classifies unmasked %s as %s', (url, host) => {
+    expect(classifyHost(url)).toEqual({ host, category: 'direct' });
+  });
+
+  it('keeps an unknown masked domain as its own id', () => {
+    expect(classifyHost(masked('example-host.net'))).toEqual({
+      host: 'example-host.net',
+      category: 'direct',
+    });
+  });
+
+  it('drops unknown unmasked hosts', () => {
+    expect(classifyHost('https://example-host.net/file/abc')).toBeNull();
   });
 
   it('classifies social hosts', () => {
@@ -63,7 +125,7 @@ describe('unmask', () => {
 
   it('infers referer from masked URL', () => {
     expect(
-      inferRefererFromMasked('https://f95zone.to/masked/mega/12345/67890/key'),
+      inferRefererFromMasked('https://f95zone.to/masked/mega.nz/12345/67890/aB1cD2/eF3gH4/iJ5kL6'),
     ).toBe('https://f95zone.to/threads/12345/');
   });
 
@@ -98,6 +160,19 @@ describe('buzzheavier', () => {
       'https://buzzheavier.com/abc12345',
     );
   });
+
+  it('accepts the current bzzhr.to domain', () => {
+    expect(normalizeBuzzheavierUrl('https://bzzhr.to/abc12345')).toBe(
+      'https://buzzheavier.com/abc12345',
+    );
+    expect(normalizeBuzzheavierUrl('https://www.bzzhr.to/abc12345')).toBe(
+      'https://buzzheavier.com/abc12345',
+    );
+  });
+
+  it('rejects other domains', () => {
+    expect(() => normalizeBuzzheavierUrl('https://example.com/abc12345')).toThrow(RpcError);
+  });
 });
 
 describe('datanodes', () => {
@@ -116,6 +191,17 @@ describe('mixdrop', () => {
     const e = parseMixdropUrl('https://mixdrop.sx/e/xyz789');
     expect(e.fileref).toBe('xyz789');
     expect(e.pageUrl).toBe('https://mixdrop.ag/f/xyz789');
+  });
+
+  it.each(['mixdrop.is', 'mixdrop.ps', 'mxdrop.top', 'mxdrop.to', 'm1xdrop.com', 'mixdrp.to'])(
+    'accepts the %s mirror',
+    (domain) => {
+      expect(parseMixdropUrl(`https://${domain}/f/abc123`).fileref).toBe('abc123');
+    },
+  );
+
+  it('rejects the miixdrop ad host', () => {
+    expect(() => parseMixdropUrl('https://miixdrop.net/f/abc123')).toThrow(RpcError);
   });
 });
 
