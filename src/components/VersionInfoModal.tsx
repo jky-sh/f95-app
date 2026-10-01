@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useOffline } from '../contexts/Offline';
-import { checkForAppUpdateInteractive } from '../lib/appUpdater';
+import { installLabel, useAppUpdate } from '../lib/appUpdateState';
+import { checkForAppUpdateInteractive, installAppUpdate } from '../lib/appUpdater';
 import { getChangelogEntries } from '../lib/changelog';
 import { useT } from '../lib/i18n';
 
@@ -11,7 +12,8 @@ interface Props {
 }
 
 /**
- * Modal opened from the status-bar version label: changelog + manual update check.
+ * Modal opened from the status-bar version label: changelog, manual update
+ * check, and Install when an update is waiting.
  */
 export function VersionInfoModal({ open, version, onClose }: Props) {
   const { t } = useT();
@@ -19,6 +21,9 @@ export function VersionInfoModal({ open, version, onClose }: Props) {
   const [updateBusy, setUpdateBusy] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const entries = useMemo(() => getChangelogEntries(), []);
+  const appUpdate = useAppUpdate();
+  const available = appUpdate.available;
+  const busy = updateBusy || appUpdate.checking || appUpdate.install != null;
 
   useEffect(() => {
     if (!open) return;
@@ -72,6 +77,13 @@ export function VersionInfoModal({ open, version, onClose }: Props) {
         </header>
 
         <div className="version-info-body">
+          {available && (
+            <div className="version-info-update" role="status">
+              <strong>{t('settings.updates.availableVersion', { version: available.version })}</strong>
+              {t('settings.updates.willRestart')}
+              {available.notes && <p>{available.notes.slice(0, 800)}</p>}
+            </div>
+          )}
           <h3 className="version-info-section-title">{t('settings.changelog.section')}</h3>
           <p className="version-info-hint">{t('settings.changelog.hint')}</p>
           <div className="settings-changelog version-info-changelog">
@@ -124,18 +136,34 @@ export function VersionInfoModal({ open, version, onClose }: Props) {
           </button>
           <button
             type="button"
-            className="app-dialog-btn app-dialog-btn-primary"
-            disabled={updateBusy || isOffline}
+            className={`app-dialog-btn${available ? '' : ' app-dialog-btn-primary'}`}
+            disabled={busy || isOffline}
             title={isOffline ? t('offline.actionBlocked') : undefined}
             onClick={() => {
               setUpdateBusy(true);
               void checkForAppUpdateInteractive(t).finally(() => setUpdateBusy(false));
             }}
           >
-            {updateBusy
+            {updateBusy || appUpdate.checking
               ? t('settings.updates.checking')
               : t('settings.updates.checkNow')}
           </button>
+          {available && (
+            <button
+              type="button"
+              className="app-dialog-btn app-dialog-btn-primary"
+              disabled={busy || isOffline}
+              title={isOffline ? t('offline.actionBlocked') : t('settings.updates.willRestart')}
+              onClick={() => {
+                setUpdateBusy(true);
+                void installAppUpdate(t).finally(() => setUpdateBusy(false));
+              }}
+            >
+              {appUpdate.install
+                ? installLabel(appUpdate.install, t)
+                : t('settings.updates.installVersion', { version: available.version })}
+            </button>
+          )}
         </footer>
       </div>
     </div>

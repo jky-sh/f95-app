@@ -19,7 +19,8 @@ import { BigPictureHost } from './bigpicture/BigPicture';
 import { openBigPicture } from '../lib/bigPicture';
 import { CatalogBootstrap } from './store/CatalogBootstrap';
 import { MainScrollRestoration } from './MainScrollRestoration';
-import { UpdateCheckScheduler } from './library/UpdateCheckControl';
+import { BackgroundScheduler, UpdateStatusBridge } from './UpdatesBridge';
+import { AppToastHost } from './AppToastHost';
 import { PrefixCatalogProvider } from '../contexts/PrefixCatalogContext';
 import { TagCatalogProvider } from '../contexts/TagCatalogContext';
 import { tStandalone } from '../lib/i18n';
@@ -69,7 +70,9 @@ export function AppShell({ profile, onLoggedOut }: Props) {
               <PrefixCatalogProvider>
                 <CatalogBootstrap />
                 <MainScrollRestoration />
-                <UpdateCheckScheduler />
+                <BackgroundScheduler />
+                <UpdateStatusBridge />
+                <AppToastHost />
                 <AchievementsBridge />
                 <div style={rootStyle} className="app-shell">
                   {/* The desktop chrome, apart from the dialogs below so Big

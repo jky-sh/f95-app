@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react';
 import * as ipc from './ipc';
 import * as library from './library';
 import * as settings from './settings';
+import { announceGameUpdates, type FoundGameUpdate } from './updateNotifier';
 import { applyLatestVersion, checkAll } from './updates';
 import type { LibraryGame } from '../types/library';
 
@@ -13,7 +14,8 @@ import type { LibraryGame } from '../types/library';
  * When the last complete check is recent, it reads SAM's "latest updates"
  * list for the time since then (a few requests for the whole library): a
  * game that is not in it has not changed. Otherwise (first run, a long
- * gap, other categories) it reads each thread.
+ * gap, other categories) it reads each thread. Updates no earlier check
+ * had flagged are announced (updateNotifier).
  */
 export const KEY_UPDATES_CHECKED_AT = 'library_updates_checked_at';
 
@@ -33,6 +35,8 @@ export interface UpdateCheckState {
   total: number;
   /** Updates flagged by the current run so far, or by the last one. */
   found: number;
+  /** Of those, the ones no earlier check had flagged. */
+  foundNew: number;
   /** End of the last complete check (ms). */
   checkedAt: number | null;
   /** The last run failed or was cancelled before finishing. */
@@ -45,6 +49,7 @@ let state: UpdateCheckState = {
   done: 0,
   total: 0,
   found: 0,
+  foundNew: 0,
   checkedAt: null,
   interrupted: false,
 };
@@ -76,7 +81,10 @@ function samWindowSince(checkedAt: number | null): number | null {
 }
 
 export interface RunOptions {
-  /** Background runs only use the SAM list and skip the per-thread check. */
+  /**
+   * Background runs only use the SAM list and skip the per-thread check:
+   * with no recent check they read SAM's widest range instead.
+   */
   background?: boolean;
 }
 
@@ -101,12 +109,15 @@ export function runUpdateCheck(options: RunOptions = {}): Promise<UpdateCheckSta
 
 async function run(options: RunOptions, signal: AbortSignal): Promise<void> {
   const startedAt = Date.now();
-  setState({ running: true, phase: null, done: 0, total: 0, found: 0, interrupted: false });
+  // The last run's result stays on screen until this one starts working.
+  setState({ running: true, phase: null, interrupted: false });
   const checkedAt = await loadCheckedAt();
   const games = await library.list({});
-  const window = samWindowSince(checkedAt);
-  // Background runs never start the long per-thread pass.
-  if (options.background && !window) return;
+  // Background runs never start the long per-thread pass: on a first run or
+  // after a long gap they read SAM's widest range, which still catches
+  // everything updated within it.
+  const window =
+    samWindowSince(checkedAt) ?? (options.background ? SAM_WINDOWS[SAM_WINDOWS.length - 1] : null);
   const gameRows = games.filter((g) => g.category === 'games');
   const otherRows = games.filter((g) => g.category !== 'games');
   // Games: SAM's list since the last check when that is recent, else one
@@ -114,20 +125,35 @@ async function run(options: RunOptions, signal: AbortSignal): Promise<void> {
   const viaSam = window ? gameRows : [];
   const perThread = [...(window ? [] : gameRows), ...(options.background ? [] : otherRows)];
 
-  let found = 0;
-  if (viaSam.length > 0 && window) {
-    found += await checkViaSam(viaSam, window, signal);
-  }
-  if (perThread.length > 0 && !signal.aborted) {
-    setState({ phase: 'threads', done: 0, total: perThread.length });
-    await checkAll(perThread, {
-      delayMs: THREAD_DELAY_MS,
-      signal,
-      onProgress: (done, total, result) => {
-        if (result.hasUpdate) found += 1;
-        setState({ done, total, found: found });
-      },
-    });
+  const tally: Tally = { found: 0, fresh: [] };
+  setState({ done: 0, total: 0, found: 0, foundNew: 0 });
+  try {
+    if (viaSam.length > 0 && window) {
+      await checkViaSam(viaSam, window, signal, tally);
+    }
+    if (perThread.length > 0 && !signal.aborted) {
+      const byThread = new Map(perThread.map((g) => [g.threadId, g]));
+      setState({ phase: 'threads', done: 0, total: perThread.length });
+      await checkAll(perThread, {
+        delayMs: THREAD_DELAY_MS,
+        signal,
+        onProgress: (done, total, result) => {
+          if (result.hasUpdate) tally.found += 1;
+          const game = byThread.get(result.threadId);
+          if (result.isNew && game && result.latestVersion) {
+            tally.fresh.push({ game, version: result.latestVersion });
+          }
+          setState({ done, total, found: tally.found, foundNew: tally.fresh.length });
+        },
+      });
+    }
+  } finally {
+    // What was found before a failure or Cancel is real all the same.
+    if (tally.fresh.length > 0) {
+      await announceGameUpdates(tally.fresh).catch((err) =>
+        console.warn('[update-check] announcing updates failed', err),
+      );
+    }
   }
   if (signal.aborted) {
     setState({ interrupted: true });
@@ -135,17 +161,28 @@ async function run(options: RunOptions, signal: AbortSignal): Promise<void> {
   }
   // The games category is now current up to when this run started.
   await settings.set(KEY_UPDATES_CHECKED_AT, String(startedAt));
-  setState({ checkedAt: startedAt, found });
+  setState({ checkedAt: startedAt, found: tally.found, foundNew: tally.fresh.length });
+}
+
+interface Tally {
+  /** Games flagged with an update. */
+  found: number;
+  /** The updates among them no earlier check had flagged. */
+  fresh: FoundGameUpdate[];
 }
 
 /** Compare library games with SAM's list of games updated in the window. */
-async function checkViaSam(games: LibraryGame[], windowDays: number, signal: AbortSignal): Promise<number> {
+async function checkViaSam(
+  games: LibraryGame[],
+  windowDays: number,
+  signal: AbortSignal,
+  tally: Tally,
+): Promise<void> {
   const byThread = new Map(games.map((g) => [g.threadId, g]));
-  let found = 0;
   let totalPages = 1;
   setState({ phase: 'catalog', done: 0, total: 1 });
   for (let page = 1; page <= Math.min(totalPages, MAX_SAM_PAGES); page++) {
-    if (signal.aborted) return found;
+    if (signal.aborted) return;
     const result = await ipc.samList({
       category: 'games',
       sort: 'date',
@@ -158,13 +195,19 @@ async function checkViaSam(games: LibraryGame[], windowDays: number, signal: Abo
       const game = byThread.get(item.threadId);
       if (!game) continue;
       byThread.delete(item.threadId);
-      if (await applyLatestVersion(game, item.version)) found += 1;
+      const { hasUpdate, isNew } = await applyLatestVersion(game, item.version);
+      if (hasUpdate) tally.found += 1;
+      if (isNew && item.version) tally.fresh.push({ game, version: item.version.trim() });
     }
-    setState({ done: page, total: Math.min(totalPages, MAX_SAM_PAGES), found });
+    setState({
+      done: page,
+      total: Math.min(totalPages, MAX_SAM_PAGES),
+      found: tally.found,
+      foundNew: tally.fresh.length,
+    });
     // Every library game already seen: the rest of the list can't matter.
     if (byThread.size === 0) break;
   }
-  return found;
 }
 
 export function cancelUpdateCheck(): void {

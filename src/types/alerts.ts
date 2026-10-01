@@ -19,7 +19,8 @@ export interface F95AlertsListResult {
   page: number;
 }
 
-export type NotificationSource = 'f95' | 'rss_library' | 'achievement';
+/** `rss_library` is only in rows written before game_update replaced it. */
+export type NotificationSource = 'f95' | 'rss_library' | 'achievement' | 'game_update' | 'app_update';
 
 export interface AppNotification {
   id: string;

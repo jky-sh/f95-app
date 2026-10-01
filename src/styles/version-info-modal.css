@@ -67,3 +67,46 @@
   color: var(--text-secondary);
   background: var(--bg-hover);
 }
+
+/* An app update waiting: an accent pill instead of the plain version. */
+.status-bar-version--update {
+  gap: 6px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.status-bar-version--update::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.status-bar-version--update:hover {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+/* What the version modal says about an update that is waiting. */
+.version-info-update {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.version-info-update strong {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.version-info-update p {
+  margin: 4px 0 0;
+  white-space: pre-line;
+}

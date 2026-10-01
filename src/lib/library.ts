@@ -2,6 +2,7 @@ import { parseSamCategory } from '../constants/samCategories';
 import { execute, query } from './db';
 import { isPathInside, parentDir } from './paths';
 import { forgetGame as forgetCollectionMemberships } from './collections';
+import * as notifications from './notifications';
 import type {
   InstallStatus,
   LibraryFilter,
@@ -222,6 +223,14 @@ export async function applyVersion(
     [version, threadId],
   );
   notifyLibraryChange(threadId);
+  // The bell's "update available" for this game is done with.
+  try {
+    if (await notifications.markReadByThread(threadId, 'game_update')) {
+      notifications.emitNotificationsChanged();
+    }
+  } catch (err) {
+    console.warn('[library] marking update notifications read failed', err);
+  }
 }
 
 /**
@@ -256,6 +265,14 @@ export async function isInLibrary(threadId: string): Promise<boolean> {
 export async function listRecentPlayed(limit = 5): Promise<LibraryGame[]> {
   const items = await list({ sort: 'last_played' });
   return items.filter((g) => !!g.lastPlayedAt).slice(0, Math.max(0, limit));
+}
+
+/** Installed games with an update waiting (the tray menu's count). */
+export async function countUpdatesAvailable(): Promise<number> {
+  const rows = await query<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM library_games WHERE install_status = 'update_available'`,
+  );
+  return rows[0]?.n ?? 0;
 }
 
 export async function list(filter: LibraryFilter = {}): Promise<LibraryGame[]> {

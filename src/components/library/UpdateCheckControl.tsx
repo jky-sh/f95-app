@@ -91,36 +91,6 @@ export function UpdateCheckControl({
   );
 }
 
-/** How long after the last check a background one is worth running. */
-const BACKGROUND_MIN_AGE_MS = 2 * 60 * 60 * 1000;
-const BACKGROUND_FIRST_DELAY_MS = 90_000;
-const BACKGROUND_EVERY_MS = 6 * 60 * 60 * 1000;
-
-/**
- * Background update checks while the app is open and online: a while after
- * startup, then every few hours, only via SAM's latest list (cheap) and
- * only when the last check is older than two hours. Mounted once.
- */
-export function UpdateCheckScheduler() {
-  const { isOffline } = useOffline();
-  const check = useUpdateCheck();
-  const checkedAt = check.checkedAt;
-  useEffect(() => {
-    if (isOffline) return;
-    const tick = () => {
-      if (checkedAt && Date.now() - checkedAt < BACKGROUND_MIN_AGE_MS) return;
-      void runUpdateCheck({ background: true });
-    };
-    const first = setTimeout(tick, BACKGROUND_FIRST_DELAY_MS);
-    const every = setInterval(tick, BACKGROUND_EVERY_MS);
-    return () => {
-      clearTimeout(first);
-      clearInterval(every);
-    };
-  }, [isOffline, checkedAt]);
-  return null;
-}
-
 const rowStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
