@@ -12,6 +12,8 @@ export const KEY_BP_INTRO = 'bigpicture_intro';
 export const KEY_BP_FULLSCREEN = 'bigpicture_fullscreen';
 export const KEY_BP_ON_STARTUP = 'bigpicture_on_startup';
 export const KEY_BP_SOUNDS = 'bigpicture_sounds';
+export const KEY_BP_CONTROLLER_GUIDE = 'bigpicture_controller_guide';
+export const KEY_BP_CONTROLLER_CHORD = 'bigpicture_controller_chord';
 
 /* ------------------------------------------------------------------------- */
 /* Open / closing state                                                       */
@@ -99,6 +101,10 @@ export interface BigPicturePrefs {
   onStartup: boolean;
   /** Interface sounds (focus ticks, confirm/back, entry and exit themes). */
   sounds: boolean;
+  /** A short press of the Xbox button opens Big Picture, also from the tray. */
+  controllerGuide: boolean;
+  /** Holding View + Menu opens Big Picture, for pads whose Xbox button is taken. */
+  controllerChord: boolean;
 }
 
 export const DEFAULT_BP_PREFS: BigPicturePrefs = {
@@ -106,6 +112,8 @@ export const DEFAULT_BP_PREFS: BigPicturePrefs = {
   fullscreen: true,
   onStartup: false,
   sounds: true,
+  controllerGuide: true,
+  controllerChord: true,
 };
 
 let prefs: BigPicturePrefs = DEFAULT_BP_PREFS;
@@ -119,9 +127,11 @@ export function loadBigPicturePrefs(): Promise<BigPicturePrefs> {
       settings.getBool(KEY_BP_FULLSCREEN, DEFAULT_BP_PREFS.fullscreen),
       settings.getBool(KEY_BP_ON_STARTUP, DEFAULT_BP_PREFS.onStartup),
       settings.getBool(KEY_BP_SOUNDS, DEFAULT_BP_PREFS.sounds),
+      settings.getBool(KEY_BP_CONTROLLER_GUIDE, DEFAULT_BP_PREFS.controllerGuide),
+      settings.getBool(KEY_BP_CONTROLLER_CHORD, DEFAULT_BP_PREFS.controllerChord),
     ])
-      .then(([intro, fullscreen, onStartup, sounds]) => {
-        prefs = { intro, fullscreen, onStartup, sounds };
+      .then(([intro, fullscreen, onStartup, sounds, controllerGuide, controllerChord]) => {
+        prefs = { intro, fullscreen, onStartup, sounds, controllerGuide, controllerChord };
         for (const notify of prefListeners) notify();
         return prefs;
       })
@@ -142,6 +152,8 @@ export async function saveBigPicturePrefs(patch: Partial<BigPicturePrefs>): Prom
     fullscreen: KEY_BP_FULLSCREEN,
     onStartup: KEY_BP_ON_STARTUP,
     sounds: KEY_BP_SOUNDS,
+    controllerGuide: KEY_BP_CONTROLLER_GUIDE,
+    controllerChord: KEY_BP_CONTROLLER_CHORD,
   };
   try {
     await Promise.all(
@@ -163,6 +175,11 @@ const prefsSnapshot = () => prefs;
 /** Saved preferences, kept current when either Settings page changes them. */
 export function useBigPicturePrefs(): BigPicturePrefs {
   return useSyncExternalStore(subscribePrefs, prefsSnapshot);
+}
+
+/** The same outside React: `notify` gets the preferences after every change. */
+export function subscribeBigPicturePrefs(notify: (prefs: BigPicturePrefs) => void): () => void {
+  return subscribePrefs(() => notify(prefs));
 }
 
 /* ------------------------------------------------------------------------- */

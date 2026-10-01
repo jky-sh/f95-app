@@ -17,6 +17,7 @@ import { GameDownloadModal } from './GameDownloadModal';
 import { CommandPalette } from './CommandPalette';
 import { BigPictureHost } from './bigpicture/BigPicture';
 import { openBigPicture } from '../lib/bigPicture';
+import { startBigPictureControllerBridge } from '../lib/bigPictureController';
 import { CatalogBootstrap } from './store/CatalogBootstrap';
 import { MainScrollRestoration } from './MainScrollRestoration';
 import { UpdateCheckScheduler } from './library/UpdateCheckControl';
@@ -58,6 +59,9 @@ export function AppShell({ profile, onLoggedOut }: Props) {
       }),
     [navigate],
   );
+
+  // The Xbox button or View + Menu opens Big Picture, also from the tray.
+  useEffect(() => startBigPictureControllerBridge(), []);
 
   return (
     <RunningGamesProvider>
