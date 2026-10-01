@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as ipc from '../lib/ipc';
 import { loadFollowingCache, saveFollowingCache } from '../lib/socialCache';
+import { forgetMemberProfile } from './useMemberProfile';
 import type { FollowedUser } from '../types/social';
 
 export type FollowingState =
@@ -66,11 +67,12 @@ export function useFollowing(ownerId: string, offline: boolean) {
     };
   }, [ownerId, offline, refresh]);
 
-  /** Unfollow on F95; drops the member from the list once F95 confirms. */
+  /** Unfollow on F95; once F95 confirms, drops the member from the list and their cached page. */
   const unfollow = useCallback(
     async (userId: string) => {
       const { following } = await ipc.setMemberFollow(userId, false);
       if (following) return false;
+      forgetMemberProfile(userId);
       setState((s) => {
         if (s.kind !== 'ready') return s;
         const users = s.users.filter((u) => u.userId !== userId);
