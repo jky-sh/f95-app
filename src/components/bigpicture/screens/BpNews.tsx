@@ -13,8 +13,10 @@ import { useT } from '../../../lib/i18n';
 import * as ipc from '../../../lib/ipc';
 import { describeIpcError } from '../../../lib/ipcError';
 import { hasPendingUpdate } from '../../../lib/library';
+import { installAppUpdate } from '../../../lib/appUpdater';
 import { activityRoute } from '../../../lib/memberLinks';
 import { formatWhen } from '../../../lib/memberPresence';
+import { localSourceLabelKey } from '../../../lib/notificationLinks';
 import { cancelUpdateCheck, runUpdateCheck, useUpdateCheck } from '../../../lib/updateChecker';
 import type { ActivityItem } from '../../../types';
 import type { LibraryGame } from '../../../types/library';
@@ -48,7 +50,6 @@ function takeRequestedSection(): NewsSection | null {
 const SECTIONS: NewsSection[] = ['feed', 'updates', 'alerts', 'activity'];
 
 /** Local notifications about library games (the feed's updates, update checks). */
-const LIBRARY_SOURCES = new Set<string>(['rss_library', 'game_update']);
 
 /** The feed's title still carries the version ("Game [v0.25]"); it shows on its own. */
 function feedTitle(item: RssFeedItem): string {
@@ -95,6 +96,8 @@ interface AlertRow {
   detail: string | null;
   url: string | null;
   threadId: string | null;
+  /** A new version of the app itself: opening it offers the install. */
+  appUpdate: boolean;
 }
 
 /**
@@ -197,6 +200,7 @@ export function BpNews({ active }: { active: boolean }) {
           detail: null,
           url: a.url,
           threadId: null,
+          appUpdate: false,
         };
       }
       const n = u.notification;
@@ -209,11 +213,11 @@ export function BpNews({ active }: { active: boolean }) {
         ts: parseDbTime(n.createdAt)?.getTime() ?? null,
         image: n.thumbnailUrl,
         avatar: false,
-        // Sources added later (app updates…) still list, just without a label.
-        source: LIBRARY_SOURCES.has(n.source) ? t('notifications.source.library') : null,
+        source: t(localSourceLabelKey(n.source)),
         detail: n.body,
         url: n.url,
         threadId: n.threadId,
+        appUpdate: n.source === 'app_update',
       };
     });
     rows.sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0));
@@ -228,6 +232,11 @@ export function BpNews({ active }: { active: boolean }) {
   function openAlert(row: AlertRow) {
     // Marking an F95 alert lowers the unread count whatever its state.
     if (row.unread) void notifications.markRead(row.id, row.kind).catch(() => undefined);
+    if (row.appUpdate) {
+      // Same as the top bar's update button: confirm, then install.
+      void installAppUpdate(t);
+      return;
+    }
     const navigate = bp.gameDeps().navigate;
     // In-app paths (store and library pages) open here; F95 links to a
     // thread or a member too, anything else in the browser.
