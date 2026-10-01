@@ -4,6 +4,8 @@ import { useOffline } from '../../contexts/Offline';
 import { useRunningGames } from '../../contexts/RunningGames';
 import { useNavCounts } from '../../hooks/useNavCounts';
 import { useNow } from '../../hooks/useNow';
+import { appUpdateOffer, installLabel, useAppUpdate } from '../../lib/appUpdateState';
+import { installAppUpdate } from '../../lib/appUpdater';
 import { useT } from '../../lib/i18n';
 import type { ContextMenuItem } from '../contextMenu/types';
 import { LibraryCover } from '../library/LibraryCover';
@@ -70,6 +72,13 @@ export function BpTopBar({
   const counts = useNavCounts();
   const { rows, progress } = useDownloads();
   const now = useNow(1000);
+  const appUpdate = useAppUpdate();
+  const appOffer = appUpdateOffer(appUpdate);
+  const appUpdateLabel = appUpdate.install
+    ? installLabel(appUpdate.install, t)
+    : appOffer
+      ? t('bp.appUpdate.available', { version: appOffer.version })
+      : null;
 
   // The underline under the active section slides between tabs.
   const tabsRef = useRef<HTMLDivElement>(null);
@@ -198,6 +207,19 @@ export function BpTopBar({
               )}
             </svg>
             <Icon name="download" size={16} />
+          </button>
+        )}
+        {appUpdateLabel && (
+          <button
+            type="button"
+            className="bp-live bp-app-update bp-focusable"
+            data-bp-a={t('settings.updates.install')}
+            disabled={appUpdate.install != null}
+            onClick={() => void installAppUpdate(t)}
+            title={appUpdateLabel}
+          >
+            <Icon name="download" size={16} />
+            <span className="bp-live-title">{appUpdateLabel}</span>
           </button>
         )}
         {isOffline && <span className="bp-offline">{t('nav.offline')}</span>}

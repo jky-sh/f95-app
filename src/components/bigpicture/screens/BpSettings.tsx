@@ -1,3 +1,12 @@
+import { useEffect, useState } from 'react';
+import {
+  getAppRuntimeSettings,
+  saveAppRuntimeSettings,
+  subscribeAppRuntimeSettings,
+} from '../../../lib/appRuntimeSettings';
+import { installLabel, useAppUpdate } from '../../../lib/appUpdateState';
+import { checkForAppUpdateInteractive, installAppUpdate } from '../../../lib/appUpdater';
+import { saveUpdatePrefs, useUpdatePrefs } from '../../../lib/updateSettings';
 import { useT } from '../../../lib/i18n';
 import {
   enterBigPictureFullscreen,
@@ -131,7 +140,60 @@ export function BpSettings() {
           </ul>
           <p className="bp-muted">{t('bp.controls.note')}</p>
         </section>
+
+        <BpUpdatesSection />
       </div>
     </div>
+  );
+}
+
+/** Update notifications and the launcher's own update. */
+function BpUpdatesSection() {
+  const { t } = useT();
+  const prefs = useUpdatePrefs();
+  const app = useAppUpdate();
+  const [autoApp, setAutoApp] = useState(() => getAppRuntimeSettings().autoUpdateEnabled);
+  useEffect(() => subscribeAppRuntimeSettings((s) => setAutoApp(s.autoUpdateEnabled)), []);
+
+  const busy = app.checking || app.install != null;
+  const label = app.install
+    ? installLabel(app.install, t)
+    : app.checking
+      ? t('settings.updates.checking')
+      : app.available
+        ? t('bp.appUpdate.install', { version: app.available.version })
+        : t('bp.appUpdate.check');
+
+  return (
+    <section>
+      <BpHeading title={t('bp.settings.updates')} />
+      <div className="bp-toggle-list">
+        <Toggle
+          on={prefs.gamesNotify}
+          label={t('bp.settings.updateNotify')}
+          hint={t('bp.settings.updateNotify.hint')}
+          onChange={(gamesNotify) => void saveUpdatePrefs({ gamesNotify })}
+        />
+        <Toggle
+          on={autoApp}
+          label={t('bp.settings.appAuto')}
+          hint={t('bp.settings.appAuto.hint')}
+          onChange={(autoUpdateEnabled) => void saveAppRuntimeSettings({ autoUpdateEnabled })}
+        />
+      </div>
+      <div className="bp-actions">
+        <button
+          type="button"
+          className={`bp-btn bp-focusable${app.available ? ' bp-btn--primary' : ''}`}
+          disabled={busy}
+          onClick={() =>
+            void (app.available ? installAppUpdate(t) : checkForAppUpdateInteractive(t))
+          }
+        >
+          <Icon name={app.available ? 'download' : 'refresh'} size={20} />
+          {label}
+        </button>
+      </div>
+    </section>
   );
 }
