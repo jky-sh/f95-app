@@ -7,6 +7,7 @@ import * as library from '../lib/library';
 import { useOffline } from '../contexts/Offline';
 import { useT } from '../lib/i18n';
 import { formatDownloadSpeed } from '../lib/downloadSettings';
+import { appUpdateOffer, installLabel, useAppUpdate } from '../lib/appUpdateState';
 import type { DownloadProgress, DownloadRow } from '../types/download';
 import { formatBytes, stateKey } from '../types/download';
 import { VersionInfoModal } from './VersionInfoModal';
@@ -48,6 +49,8 @@ export function StatusBar() {
   const [version, setVersion] = useState<string | null>(null);
   const [versionModalOpen, setVersionModalOpen] = useState(false);
   const [titles, setTitles] = useState<Record<string, string>>({});
+  const appUpdate = useAppUpdate();
+  const appOffer = appUpdateOffer(appUpdate);
   const active = useMemo(
     () => rows.filter((r) => ACTIVE_STATES.has(r.state)),
     [rows],
@@ -104,6 +107,18 @@ export function StatusBar() {
     ? (primaryProgress?.total ?? primary.bytesTotal)
     : null;
   const speedBps = primaryProgress?.speedBps ?? 0;
+
+  const updatePill = appUpdate.install
+    ? {
+        label: installLabel(appUpdate.install, t),
+        title: t('settings.updates.willRestart'),
+      }
+    : appOffer
+      ? {
+          label: `v${version ?? '?'} → v${appOffer.version}`,
+          title: t('statusbar.updateAvailable', { version: appOffer.version }),
+        }
+      : null;
 
   return (
     <footer style={barStyle} className="status-bar">
@@ -164,15 +179,27 @@ export function StatusBar() {
         </button>
       )}
 
-      <button
-        type="button"
-        className="status-bar-version"
-        title={t('statusbar.versionTitle')}
-        aria-label={t('statusbar.versionTitle')}
-        onClick={() => setVersionModalOpen(true)}
-      >
-        {version ? `v${version}` : '…'}
-      </button>
+      {updatePill ? (
+        // An app update waiting (or on its way in): the version becomes a pill.
+        <button
+          type="button"
+          className="status-bar-version status-bar-version--update"
+          title={updatePill.title}
+          onClick={() => setVersionModalOpen(true)}
+        >
+          {updatePill.label}
+        </button>
+      ) : (
+        <button
+          type="button"
+          className="status-bar-version"
+          title={t('statusbar.versionTitle')}
+          aria-label={t('statusbar.versionTitle')}
+          onClick={() => setVersionModalOpen(true)}
+        >
+          {version ? `v${version}` : '…'}
+        </button>
+      )}
 
       <VersionInfoModal
         open={versionModalOpen}

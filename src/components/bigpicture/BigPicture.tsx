@@ -64,6 +64,7 @@ import { BpBackdrop } from './BpParts';
 import { BpHintBar, BpMenu, BpSheet, BpTopBar, BpViewer } from './BpChrome';
 import { BpFileChoiceHost, BpInstall, type FileChoiceControl } from './BpInstall';
 import { BpLaunch } from './BpLaunch';
+import { BpToast } from './BpToast';
 import { BpHome } from './screens/BpHome';
 import { BpLibrary } from './screens/BpLibrary';
 import { BpStore } from './screens/BpStore';
@@ -1037,6 +1038,7 @@ function BigPicture({
             )}
             <BpFileChoiceHost onChange={setChoiceId} controlRef={fileChoice} />
             {launchingEntry && phase !== 'intro' && <BpLaunch entry={launchingEntry} />}
+            <BpToast />
 
             {!introDone && (
               <BpIntro full={fullIntro} skipped={skipped} onReveal={onReveal} onDone={onIntroDone} />

@@ -44,6 +44,8 @@ import {
 import { LoadingState } from '../components/ui/LoadingState';
 import { AchievementsSettingsCard } from '../components/settings/AchievementsSettingsCard';
 import { BigPictureSettingsCard } from '../components/settings/BigPictureSettingsCard';
+import { UpdatesSettingsCard } from '../components/settings/UpdatesSettingsCard';
+import { AppUpdateStatus } from '../components/settings/AppUpdateStatus';
 import { Icon, type IconName } from '../components/ui/Icon';
 import {
   loadAppRuntimeSettings,
@@ -1888,6 +1890,8 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
               </div>
             )}
 
+            <UpdatesSettingsCard />
+
             <AchievementsSettingsCard />
 
             <div id="settings-offline" className="settings-card">
@@ -2383,6 +2387,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                     <span>{t('settings.updates.auto')}</span>
                   </label>
                 </div>
+                <AppUpdateStatus />
                 <div className="settings-offline-actions" style={{ marginTop: 12 }}>
                   <button
                     type="button"

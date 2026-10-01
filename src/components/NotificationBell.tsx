@@ -6,6 +6,7 @@ import { useNotifications } from '../contexts/Notifications';
 import { useOffline } from '../contexts/Offline';
 import { formatRelativeDate } from '../lib/formatDate';
 import { useT } from '../lib/i18n';
+import { localSourceLabelKey, openLocalNotification } from '../lib/notificationLinks';
 import { extractThreadIdFromUrl } from '../lib/rssUpdates';
 
 interface NotificationBellProps {
@@ -105,8 +106,7 @@ export function NotificationBell({ placement = 'side' }: NotificationBellProps) 
                           onClick={() => {
                             void markRead(n.id, 'local');
                             setOpen(false);
-                            if (n.url?.startsWith('/')) navigate(n.url);
-                            else if (n.threadId) navigate(`/store/game/${n.threadId}?cat=games`);
+                            openLocalNotification(n, navigate);
                           }}
                         >
                           {n.thumbnailUrl ? (
@@ -116,7 +116,7 @@ export function NotificationBell({ placement = 'side' }: NotificationBellProps) 
                           )}
                           <div className="notification-item-body">
                             <div className="notification-item-source">
-                              {t('notifications.source.library')}
+                              {t(localSourceLabelKey(n.source))}
                             </div>
                             <div className="notification-item-text">{n.title}</div>
                             {n.body && <div className="notification-item-meta">{n.body}</div>}

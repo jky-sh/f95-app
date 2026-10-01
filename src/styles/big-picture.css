@@ -3612,3 +3612,95 @@ html[data-bp]::view-transition {
     transition: none;
   }
 }
+
+/* Updates: the app update pill in the top bar, and toasts --------------------- */
+
+.bp-app-update {
+  background: rgba(90, 169, 255, 0.18);
+}
+.bp-app-update .ui-icon {
+  flex: none;
+  color: var(--bp-blue);
+}
+.bp-app-update:focus .ui-icon {
+  color: inherit;
+}
+.bp-app-update:disabled {
+  cursor: default;
+  opacity: 0.85;
+}
+
+/* Bottom right, over the screens and panels; it never takes the focus. */
+.bp-toast {
+  position: absolute;
+  right: var(--bp-pad);
+  bottom: calc(var(--bp-foot) + var(--s) * 0.8);
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  gap: calc(var(--s) * 0.8);
+  width: min(calc(var(--s) * 22), 80vw);
+  padding: calc(var(--s) * 0.7);
+  border: 0;
+  border-left: 3px solid var(--bp-blue);
+  border-radius: var(--bp-radius);
+  background: var(--bp-panel);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+  color: var(--bp-ink-2);
+  text-align: left;
+  cursor: pointer;
+  animation: bp-toast-in 0.4s var(--bp-ease) both;
+}
+.bp-toast:hover {
+  background: #202024;
+}
+@keyframes bp-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--s) * 1.2));
+  }
+}
+.bp-toast-art,
+.bp-toast-icon {
+  flex: none;
+  width: calc(var(--s) * 3.2);
+  height: calc(var(--s) * 3.2);
+  border-radius: 6px;
+}
+.bp-toast-art {
+  object-fit: cover;
+  background: #2a2a2e;
+}
+.bp-toast-icon {
+  display: grid;
+  place-items: center;
+  background: rgba(90, 169, 255, 0.16);
+  color: var(--bp-blue);
+}
+.bp-toast-text {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--s) * 0.15);
+  min-width: 0;
+}
+.bp-toast-title {
+  overflow: hidden;
+  color: var(--bp-ink);
+  font-family: var(--bp-display);
+  font-size: calc(var(--s) * 0.95);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bp-toast-body {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--bp-ink-3);
+  font-size: calc(var(--s) * 0.8);
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.bp-toast-hint {
+  color: var(--bp-blue);
+  font-size: calc(var(--s) * 0.75);
+}

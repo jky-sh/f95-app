@@ -128,7 +128,21 @@ pub fn run() {
     ];
 
     tauri::Builder::default()
+        // First, so a second launch (the shortcut again, a clicked update
+        // notification) only brings this instance forward and quits before
+        // it opens the database or starts a sidecar of its own.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(window) = app
+                .get_webview_window("main")
+                .or_else(|| app.get_webview_window("login"))
+            {
+                let _ = window.show();
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
@@ -255,6 +269,8 @@ pub fn run() {
             achievements_configure,
             achievements_scan_now,
             achievement_toast,
+            commands::updater::prepare_app_update,
+            commands::updater::abort_app_update,
             steam_fetch_achievement_schema,
             steam_search_games,
             steam_detect_appid

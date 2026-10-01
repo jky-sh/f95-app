@@ -22,8 +22,12 @@ import {
 
 const TRAY_ID = 'f95-app-tray';
 const TRAY_TOOLTIP = 'F95 App';
+/** Windows cuts tray tooltips at 127 characters. */
+const TOOLTIP_MAX = 127;
 
 let tray: TrayIcon | null = null;
+/** The tooltip with what is waiting (updates), see setTrayStatus. */
+let tooltip = TRAY_TOOLTIP;
 let closeUnlisten: (() => void) | null = null;
 let settingsUnsub: (() => void) | null = null;
 let mainFocusUnlisten: (() => void) | null = null;
@@ -78,10 +82,33 @@ async function resolveTrayIcon(): Promise<Image> {
 async function setTrayTooltipVisible(visible: boolean): Promise<void> {
   if (!tray) return;
   try {
-    await tray.setTooltip(visible ? TRAY_TOOLTIP : null);
+    await tray.setTooltip(visible ? tooltip : null);
   } catch (err) {
     console.warn('[tray] setTooltip failed', err);
   }
+}
+
+/**
+ * Put what is waiting in the tray tooltip, e.g.
+ * "F95 App - 3 game updates - v1.1.0 available".
+ */
+export function setTrayStatus(
+  status: { gameUpdates: number; appUpdate: string | null },
+  t: TFunction,
+): void {
+  const parts = [TRAY_TOOLTIP];
+  if (status.gameUpdates === 1) {
+    parts.push(t('tray.tooltip.update'));
+  } else if (status.gameUpdates > 1) {
+    parts.push(t('tray.tooltip.updates', { count: status.gameUpdates }));
+  }
+  if (status.appUpdate) parts.push(t('tray.tooltip.appUpdate', { version: status.appUpdate }));
+  const next = parts.join(' - ').slice(0, TOOLTIP_MAX);
+  if (next === tooltip) return;
+  tooltip = next;
+  // While the custom menu is open the tooltip stays hidden; it comes back
+  // with the new text when the menu closes.
+  if (!isTrayMenuOpen()) void setTrayTooltipVisible(true);
 }
 
 async function createTray(): Promise<void> {
@@ -115,7 +142,7 @@ async function createTray(): Promise<void> {
   tray = await TrayIcon.new({
     id: TRAY_ID,
     icon,
-    tooltip: TRAY_TOOLTIP,
+    tooltip,
     menu: undefined,
     showMenuOnLeftClick: false,
     action: onTrayEvent,

@@ -12,6 +12,7 @@ pub mod overlay;
 mod sam;
 mod social;
 mod state;
+pub mod updater;
 mod window;
 
 pub use achievements::*;

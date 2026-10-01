@@ -18,8 +18,6 @@ import { OverlayHintRoot } from './components/overlay/OverlayHintRoot';
 import { TrayMenuRoot } from './components/tray/TrayMenuRoot';
 import { loadDevDebugSettings } from './lib/devDebugSettings';
 import { startOverlayHotkeySync } from './lib/overlayHotkey';
-import { runStartupUpdateCheck } from './lib/appUpdater';
-import { tStandalone } from './lib/i18n';
 import type { ProfileDto } from './types';
 import './App.css';
 import './styles/ui.css';
@@ -158,14 +156,6 @@ function App() {
       return;
     }
     void loadDevDebugSettings();
-  }, []);
-
-  useEffect(() => {
-    if (appWindowKind !== 'main') return;
-    const timer = window.setTimeout(() => {
-      void runStartupUpdateCheck(tStandalone);
-    }, 4_000);
-    return () => window.clearTimeout(timer);
   }, []);
 
   useEffect(() => {

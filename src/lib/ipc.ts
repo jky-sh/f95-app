@@ -615,6 +615,16 @@ export async function achievementToast(args: {
   return invoke<boolean>('achievement_toast', args);
 }
 
+/** Stop the sidecar before the app update installer replaces its files. */
+export async function prepareAppUpdate(): Promise<void> {
+  return invoke('prepare_app_update');
+}
+
+/** The install failed after prepareAppUpdate: the sidecar may start again. */
+export async function abortAppUpdate(): Promise<void> {
+  return invoke('abort_app_update');
+}
+
 export async function completeLogin(): Promise<void> {
   return invoke('complete_login');
 }

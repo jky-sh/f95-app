@@ -97,6 +97,11 @@ html.tray-menu-window #root::-webkit-scrollbar,
   background: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
+.tray-menu-item--accent {
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .tray-menu-item--danger {
   color: color-mix(in srgb, #f87171 85%, var(--text-primary, var(--text)));
 }

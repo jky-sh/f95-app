@@ -11,8 +11,15 @@ export interface UpdateCheckResult {
   currentVersion: string | null;
   /** True when latestVersion is a non-empty string different from current. */
   hasUpdate: boolean;
+  /** An update no earlier check had flagged (a first one, or a newer version). */
+  isNew: boolean;
   /** Error message if the network/parse step failed. */
   error?: string;
+}
+
+export interface LatestVersionResult {
+  hasUpdate: boolean;
+  isNew: boolean;
 }
 
 /**
@@ -26,6 +33,7 @@ export async function checkOne(game: LibraryGame): Promise<UpdateCheckResult> {
     latestVersion: null,
     currentVersion: game.currentVersion,
     hasUpdate: false,
+    isNew: false,
   };
   let detail: GameDetail;
   try {
@@ -39,23 +47,29 @@ export async function checkOne(game: LibraryGame): Promise<UpdateCheckResult> {
   }
   const latest = (detail.version ?? '').trim() || null;
   result.latestVersion = latest;
-  result.hasUpdate = await applyLatestVersion(game, latest);
+  const { hasUpdate, isNew } = await applyLatestVersion(game, latest);
+  result.hasUpdate = hasUpdate;
+  result.isNew = isNew;
   return result;
 }
 
 /**
  * Record what F95 advertises for a library game: flags an update when the
  * version differs from the installed one (or the game is installed without
- * a known version), and clears a stale notice otherwise. Returns hasUpdate.
+ * a known version), and clears a stale notice otherwise. `isNew` compares
+ * with what `game` (read before the check) had flagged, so a version that
+ * was already known stays quiet.
  */
 export async function applyLatestVersion(
   game: LibraryGame,
   latestVersion: string | null,
-): Promise<boolean> {
+): Promise<LatestVersionResult> {
   const latest = latestVersion?.trim() || null;
   const hasInstall = !!(game.exePath || game.installPath);
   const hasUpdate =
     !!latest && (game.currentVersion ? !versionsEqual(latest, game.currentVersion) : hasInstall);
+  const isNew =
+    hasUpdate && !(game.availableVersion && versionsEqual(game.availableVersion, latest!));
   try {
     // No version info, no install version, or the same one: clear any old
     // notice so it doesn't linger after a manual update outside the app.
@@ -63,7 +77,17 @@ export async function applyLatestVersion(
   } catch (err) {
     console.warn('[updates] failed to write available_version', err);
   }
-  return hasUpdate;
+  return { hasUpdate, isNew };
+}
+
+/** A playable install exists, so an update to it is worth announcing. */
+export function isInstalled(game: LibraryGame): boolean {
+  return (
+    game.installStatus === 'installed' ||
+    game.installStatus === 'update_available' ||
+    !!game.exePath ||
+    !!game.installPath
+  );
 }
 
 /**
@@ -98,27 +122,6 @@ export async function checkAll(
   return out;
 }
 
-/** Check every library row and return how many have a newer F95 version. */
-export async function runBulkUpdateCheck(
-  options: {
-    delayMs?: number;
-    onProgress?: (index: number, total: number, result: UpdateCheckResult) => void;
-    signal?: AbortSignal;
-  } = {},
-): Promise<number> {
-  const games = await library.list({});
-  if (games.length === 0) return 0;
-  let found = 0;
-  await checkAll(games, {
-    ...options,
-    onProgress: (index, total, result) => {
-      if (result.hasUpdate) found += 1;
-      options.onProgress?.(index, total, result);
-    },
-  });
-  return found;
-}
-
 /**
  * Loose equality for F95 version strings. They come in many forms ("v0.1.8",
  * "0.1.8p", "Final 1.0", etc.) — we treat them as equal if their normalized
@@ -127,10 +130,11 @@ export async function runBulkUpdateCheck(
  * version but different formatting.
  */
 export function versionsEqual(a: string, b: string): boolean {
-  return normalize(a) === normalize(b);
+  return normalizeVersion(a) === normalizeVersion(b);
 }
 
-function normalize(v: string): string {
+/** The form `versionsEqual` compares (also used in ids keyed by version). */
+export function normalizeVersion(v: string): string {
   return v
     .trim()
     .toLowerCase()
