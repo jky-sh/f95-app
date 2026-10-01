@@ -1295,7 +1295,7 @@ const de: Record<string, string> = {
   'bp.settings.sounds': 'Oberflächenklänge',
   'bp.settings.sounds.hint': 'Klänge beim Navigieren und beim Öffnen und Schließen von Big Picture.',
   'bp.settings.controllerGuide': 'Mit der Xbox-Taste öffnen',
-  'bp.settings.controllerGuide.hint': 'Ein kurzer Druck auf die Xbox-Taste öffnet Big Picture, auch aus dem Infobereich. Wird ignoriert, solange ein Spiel im Vordergrund ist.',
+  'bp.settings.controllerGuide.hint': 'Ein kurzer Druck auf die Xbox-Taste öffnet Big Picture, auch aus dem Infobereich. Solange ein über die App gestartetes Spiel läuft, funktioniert das nur, wenn F95 App im Vordergrund ist.',
   'bp.settings.controllerChord': 'Mit Ansicht + Menü öffnen',
   'bp.settings.controllerChord.hint': 'Halte Ansicht und Menü kurz zusammen gedrückt, um Big Picture zu öffnen. Funktioniert mit jedem Xbox-kompatiblen Controller.',
   'bp.settings.gameBarNote': 'Windows öffnet mit der Xbox-Taste auch die Xbox Game Bar. Um das zu verhindern, schalte die Controller-Option unter Windows-Einstellungen → Spielen → Xbox Game Bar aus.',

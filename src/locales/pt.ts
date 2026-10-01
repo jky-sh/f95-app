@@ -1300,7 +1300,7 @@ const pt: Record<string, string> = {
   'bp.settings.sounds': 'Sons da interface',
   'bp.settings.sounds.hint': 'Sons ao navegar e ao abrir e fechar o Big Picture.',
   'bp.settings.controllerGuide': 'Abrir com o botão Xbox',
-  'bp.settings.controllerGuide.hint': 'Um toque rápido no botão Xbox abre o Big Picture, até com o app na bandeja. Ignorado enquanto um jogo está na frente.',
+  'bp.settings.controllerGuide.hint': 'Um toque rápido no botão Xbox abre o Big Picture, até com o app na bandeja. Enquanto um jogo iniciado pelo app estiver rodando, só funciona com o F95 App na frente.',
   'bp.settings.controllerChord': 'Abrir com Exibir + Menu',
   'bp.settings.controllerChord.hint': 'Segure Exibir e Menu juntos por um instante para abrir o Big Picture. Funciona com qualquer controle compatível com Xbox.',
   'bp.settings.gameBarNote': 'O Windows também abre a Xbox Game Bar com o botão Xbox. Para evitar isso, desative a opção do controle em Configurações do Windows → Jogos → Xbox Game Bar.',

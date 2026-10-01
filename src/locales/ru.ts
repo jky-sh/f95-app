@@ -1295,7 +1295,7 @@ const ru: Record<string, string> = {
   'bp.settings.sounds': 'Звуки интерфейса',
   'bp.settings.sounds.hint': 'Звуки при навигации, открытии и закрытии Big Picture.',
   'bp.settings.controllerGuide': 'Открывать кнопкой Xbox',
-  'bp.settings.controllerGuide.hint': 'Короткое нажатие кнопки Xbox открывает Big Picture, даже из трея. Не срабатывает, пока на переднем плане игра.',
+  'bp.settings.controllerGuide.hint': 'Короткое нажатие кнопки Xbox открывает Big Picture, даже из трея. Пока работает игра, запущенная из приложения, кнопка срабатывает, только когда F95 App на переднем плане.',
   'bp.settings.controllerChord': 'Открывать кнопками «Просмотр» + «Меню»',
   'bp.settings.controllerChord.hint': 'Зажмите «Просмотр» и «Меню» вместе на секунду, чтобы открыть Big Picture. Работает с любым Xbox-совместимым геймпадом.',
   'bp.settings.gameBarNote': 'Windows тоже открывает Xbox Game Bar по кнопке Xbox. Чтобы это прекратить, выключите параметр для геймпада в разделе Параметры Windows → Игры → Xbox Game Bar.',

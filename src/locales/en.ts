@@ -1301,7 +1301,7 @@ const en: Record<string, string> = {
   'bp.settings.sounds': 'Interface sounds',
   'bp.settings.sounds.hint': 'Sounds as you move around, and when Big Picture opens and closes.',
   'bp.settings.controllerGuide': 'Open with the Xbox button',
-  'bp.settings.controllerGuide.hint': 'A short press of the Xbox button opens Big Picture, even from the tray. Ignored while a game is in front.',
+  'bp.settings.controllerGuide.hint': 'A short press of the Xbox button opens Big Picture, even from the tray. While a game you launched is running, it only works with F95 App in front.',
   'bp.settings.controllerChord': 'Open with View + Menu',
   'bp.settings.controllerChord.hint': 'Hold View and Menu together for a moment to open Big Picture. Works with any Xbox-compatible controller.',
   'bp.settings.gameBarNote': 'Windows also opens Xbox Game Bar with the Xbox button. To stop that, turn off the controller option in Windows Settings → Gaming → Xbox Game Bar.',
