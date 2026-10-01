@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useOffline } from '../../../contexts/Offline';
 import { useRunningGames, useRunningSince } from '../../../contexts/RunningGames';
 import { useDownloadsByThread } from '../../../hooks/useDownloadsByThread';
@@ -15,6 +15,7 @@ import { formatBytes } from '../../../types/download';
 import { formatPlaytime, statusKey, type LibraryGame } from '../../../types/library';
 import { Icon, type IconName } from '../../ui/Icon';
 import { useBp } from '../BpContext';
+import { rememberGroupFocus } from '../bpInput';
 import { BpDownloadButton } from '../BpInstall';
 import { BpEmpty, BpLoader, BpSubTabs, formatElapsed, markWholeArt, useProgressiveArt } from '../BpParts';
 import {
@@ -28,8 +29,9 @@ import {
   useGameAchievements,
   useThreadFacts,
 } from './BpGameParts';
+import { BpVersions, BpVersionsIcon, focusActiveVersion, useInstallVersions, versionLabel } from './BpVersions';
 
-type GameTab = 'overview' | 'achievements' | 'screenshots' | 'changelog' | 'activity';
+type GameTab = 'overview' | 'achievements' | 'screenshots' | 'changelog' | 'activity' | 'versions';
 
 const RECENT_SESSIONS = 8;
 
@@ -46,7 +48,7 @@ export function BpGame({ threadId }: { threadId: string }) {
   const { t, locale } = useT();
   const bp = useBp();
   const { isOffline } = useOffline();
-  const { state, sessions, sizeBytes } = useLibraryGame(threadId);
+  const { state, sessions, sizeBytes, refresh } = useLibraryGame(threadId);
   const detail = useStoreDetail(threadId, isOffline);
   const { running } = useRunningGames();
   const since = useRunningSince(threadId);
@@ -61,8 +63,20 @@ export function BpGame({ threadId }: { threadId: string }) {
   const overview = useMemo(() => (detail ? overviewOf(detail.descriptionHtml) : []), [detail]);
   const changelog = useMemo(() => (detail?.changelogHtml ? changelogOf(detail.changelogHtml) : []), [detail]);
   const facts = useThreadFacts(detail);
+  const versions = useInstallVersions(game);
+  const panelRef = useRef<HTMLDivElement>(null);
+  /** Bumped by the hero's version button: open the Versions tab on the active row. */
+  const [versionsJump, setVersionsJump] = useState(0);
 
   useEffect(() => bp.setBackdrop(game?.thumbnailUrl ?? null), [bp, game?.thumbnailUrl]);
+
+  useLayoutEffect(() => {
+    if (!versionsJump) return;
+    // Up from the row goes back to the Versions tab, not whichever is nearest.
+    const tab = panelRef.current?.parentElement?.querySelector<HTMLElement>(".bp-subtab[aria-selected='true']");
+    if (tab) rememberGroupFocus(tab);
+    focusActiveVersion(panelRef.current);
+  }, [versionsJump]);
 
   if (state.kind === 'loading') {
     return (
@@ -115,8 +129,12 @@ export function BpGame({ threadId }: { threadId: string }) {
     ...(shots.length ? [{ id: 'screenshots' as const, label: t('bp.game.screenshots'), count: shots.length }] : []),
     ...(changelog.length ? [{ id: 'changelog' as const, label: t('bp.game.tab.changelog') }] : []),
     { id: 'activity', label: t('bp.game.tab.activity') },
+    ...(versions.length > 1
+      ? [{ id: 'versions' as const, label: t('bp.game.tab.versions'), count: versions.length }]
+      : []),
   ];
   const current = tabs.some((x) => x.id === tab) ? tab : 'overview';
+  const activeVersion = versions.find((v) => v.active) ?? null;
 
   return (
     <div className="bp-screen-body bp-detail" data-bp-scroll-y="">
@@ -193,6 +211,23 @@ export function BpGame({ threadId }: { threadId: string }) {
                 </button>
               )
             )}
+            {versions.length > 1 && (
+              <button
+                type="button"
+                className="bp-btn bp-btn-version bp-focusable"
+                title={t('libdetail.versions.title')}
+                data-bp-a={t('bp.game.versions.choose')}
+                onClick={() => {
+                  setTab('versions');
+                  setVersionsJump((n) => n + 1);
+                }}
+              >
+                <BpVersionsIcon size={20} />
+                <span className="bp-btn-version-label">
+                  {activeVersion ? versionLabel(activeVersion) : t('bp.game.tab.versions')}
+                </span>
+              </button>
+            )}
             {download && !showProgress && <BpDownloadButton download={download} />}
             {hasUpdate && cta.intent !== 'update' && (
               <button
@@ -229,7 +264,7 @@ export function BpGame({ threadId }: { threadId: string }) {
 
       <BpSubTabs id={`game-tabs-${game.threadId}`} tabs={tabs} active={current} onChange={setTab} />
 
-      <div className="bp-panel" key={current}>
+      <div className="bp-panel" key={current} ref={panelRef}>
         {current === 'overview' && (
           <div className="bp-overview">
             {overview.length > 0 ? (
@@ -246,6 +281,7 @@ export function BpGame({ threadId }: { threadId: string }) {
         {current === 'achievements' && <BpAchievements game={game} detail={detail} state={achievements} />}
         {current === 'screenshots' && <BpScreenshotGrid images={shots} />}
         {current === 'changelog' && <BpReadingBlock blocks={changelog} className="bp-read--log" />}
+        {current === 'versions' && <BpVersions game={game} versions={versions} onChanged={refresh} />}
         {current === 'activity' && (
           <div className="bp-activity">
             <dl className="bp-stats">

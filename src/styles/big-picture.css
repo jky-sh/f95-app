@@ -3694,6 +3694,38 @@ html[data-bp] .app-dialog-btn-danger:focus {
   opacity: 0.75;
 }
 
+/* Installed versions: the hero's button names the active one, the Versions
+   tab lists them all as install rows. */
+.bp-btn-version {
+  max-width: calc(var(--s) * 16);
+}
+.bp-btn-version > .ui-icon {
+  flex: none;
+}
+.bp-btn-version-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bp-versions {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--s) * 1);
+  max-width: calc(var(--s) * 48);
+}
+.bp-version.is-active {
+  box-shadow: inset calc(var(--s) * 0.22) 0 0 var(--bp-green);
+}
+.bp-version:focus .bp-badge--good {
+  background: rgba(40, 130, 60, 0.16);
+  color: #1d6b2a;
+}
+.bp-versions-hint {
+  max-width: 46em;
+  margin: 0;
+  line-height: 1.5;
+}
+
 .bp-viewer {
   display: grid;
   place-items: center;
