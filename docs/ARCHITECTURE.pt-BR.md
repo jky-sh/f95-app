@@ -79,7 +79,7 @@ Grupos de comandos:
 - **Auth / rede** — `login`, `logout`, `get_profile`, `is_logged_in`, `has_local_session`, `check_network`, `ping_sidecar`
 - **Catálogo** — `sam_list`, `sam_tag_search`, `sam_options`, `game_detail`
 - **Social / feeds** — `get_following`, `fetch_rss_feed`, `fetch_alerts_popup`, `fetch_alerts_list`
-- **Downloads** — `download_start`, `download_cancel`, `download_continue_choice`, `download_continue_captcha`, `open_captcha_window`, `close_captcha_window`
+- **Downloads** — `download_start`, `download_cancel`, `download_continue_choice`, `download_continue_captcha`, `download_continue_verified`, `download_active_ids`, `open_captcha_window`, `close_captcha_window`
 - **Credenciais de hosts** — `set_*` / `verify_*` / `login_*` para GoFile, MEGA, UploadHaven, BuzzHeavier, Datanodes, MixDrop
 - **Filesystem** — `extract_archive`, `scan_install_media`, `resolve_media_preview`, `migrate_saves`, `move_install_start`, `disk_info`, `reveal_in_explorer`
 - **Launcher** — `launch_game`, `stop_game`, `running_games`, `create_game_shortcuts`

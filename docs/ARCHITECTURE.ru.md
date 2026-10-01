@@ -79,7 +79,7 @@ Tauri задаёт три шаблона окон в `src-tauri/tauri.conf.json`
 - **Auth / сеть** — `login`, `logout`, `get_profile`, `is_logged_in`, `has_local_session`, `check_network`, `ping_sidecar`
 - **Каталог** — `sam_list`, `sam_tag_search`, `sam_options`, `game_detail`
 - **Социальное / ленты** — `get_following`, `fetch_rss_feed`, `fetch_alerts_popup`, `fetch_alerts_list`
-- **Загрузки** — `download_start`, `download_cancel`, `download_continue_choice`, `download_continue_captcha`, `open_captcha_window`, `close_captcha_window`
+- **Загрузки** — `download_start`, `download_cancel`, `download_continue_choice`, `download_continue_captcha`, `download_continue_verified`, `download_active_ids`, `open_captcha_window`, `close_captcha_window`
 - **Учётные данные хостов** — `set_*` / `verify_*` / `login_*` для GoFile, MEGA, UploadHaven, BuzzHeavier, Datanodes, MixDrop
 - **Файловая система** — `extract_archive`, `scan_install_media`, `resolve_media_preview`, `migrate_saves`, `move_install_start`, `disk_info`, `reveal_in_explorer`
 - **Лаунчер** — `launch_game`, `stop_game`, `running_games`, `create_game_shortcuts`
