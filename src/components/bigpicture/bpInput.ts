@@ -130,8 +130,6 @@ const REPEAT_FAST_MS = 60;
 const SCROLL_DEADZONE = 0.15;
 /** Pixels per frame at full tilt (about 2,700 px/s at 60 fps); gentle near the center. */
 const SCROLL_SPEED = 46;
-/** No frame for this long: the window was hidden or minimized meanwhile. */
-const FRAME_GAP_MS = 500;
 
 interface GamepadHandlers {
   onAction: (action: BpAction) => void;
@@ -158,7 +156,6 @@ export function useGamepad(enabled: boolean, handlers: GamepadHandlers): void {
     let nextRepeat = 0;
     let repeats = 0;
     let resync = true;
-    let lastFrame = 0;
     // Frames stop while the window is hidden to the tray or minimized, so the
     // loop alone may never see the focus go: these mark it from outside.
     const lostFocus = () => {
@@ -170,8 +167,6 @@ export function useGamepad(enabled: boolean, handlers: GamepadHandlers): void {
 
     const loop = (now: number) => {
       raf = requestAnimationFrame(loop);
-      if (now - lastFrame > FRAME_GAP_MS) resync = true;
-      lastFrame = now;
       if (!document.hasFocus()) {
         lostFocus();
         return;

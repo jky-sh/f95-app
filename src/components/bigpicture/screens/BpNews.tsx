@@ -49,6 +49,9 @@ function takeRequestedSection(): NewsSection | null {
 
 const SECTIONS: NewsSection[] = ['feed', 'updates', 'alerts', 'activity'];
 
+/** Newest alerts listed, F95's and the app's together. */
+const ALERTS_SHOWN = 100;
+
 /** Local notifications about library games (the feed's updates, update checks). */
 
 /** The feed's title still carries the version ("Game [v0.25]"); it shows on its own. */
@@ -183,9 +186,10 @@ export function BpNews({ active }: { active: boolean }) {
   /* --- alerts ------------------------------------------------------------------- */
 
   const alerts = useMemo(() => {
-    const rows: AlertRow[] = notifications.unified.map((u): AlertRow => {
-      if (u.kind === 'f95') {
-        const a = u.alert;
+    // Both lists in full, not the bell's short preview (`unified`): that one
+    // is capped, and local rows (achievements, updates) would crowd out F95's.
+    const rows: AlertRow[] = [
+      ...notifications.f95Alerts.map((a): AlertRow => {
         const ts = a.date ? Date.parse(a.date) : NaN;
         return {
           key: `f95:${a.alertId}`,
@@ -202,9 +206,8 @@ export function BpNews({ active }: { active: boolean }) {
           threadId: null,
           appUpdate: false,
         };
-      }
-      const n = u.notification;
-      return {
+      }),
+      ...notifications.localNotifications.map((n): AlertRow => ({
         key: `local:${n.id}`,
         id: n.id,
         kind: 'local',
@@ -218,16 +221,16 @@ export function BpNews({ active }: { active: boolean }) {
         url: n.url,
         threadId: n.threadId,
         appUpdate: n.source === 'app_update',
-      };
-    });
+      })),
+    ];
     rows.sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0));
     const groups = new Map<DateGroup, AlertRow[]>();
-    for (const row of rows) {
+    for (const row of rows.slice(0, ALERTS_SHOWN)) {
       const group = getDateGroup(row.ts != null ? new Date(row.ts).toISOString() : null);
       groups.set(group, [...(groups.get(group) ?? []), row]);
     }
     return [...groups.entries()].sort(([a], [b]) => sortDateGroups(a, b));
-  }, [notifications.unified, t]);
+  }, [notifications.f95Alerts, notifications.localNotifications, t]);
 
   function openAlert(row: AlertRow) {
     // Marking an F95 alert lowers the unread count whatever its state.

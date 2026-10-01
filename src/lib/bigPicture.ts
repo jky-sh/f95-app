@@ -77,6 +77,21 @@ export function openBigPictureFrom(el: Element | null): void {
   openBigPicture(rect ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 } : null);
 }
 
+/* Routes from outside the layer (the tray menu) while it is open. */
+const routeListeners = new Set<(path: string) => void>();
+
+/** Opens `path` inside Big Picture (its screens map the app's routes). */
+export function requestBigPictureRoute(path: string): void {
+  for (const listener of routeListeners) listener(path);
+}
+
+export function onBigPictureRoute(listener: (path: string) => void): () => void {
+  routeListeners.add(listener);
+  return () => {
+    routeListeners.delete(listener);
+  };
+}
+
 /** Asks the layer to play its exit animation; it calls `finishBigPictureClose` after. */
 export function closeBigPicture(): void {
   if (state.status !== 'open') return;

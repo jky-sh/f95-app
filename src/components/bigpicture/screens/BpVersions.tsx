@@ -48,9 +48,11 @@ export function BpVersionsIcon({ size = 20 }: { size?: number }) {
 }
 
 /**
- * The game's installed versions, newest first, for games on disk. Reloaded
- * whenever its library row changes (useLibraryGame hands a new object then),
- * so activating or deleting a version shows on the next refresh.
+ * The game's installed versions, newest first. Reloaded whenever its library
+ * row changes (useLibraryGame hands a new object then), so activating or
+ * deleting a version shows on the next refresh. Listed whatever the game's
+ * status, like the desktop page: while an update downloads or after it
+ * failed is exactly when an older version is wanted.
  */
 export function useInstallVersions(game: LibraryGame | null): InstallVersion[] {
   const [versions, setVersions] = useState<InstallVersion[]>([]);
@@ -58,13 +60,7 @@ export function useInstallVersions(game: LibraryGame | null): InstallVersion[] {
 
   useEffect(() => {
     if (!game) return;
-    // While an update downloads, the versions already on disk stay listed.
-    if (game.installStatus === 'downloading' || game.installStatus === 'extracting') return;
     const id = ++seq.current;
-    if (game.installStatus !== 'installed' && game.installStatus !== 'update_available') {
-      setVersions([]);
-      return;
-    }
     installVersions
       .listForGame(game)
       .then((list) => {

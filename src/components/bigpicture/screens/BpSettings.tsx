@@ -126,6 +126,7 @@ export function BpSettings() {
               onChange={(onStartup) => set({ onStartup })}
             />
           </div>
+          <BpUpdatesSection />
           <div className="bp-actions">
             <button type="button" className="bp-btn bp-focusable" onClick={() => bp.exit('/settings')}>
               <Icon name="settings" size={20} />
@@ -166,8 +167,6 @@ export function BpSettings() {
           </ul>
           <p className="bp-muted">{t('bp.controls.note')}</p>
         </section>
-
-        <BpUpdatesSection />
       </div>
     </div>
   );
@@ -191,7 +190,7 @@ function BpUpdatesSection() {
         : t('bp.appUpdate.check');
 
   return (
-    <section>
+    <div className="bp-settings-group">
       <BpHeading title={t('bp.settings.updates')} />
       <div className="bp-toggle-list">
         <Toggle
@@ -220,6 +219,6 @@ function BpUpdatesSection() {
           {label}
         </button>
       </div>
-    </section>
+    </div>
   );
 }

@@ -17,6 +17,7 @@ import {
   isWindowFullscreen,
   leaveBigPictureFullscreen,
   loadBigPicturePrefs,
+  onBigPictureRoute,
   openBigPicture,
   setBigPictureStage,
   setWindowFullscreen,
@@ -401,6 +402,12 @@ function BigPicture({
         push({ screen: 'game', threadId: decodeURIComponent(libraryGame[1]) });
         return;
       }
+      // The library filtered to updates (tray menu): News lists them.
+      if (/^\/library\/?\?(?:.*&)?st=update_available\b/.test(path)) {
+        showNewsSection('updates');
+        switchTab('news');
+        return;
+      }
       if (/^\/library\/?(\?.*)?$/.test(path)) {
         switchTab('library');
         return;
@@ -446,6 +453,9 @@ function BigPicture({
     },
     [navigate, push, pop, switchTab, profile.userId],
   );
+
+  // The tray menu's links land here while Big Picture is open.
+  useEffect(() => onBigPictureRoute((path) => bpNavigate(path)), [bpNavigate]);
 
   const depsRef = useRef<LibraryGameActionsDeps>(null!);
   depsRef.current = {

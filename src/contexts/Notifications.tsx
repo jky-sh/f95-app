@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { parseDbTime } from '../lib/dbTime';
 import * as ipc from '../lib/ipc';
 import * as notifications from '../lib/notifications';
 import { useOffline } from './Offline';
@@ -47,7 +48,21 @@ function toUnified(
     kind: 'local',
     notification,
   }));
-  return [...localItems, ...f95Items].slice(0, 50);
+  // Newest first across both, then the cap: local rows (achievements,
+  // updates) piling up must not push every F95 alert out of the preview.
+  return [...localItems, ...f95Items]
+    .sort((a, b) => unifiedTime(b) - unifiedTime(a))
+    .slice(0, 50);
+}
+
+function unifiedTime(item: UnifiedNotification): number {
+  const ms =
+    item.kind === 'f95'
+      ? item.alert.date
+        ? Date.parse(item.alert.date)
+        : NaN
+      : (parseDbTime(item.notification.createdAt)?.getTime() ?? NaN);
+  return Number.isNaN(ms) ? 0 : ms;
 }
 
 interface Props {

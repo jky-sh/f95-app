@@ -16,7 +16,7 @@ import { CollectionPickerModal } from './library/CollectionPickerModal';
 import { GameDownloadModal } from './GameDownloadModal';
 import { CommandPalette } from './CommandPalette';
 import { BigPictureHost } from './bigpicture/BigPicture';
-import { openBigPicture } from '../lib/bigPicture';
+import { isBigPictureOpen, openBigPicture, requestBigPictureRoute } from '../lib/bigPicture';
 import { startBigPictureControllerBridge } from '../lib/bigPictureController';
 import { CatalogBootstrap } from './store/CatalogBootstrap';
 import { MainScrollRestoration } from './MainScrollRestoration';
@@ -50,8 +50,10 @@ export function AppShell({ profile, onLoggedOut }: Props) {
   useEffect(
     () =>
       startTrayActionBridge({
+        // With Big Picture open the desktop pages are hidden behind it.
         navigate: (to) => {
-          navigate(to);
+          if (isBigPictureOpen()) requestBigPictureRoute(to);
+          else navigate(to);
         },
         openChangelog: () => {
           window.dispatchEvent(new CustomEvent('f95:open-version-modal'));

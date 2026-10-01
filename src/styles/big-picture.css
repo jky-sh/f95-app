@@ -2264,6 +2264,12 @@ html[data-bp] .app-dialog-btn-danger:focus {
 .bp-settings-columns > section > .bp-actions {
   margin-top: calc(var(--s) * 1.2);
 }
+.bp-settings-group {
+  margin-top: calc(var(--s) * 1.6);
+}
+.bp-settings-group > .bp-actions {
+  margin-top: calc(var(--s) * 0.8);
+}
 .bp-toggle-list {
   display: flex;
   flex-direction: column;
