@@ -3,7 +3,7 @@ import { openUrl } from '@tauri-apps/plugin-opener';
 import { useOffline } from '../../../contexts/Offline';
 import { useFollowing } from '../../../hooks/useFollowing';
 import { reportFriendsSeen } from '../../../hooks/useFriendsOnline';
-import { useMemberCards } from '../../../hooks/useMemberCards';
+import { CARD_TTL_MS, useMemberCards } from '../../../hooks/useMemberCards';
 import { useNow } from '../../../hooks/useNow';
 import { buildFriendsMenu } from '../../../lib/contextMenus/buildFriendsMenu';
 import {
@@ -27,8 +27,12 @@ import { BpFriendTile } from './BpSocialParts';
 const NO_USERS: FollowedUser[] = [];
 const SORTS: FriendSort[] = ['activity', 'name'];
 
-/** While the tab is on screen, cards are checked again this often (online drifts). */
-const CARDS_REFRESH_MS = 5 * 60 * 1000;
+/**
+ * While the tab is on screen, cards are checked again this often (online
+ * drifts). Just past their lifetime: at exactly the TTL they would still
+ * count as fresh and every other check would do nothing.
+ */
+const CARDS_REFRESH_MS = CARD_TTL_MS + 15_000;
 
 /**
  * The members you follow, who's online first: a tile each with their cover,
@@ -187,10 +191,11 @@ export function BpFriends({ active }: { active: boolean }) {
           }
         />
       ) : users.length === 0 ? (
-        state.savedAt === 0 && isOffline ? (
+        // Offline nothing can be browsed or refreshed: Back keeps a control to focus.
+        isOffline ? (
           <BpEmpty
             icon="users"
-            title={t('friends.offlineEmpty')}
+            title={state.savedAt === 0 ? t('friends.offlineEmpty') : t('friends.empty.title')}
             action={
               <button type="button" className="bp-btn bp-focusable" data-bp-autofocus="" onClick={bp.back}>
                 {t('bp.hint.back')}
@@ -207,7 +212,6 @@ export function BpFriends({ active }: { active: boolean }) {
                 type="button"
                 className="bp-btn bp-btn--primary bp-focusable"
                 data-bp-autofocus=""
-                disabled={isOffline}
                 onClick={() => void openUrl('https://f95zone.to/members/')}
               >
                 <Icon name="external" size={20} />

@@ -8,7 +8,7 @@ import {
 import type { MemberCardDto } from '../types/social';
 
 /** Cards older than this are refetched (last seen drifts quickly). */
-const CARD_TTL_MS = 5 * 60 * 1000;
+export const CARD_TTL_MS = 5 * 60 * 1000;
 /** Sidecar cap per call; batches run one after another. */
 const BATCH_SIZE = 24;
 
@@ -47,9 +47,10 @@ export function useMemberCards(ownerId: string, userIds: string[], offline: bool
         const batch = stale.slice(i, i + BATCH_SIZE);
         try {
           const cards = await ipc.getMemberCards(batch);
-          const savedAt = Date.now();
           const next = { ...cacheRef.current };
-          for (const card of cards) next[card.userId] = { savedAt, data: card };
+          // Stamped with the round's start: its cards age together, so a
+          // check just past the TTL finds them all, however long batches took.
+          for (const card of cards) next[card.userId] = { savedAt: now, data: card };
           cacheRef.current = next;
           if (!cancelled) setCache(next);
           saveMemberCardsCache(ownerId, next).catch(() => {});

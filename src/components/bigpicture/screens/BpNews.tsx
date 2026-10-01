@@ -226,7 +226,8 @@ export function BpNews({ active }: { active: boolean }) {
   }, [notifications.unified, t]);
 
   function openAlert(row: AlertRow) {
-    void notifications.markRead(row.id, row.kind).catch(() => undefined);
+    // Marking an F95 alert lowers the unread count whatever its state.
+    if (row.unread) void notifications.markRead(row.id, row.kind).catch(() => undefined);
     const navigate = bp.gameDeps().navigate;
     // In-app paths (store and library pages) open here; F95 links to a
     // thread or a member too, anything else in the browser.
