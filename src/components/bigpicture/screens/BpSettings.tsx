@@ -17,6 +17,7 @@ import {
 } from '../../../lib/bigPicture';
 import { Icon } from '../../ui/Icon';
 import { useBp } from '../BpContext';
+import { BpChordGlyph, BpGuideGlyph, ControllerShortcutNotes } from '../BpControllerShortcuts';
 import { BpGlyph, type BpGlyphAction } from '../BpGlyph';
 import { BpHeading } from '../BpParts';
 import { playSound, setSoundsEnabled } from '../bpSound';
@@ -91,6 +92,19 @@ export function BpSettings() {
               }}
             />
             <Toggle
+              on={prefs.controllerGuide}
+              label={t('bp.settings.controllerGuide')}
+              hint={t('bp.settings.controllerGuide.hint')}
+              onChange={(controllerGuide) => set({ controllerGuide })}
+            />
+            <Toggle
+              on={prefs.controllerChord}
+              label={t('bp.settings.controllerChord')}
+              hint={t('bp.settings.controllerChord.hint')}
+              onChange={(controllerChord) => set({ controllerChord })}
+            />
+            <ControllerShortcutNotes className="bp-muted bp-toggle-note" />
+            <Toggle
               on={prefs.intro}
               label={t('bp.settings.intro')}
               hint={t('bp.settings.intro.hint')}
@@ -137,6 +151,18 @@ export function BpSettings() {
               <span className="bp-glyph bp-glyph--key">F11</span>
               <span>{t('bp.settings.fullscreen')}</span>
             </li>
+            {prefs.controllerGuide && (
+              <li className="bp-control">
+                <BpGuideGlyph />
+                <span>{t('bp.controls.guide')}</span>
+              </li>
+            )}
+            {prefs.controllerChord && (
+              <li className="bp-control">
+                <BpChordGlyph />
+                <span>{t('bp.controls.chord')}</span>
+              </li>
+            )}
           </ul>
           <p className="bp-muted">{t('bp.controls.note')}</p>
         </section>

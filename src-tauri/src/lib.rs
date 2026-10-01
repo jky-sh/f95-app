@@ -1,4 +1,5 @@
 mod achievements;
+mod bp_gamepad;
 mod bridge;
 mod buzzheavier;
 mod commands;
@@ -178,6 +179,8 @@ pub fn run() {
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
             let state = build_state(&app.handle())?;
             app.manage(state);
+            // Xbox button / View + Menu opens Big Picture, also from the tray.
+            crate::bp_gamepad::start(app.handle().clone());
             if let Err(e) = init_overlay_windows(&app.handle()) {
                 eprintln!(
                     "[overlay] init na inicialização falhou (será tentado ao abrir o overlay): {e}"
@@ -260,6 +263,8 @@ pub fn run() {
             overlay_hide,
             overlay_toggle,
             overlay_sync_hotkey,
+            crate::bp_gamepad::bigpicture_sync_controller,
+            crate::bp_gamepad::bigpicture_controller_env,
             overlay_is_visible,
             overlay_show_game_hint,
             overlay_get_game_hint_payload,

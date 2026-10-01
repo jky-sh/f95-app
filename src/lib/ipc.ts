@@ -700,6 +700,24 @@ export async function overlaySyncHotkey(
   return invoke<OverlaySyncHotkeyResult>('overlay_sync_hotkey', { enabled, hotkey });
 }
 
+/** Which controller shortcuts open Big Picture (watched in Rust, also from the tray). */
+export async function bigPictureSyncController(guide: boolean, chord: boolean): Promise<void> {
+  return invoke('bigpicture_sync_controller', { guide, chord });
+}
+
+export interface BigPictureControllerEnv {
+  /** The Xbox button can be read on this PC. */
+  guideSupported: boolean;
+  /** Windows opens Xbox Game Bar with the Xbox button as well. */
+  gameBarUsesGuide: boolean;
+  /** Steam is open and may react to the Xbox button too. */
+  steamRunning: boolean;
+}
+
+export async function bigPictureControllerEnv(): Promise<BigPictureControllerEnv> {
+  return invoke<BigPictureControllerEnv>('bigpicture_controller_env');
+}
+
 export async function overlayIsVisible(): Promise<boolean> {
   return invoke<boolean>('overlay_is_visible');
 }
