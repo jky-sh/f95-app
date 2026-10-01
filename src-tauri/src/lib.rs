@@ -262,6 +262,7 @@ pub fn run() {
             achievements_scan_now,
             achievement_toast,
             commands::updater::prepare_app_update,
+            commands::updater::abort_app_update,
             steam_fetch_achievement_schema,
             steam_search_games,
             steam_detect_appid

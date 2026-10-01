@@ -8,12 +8,15 @@ import type { Update } from '@tauri-apps/plugin-updater';
 import * as dialog from './dialog';
 import * as downloads from './downloads';
 import * as ipc from './ipc';
-import { loadAppRuntimeSettings } from './appRuntimeSettings';
+import * as library from './library';
 import {
   getPendingAppUpdate,
+  holdAppUpdate,
+  releaseAppUpdate,
   runAppUpdateCheck,
   setAppUpdateInstall,
 } from './appUpdateState';
+import { setSchedulerPaused } from './backgroundScheduler';
 import type { TFunction } from './i18n';
 import type { DownloadState } from '../types/download';
 
@@ -21,11 +24,6 @@ import type { DownloadState } from '../types/download';
 const ACTIVE_DOWNLOADS: readonly DownloadState[] = ['pending', 'resolving', 'awaiting_choice', 'downloading'];
 
 let installing = false;
-
-export async function isAutoUpdateEnabled(): Promise<boolean> {
-  const s = await loadAppRuntimeSettings();
-  return s.autoUpdateEnabled;
-}
 
 function errorMessage(err: unknown): string {
   return err && typeof err === 'object' && 'message' in err
@@ -72,6 +70,7 @@ export async function installAppUpdate(
 ): Promise<'up-to-date' | 'installed' | 'dismissed' | 'error'> {
   if (installing) return 'dismissed';
   installing = true;
+  let sidecarStopped = false;
   try {
     const update = getPendingAppUpdate() ?? (await runAppUpdateCheck());
     if (!update) {
@@ -81,6 +80,8 @@ export async function installAppUpdate(
       });
       return 'up-to-date';
     }
+    // A check while the dialogs or the download run must not close it.
+    holdAppUpdate(update);
     const notes = (update.body ?? '').trim();
     const ok = await dialog.confirm(
       notes
@@ -108,7 +109,10 @@ export async function installAppUpdate(
       setAppUpdateInstall({ phase: 'downloading', downloaded, total });
     });
     setAppUpdateInstall({ phase: 'installing' });
-    // The installer replaces files the sidecar holds open.
+    // The installer replaces files the sidecar holds open: stop it, and keep
+    // the background checks from starting it again.
+    setSchedulerPaused(true);
+    sidecarStopped = true;
     await ipc.prepareAppUpdate();
     // On Windows the installer takes over here and this process exits.
     await update.install();
@@ -116,23 +120,32 @@ export async function installAppUpdate(
     return 'installed';
   } catch (err) {
     setAppUpdateInstall(null);
+    if (sidecarStopped) {
+      // The app keeps running: the sidecar and the checks may start again.
+      setSchedulerPaused(false);
+      await ipc.abortAppUpdate().catch(() => undefined);
+    }
     await dialog.alert(t('settings.updates.installFailed', { error: errorMessage(err) }), {
       title: t('settings.updates.checkTitle'),
       kind: 'error',
     });
     return 'error';
   } finally {
+    releaseAppUpdate();
     installing = false;
   }
 }
 
 /** Installing closes the app: make sure that is fine while things are running. */
 async function confirmWhileBusy(t: TFunction): Promise<boolean> {
-  const [rows, running] = await Promise.all([
+  const [rows, running, extracting] = await Promise.all([
     downloads.list().catch(() => []),
     ipc.runningGames().catch(() => []),
+    // An archive being extracted: its download row already says completed.
+    library.countByStatus(['extracting']).catch(() => 0),
   ]);
-  const busy = rows.some((r) => ACTIVE_DOWNLOADS.includes(r.state)) || running.length > 0;
+  const busy =
+    rows.some((r) => ACTIVE_DOWNLOADS.includes(r.state)) || running.length > 0 || extracting > 0;
   if (!busy) return true;
   return dialog.confirm(t('settings.updates.busyActivity'), {
     title: t('settings.updates.availableTitle'),

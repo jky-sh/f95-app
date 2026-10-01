@@ -973,7 +973,7 @@ const pt: Record<string, string> = {
   'settings.updates.installVersion': 'Instalar v{version}',
   'settings.updates.skip': 'Pular esta versão',
   'settings.updates.skipped': 'Pulada: sem mais lembretes desta versão.',
-  'settings.updates.busyActivity': 'Há downloads em andamento ou um jogo aberto. Instalar agora fecha o app e interrompe tudo isso. Instalar mesmo assim?',
+  'settings.updates.busyActivity': 'Há downloads ou extrações em andamento, ou um jogo aberto. Instalar agora fecha o app e interrompe tudo isso. Instalar mesmo assim?',
   'settings.updates.installAnyway': 'Instalar mesmo assim',
   'settings.updates.installFailed': 'Não foi possível instalar a atualização: {error}',
   'statusbar.updateAvailable': 'A versão {version} está disponível — clique para instalar',

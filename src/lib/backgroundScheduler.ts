@@ -5,9 +5,8 @@
  * kept in app_settings, so sleep, a hidden window's slowed timers or a
  * restart only delay a job until the next look; they never skip it.
  */
-import { subscribeAppRuntimeSettings } from './appRuntimeSettings';
+import { loadAppRuntimeSettings, subscribeAppRuntimeSettings } from './appRuntimeSettings';
 import { runAppUpdateCheck } from './appUpdateState';
-import { isAutoUpdateEnabled } from './appUpdater';
 import { KEY_RSS_LAST_POLL_AT, pollRssLibraryUpdates } from './rssUpdates';
 import * as settings from './settings';
 import { KEY_UPDATES_CHECKED_AT, runUpdateCheck } from './updateChecker';
@@ -56,13 +55,15 @@ const JOBS: Job[] = [
     lastRunKey: KEY_APP_UPDATE_CHECKED_AT,
     firstDelayMs: 5_000,
     runAtStart: true,
-    interval: async () => ((await isAutoUpdateEnabled()) ? 6 * 60 * MINUTE_MS : null),
+    interval: async () =>
+      (await loadAppRuntimeSettings()).autoUpdateEnabled ? 6 * 60 * MINUTE_MS : null,
     run: () => runAppUpdateCheck({ background: true }),
   },
 ];
 
 let startedAt = 0;
 let online = true;
+let paused = false;
 let active = false;
 let ticking = false;
 let tickAgain = false;
@@ -82,7 +83,7 @@ async function isDue(job: Job, now: number): Promise<boolean> {
 }
 
 async function tick(): Promise<void> {
-  if (!active || !online) return;
+  if (!active || !online || paused) return;
   if (ticking) {
     tickAgain = true;
     return;
@@ -93,7 +94,7 @@ async function tick(): Promise<void> {
       tickAgain = false;
       const now = Date.now();
       for (const job of JOBS) {
-        if (!(await isDue(job, now)) || !active || !online) continue;
+        if (!(await isDue(job, now)) || !active || !online || paused) continue;
         running.add(job.id);
         lastAttempt.set(job.id, now);
         void job
@@ -143,4 +144,14 @@ export function setSchedulerOnline(next: boolean): void {
   const cameBack = next && !online;
   online = next;
   if (cameBack) poke();
+}
+
+/**
+ * No new jobs while an app update installs: they would start the sidecar
+ * the installer is replacing. A failed install resumes them.
+ */
+export function setSchedulerPaused(next: boolean): void {
+  const resumed = !next && paused;
+  paused = next;
+  if (resumed) poke();
 }

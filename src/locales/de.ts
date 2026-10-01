@@ -968,7 +968,7 @@ const de: Record<string, string> = {
   'settings.updates.installVersion': 'v{version} installieren',
   'settings.updates.skip': 'Diese Version überspringen',
   'settings.updates.skipped': 'Übersprungen: keine Erinnerungen mehr für diese Version.',
-  'settings.updates.busyActivity': 'Es laufen Downloads oder ein Spiel ist geöffnet. Die Installation schließt die App jetzt und bricht sie ab. Trotzdem installieren?',
+  'settings.updates.busyActivity': 'Es laufen Downloads oder Entpackvorgänge, oder ein Spiel ist geöffnet. Die Installation schließt die App jetzt und bricht sie ab. Trotzdem installieren?',
   'settings.updates.installAnyway': 'Trotzdem installieren',
   'settings.updates.installFailed': 'Das Update konnte nicht installiert werden: {error}',
   'statusbar.updateAvailable': 'Version {version} ist verfügbar – zum Installieren klicken',

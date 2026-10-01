@@ -974,7 +974,7 @@ const en: Record<string, string> = {
   'settings.updates.installVersion': 'Install v{version}',
   'settings.updates.skip': 'Skip this version',
   'settings.updates.skipped': 'Skipped: no more reminders for this version.',
-  'settings.updates.busyActivity': 'Downloads are in progress or a game is running. Installing now closes the app and stops them. Install anyway?',
+  'settings.updates.busyActivity': 'Downloads or extractions are in progress, or a game is running. Installing now closes the app and stops them. Install anyway?',
   'settings.updates.installAnyway': 'Install anyway',
   'settings.updates.installFailed': 'Could not install the update: {error}',
   'statusbar.updateAvailable': 'Version {version} is available — click to install',

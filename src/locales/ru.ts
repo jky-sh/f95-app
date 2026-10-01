@@ -968,7 +968,7 @@ const ru: Record<string, string> = {
   'settings.updates.installVersion': 'Установить v{version}',
   'settings.updates.skip': 'Пропустить эту версию',
   'settings.updates.skipped': 'Пропущена: напоминаний об этой версии больше не будет.',
-  'settings.updates.busyActivity': 'Идут загрузки или запущена игра. Установка сейчас закроет приложение и прервёт их. Всё равно установить?',
+  'settings.updates.busyActivity': 'Идут загрузки или распаковка архивов, либо запущена игра. Установка сейчас закроет приложение и прервёт их. Всё равно установить?',
   'settings.updates.installAnyway': 'Всё равно установить',
   'settings.updates.installFailed': 'Не удалось установить обновление: {error}',
   'statusbar.updateAvailable': 'Доступна версия {version} — нажмите, чтобы установить',

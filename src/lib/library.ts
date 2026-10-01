@@ -275,6 +275,16 @@ export async function countUpdatesAvailable(): Promise<number> {
   return rows[0]?.n ?? 0;
 }
 
+/** Library games in any of these install states. */
+export async function countByStatus(statuses: readonly InstallStatus[]): Promise<number> {
+  if (statuses.length === 0) return 0;
+  const rows = await query<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM library_games WHERE install_status IN (${statuses.map(() => '?').join(', ')})`,
+    [...statuses],
+  );
+  return rows[0]?.n ?? 0;
+}
+
 export async function list(filter: LibraryFilter = {}): Promise<LibraryGame[]> {
   const where: string[] = [];
   const args: unknown[] = [];

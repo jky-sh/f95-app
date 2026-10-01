@@ -55,6 +55,8 @@ const listeners = new Set<() => void>();
 let loaded: Promise<void> | null = null;
 /** The updater's handle for `available`, needed to download and install it. */
 let pending: Update | null = null;
+/** The handle an install is using: no check may close it meanwhile. */
+let held: Update | null = null;
 let inFlight: Promise<Update | null> | null = null;
 
 function setState(patch: Partial<AppUpdateState>): void {
@@ -129,6 +131,8 @@ function loadAppUpdateState(): Promise<void> {
  * errors reach the caller.
  */
 export function runAppUpdateCheck(options: { background?: boolean } = {}): Promise<Update | null> {
+  // An install is under way: the scheduled check waits for a later tick.
+  if (options.background && held) return Promise.resolve(pending);
   inFlight ??= checkNow(options.background ?? false).finally(() => {
     inFlight = null;
   });
@@ -141,7 +145,9 @@ async function checkNow(background: boolean): Promise<Update | null> {
   try {
     const update = await check({ timeout: CHECK_TIMEOUT_MS });
     const now = Date.now();
-    if (pending && pending !== update) void pending.close().catch(() => undefined);
+    // Every check returns a new handle. The old one goes, unless an install
+    // started before this check ended and is using it.
+    if (pending && pending !== update && pending !== held) void pending.close().catch(() => undefined);
     pending = update;
     await settings.set(KEY_APP_UPDATE_CHECKED_AT, String(now));
     if (!update) {
@@ -171,6 +177,21 @@ async function checkNow(background: boolean): Promise<Update | null> {
 /** The handle from this session's last check, if it found an update. */
 export function getPendingAppUpdate(): Update | null {
   return pending;
+}
+
+/**
+ * Keep `update` open while an install uses it, from its first dialog to the
+ * end: a check that ends meanwhile replaces `pending` but leaves this one.
+ */
+export function holdAppUpdate(update: Update): void {
+  held = update;
+}
+
+export function releaseAppUpdate(): void {
+  const update = held;
+  held = null;
+  // A check replaced it while it was held: nothing refers to it any more.
+  if (update && update !== pending) void update.close().catch(() => undefined);
 }
 
 export function setAppUpdateInstall(install: AppUpdateInstall | null): void {
