@@ -114,9 +114,12 @@ pub async fn restart_to_login(app: AppHandle) -> Result<(), AppError> {
     // the user is signed in and immediately spawn main again.
     let _ = login.eval("window.location.reload();");
 
-    // 3. NOW close main - we know login is live.
+    // 3. NOW close main - we know login is live. Destroyed, not closed: a
+    //    close goes through close-to-tray, which would only hide it, and the
+    //    signed-out window would come back on the next launch (single
+    //    instance) or on the controller's Big Picture shortcut.
     if let Some(main) = app.get_webview_window("main") {
-        let _ = main.close();
+        let _ = main.destroy();
     }
     Ok(())
 }

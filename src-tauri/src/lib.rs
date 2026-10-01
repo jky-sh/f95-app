@@ -133,9 +133,10 @@ pub fn run() {
         // notification) only brings this instance forward and quits before
         // it opens the database or starts a sidecar of its own.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            // The login window only exists while signed out.
             if let Some(window) = app
-                .get_webview_window("main")
-                .or_else(|| app.get_webview_window("login"))
+                .get_webview_window("login")
+                .or_else(|| app.get_webview_window("main"))
             {
                 let _ = window.show();
                 let _ = window.unminimize();
