@@ -982,6 +982,7 @@ const de: Record<string, string> = {
   'bp.appUpdate.available': 'v{version} verfügbar',
   'bp.appUpdate.install': 'v{version} installieren',
   'bp.appUpdate.check': 'Nach App-Updates suchen',
+  'bp.appUpdate.hint': 'Installiere es über die Update-Schaltfläche in der oberen Leiste.',
   'bp.settings.updates': 'Updates',
   'bp.settings.updateNotify': 'Update-Benachrichtigungen',
   'bp.settings.updateNotify.hint': 'Melden, wenn ein installiertes Spiel ein Update bekommt',

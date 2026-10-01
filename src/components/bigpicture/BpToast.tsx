@@ -40,6 +40,8 @@ export function BpToast() {
   const cover = toast?.kind === 'game_update' ? (toast.games[0]?.thumbnailUrl ?? null) : null;
   const art = useProgressiveArt(cover, false);
   if (!current || !toast) return null;
+  // The desktop text points at the status bar, which Big Picture covers.
+  const body = toast.kind === 'app_update' ? t('bp.appUpdate.hint') : toast.body;
 
   const open = () => {
     setCurrent(null);
@@ -67,7 +69,7 @@ export function BpToast() {
       )}
       <span className="bp-toast-text">
         <span className="bp-toast-title">{toast.title}</span>
-        {toast.body && <span className="bp-toast-body">{toast.body}</span>}
+        {body && <span className="bp-toast-body">{body}</span>}
       </span>
     </button>
   );

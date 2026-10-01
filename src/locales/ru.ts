@@ -982,6 +982,7 @@ const ru: Record<string, string> = {
   'bp.appUpdate.available': 'Доступна v{version}',
   'bp.appUpdate.install': 'Установить v{version}',
   'bp.appUpdate.check': 'Проверить обновления приложения',
+  'bp.appUpdate.hint': 'Установите её кнопкой обновления на верхней панели.',
   'bp.settings.updates': 'Обновления',
   'bp.settings.updateNotify': 'Уведомления об обновлениях',
   'bp.settings.updateNotify.hint': 'Сообщать, когда для установленной игры выходит обновление',
