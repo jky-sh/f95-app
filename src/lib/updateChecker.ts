@@ -18,6 +18,12 @@ import type { LibraryGame } from '../types/library';
  * had flagged are announced (updateNotifier).
  */
 export const KEY_UPDATES_CHECKED_AT = 'library_updates_checked_at';
+/**
+ * Set when a background run had to cap a longer gap at SAM's widest range:
+ * the next explicit check reads every game's thread, since an update older
+ * than that range is not in the list.
+ */
+const KEY_UPDATES_FULL_PENDING = 'library_updates_full_pending';
 
 /** "Updated within" ranges SAM accepts, in days. */
 const SAM_WINDOWS = [1, 3, 7, 14, 30] as const;
@@ -83,7 +89,8 @@ function samWindowSince(checkedAt: number | null): number | null {
 export interface RunOptions {
   /**
    * Background runs only use the SAM list and skip the per-thread check:
-   * with no recent check they read SAM's widest range instead.
+   * with no recent check they read SAM's widest range instead, and leave
+   * what is older to the next explicit check.
    */
   background?: boolean;
 }
@@ -113,11 +120,17 @@ async function run(options: RunOptions, signal: AbortSignal): Promise<void> {
   setState({ running: true, phase: null, interrupted: false });
   const checkedAt = await loadCheckedAt();
   const games = await library.list({});
+  const sinceLast = samWindowSince(checkedAt);
   // Background runs never start the long per-thread pass: on a first run or
   // after a long gap they read SAM's widest range, which still catches
-  // everything updated within it.
-  const window =
-    samWindowSince(checkedAt) ?? (options.background ? SAM_WINDOWS[SAM_WINDOWS.length - 1] : null);
+  // everything updated within it, and flag the rest for the next explicit
+  // check (which then reads each game).
+  const capped = options.background === true && sinceLast == null;
+  const fullPending =
+    !options.background && (await settings.get(KEY_UPDATES_FULL_PENDING).catch(() => null)) === '1';
+  const window = fullPending
+    ? null
+    : (sinceLast ?? (capped ? SAM_WINDOWS[SAM_WINDOWS.length - 1] : null));
   const gameRows = games.filter((g) => g.category === 'games');
   const otherRows = games.filter((g) => g.category !== 'games');
   // Games: SAM's list since the last check when that is recent, else one
@@ -159,8 +172,12 @@ async function run(options: RunOptions, signal: AbortSignal): Promise<void> {
     setState({ interrupted: true });
     return;
   }
+  // Before the time moves on, so the uncovered gap is never forgotten.
+  if (capped) await settings.set(KEY_UPDATES_FULL_PENDING, '1');
   // The games category is now current up to when this run started.
   await settings.set(KEY_UPDATES_CHECKED_AT, String(startedAt));
+  // Every game's thread was read: nothing is left over from a capped run.
+  if (!options.background && !window) await settings.remove(KEY_UPDATES_FULL_PENDING);
   setState({ checkedAt: startedAt, found: tally.found, foundNew: tally.fresh.length });
 }
 

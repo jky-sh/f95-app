@@ -49,7 +49,7 @@ If you rotate keys, ship a transitional release that embeds both verification st
 The app also checks the games in the library while it is open:
 
 - **RSS feed**, every 15 minutes: F95's latest updates (about a day of entries). An entry counts as new per thread and version. The guid is the thread URL, the same for every version.
-- **SAM's "latest updates" list**, every 3 hours by default: everything updated since the last check, a few requests for the whole library. On a first run, or after more than 30 days, it reads the last 30 days.
+- **SAM's "latest updates" list**, every 3 hours by default: everything updated since the last check, a few requests for the whole library. On a first run, or after more than 30 days, it reads the last 30 days. An update older than that is not in the list, so the next manual **Check for updates** reads every game's thread (`library_updates_full_pending`).
 - An update that no earlier check had flagged, for an installed game, gets a bell entry (id `upd:<threadId>:<version>`) and a toast. Several games found at once share one toast. Installing the update marks its bell entry read.
 
 ## User settings
