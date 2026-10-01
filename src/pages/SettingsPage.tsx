@@ -46,6 +46,7 @@ import { AchievementsSettingsCard } from '../components/settings/AchievementsSet
 import { BigPictureSettingsCard } from '../components/settings/BigPictureSettingsCard';
 import { UpdatesSettingsCard } from '../components/settings/UpdatesSettingsCard';
 import { AppUpdateStatus } from '../components/settings/AppUpdateStatus';
+import { AppChangelog } from '../components/settings/AppChangelog';
 import { Icon, type IconName } from '../components/ui/Icon';
 import {
   loadAppRuntimeSettings,
@@ -54,7 +55,6 @@ import {
   type AppRuntimeSettings,
 } from '../lib/appRuntimeSettings';
 import { checkForAppUpdateInteractive } from '../lib/appUpdater';
-import { getChangelogEntries } from '../lib/changelog';
 import { syncTrayIcon } from '../lib/tray';
 import { clearStoredGameDetails } from '../lib/gameDetailCache';
 
@@ -121,8 +121,6 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
   const [devDebug, setDevDebug] = useState<DevDebugSettings | null>(null);
   const [runtime, setRuntime] = useState<AppRuntimeSettings | null>(null);
   const [updateBusy, setUpdateBusy] = useState(false);
-  const [changelogExpanded, setChangelogExpanded] = useState(false);
-  const changelogEntries = useMemo(() => getChangelogEntries(), []);
   const [experimental, setExperimental] = useState<ExperimentalSettings | null>(null);
   const [runningCount, setRunningCount] = useState(0);
   const [overlayAnchorProbe, setOverlayAnchorProbe] = useState<string | null>(null);
@@ -2407,47 +2405,9 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
             <div className="settings-card">
               <h3 className="settings-card-title">{t('settings.changelog.section')}</h3>
               <p className="settings-card-hint">{t('settings.changelog.hint')}</p>
-              <div className="settings-changelog">
-                {(changelogExpanded ? changelogEntries : changelogEntries.slice(0, 3)).map(
-                  (entry) => (
-                    <article key={`${entry.version}-${entry.date ?? 'na'}`} className="settings-changelog-entry">
-                      <header className="settings-changelog-head">
-                        <h4 className="settings-changelog-version">
-                          {entry.version === 'Unreleased'
-                            ? t('settings.changelog.unreleased')
-                            : `v${entry.version.replace(/^v/i, '')}`}
-                        </h4>
-                        {entry.date && (
-                          <time className="settings-changelog-date" dateTime={entry.date}>
-                            {entry.date}
-                          </time>
-                        )}
-                      </header>
-                      {entry.sections.map((section) => (
-                        <div key={section.title} className="settings-changelog-section">
-                          <h5 className="settings-changelog-section-title">{section.title}</h5>
-                          <ul className="settings-changelog-list">
-                            {section.items.map((item) => (
-                              <li key={item}>{item}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      ))}
-                    </article>
-                  ),
-                )}
-              </div>
-              {changelogEntries.length > 3 && (
-                <button
-                  type="button"
-                  className="settings-toolbar-btn settings-toolbar-btn-ghost"
-                  style={{ marginTop: 12 }}
-                  onClick={() => setChangelogExpanded((v) => !v)}
-                >
-                  {changelogExpanded
-                    ? t('settings.changelog.showLess')
-                    : t('settings.changelog.showMore')}
-                </button>
+              {/* Mounted only while About is open: it fetches from GitHub. */}
+              {activeSection === 'about' && (
+                <AppChangelog currentVersion={info?.version ?? null} initialCount={3} />
               )}
             </div>
           </section>
