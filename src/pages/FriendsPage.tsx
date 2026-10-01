@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useT } from '../lib/i18n';
-import { dialog } from '../lib/dialog';
 import { FriendCardGridSkeleton } from '../components/ui/FriendCardSkeleton';
 import { Spinner } from '../components/ui/Spinner';
 import { OfflineGate } from '../components/OfflineGate';
@@ -13,26 +12,20 @@ import { useFollowing } from '../hooks/useFollowing';
 import { useMemberCards } from '../hooks/useMemberCards';
 import { useNow } from '../hooks/useNow';
 import { buildFriendsMenu } from '../lib/contextMenus/buildFriendsMenu';
-import { formatWhen, presenceOf, type Presence } from '../lib/memberPresence';
+import {
+  confirmUnfollow,
+  countOnline,
+  friendEntries,
+  groupFriends,
+  matchesFriend,
+  sortFriends,
+  type FriendSort,
+} from '../lib/friends';
+import { formatWhen } from '../lib/memberPresence';
 import type { ProfileDto } from '../types';
-import type { FollowedUser, MemberCardDto } from '../types/social';
-
-type Sort = 'activity' | 'name';
-
-interface Entry {
-  user: FollowedUser;
-  card: MemberCardDto | null;
-  presence: Presence;
-}
+import type { FollowedUser } from '../types/social';
 
 const NO_USERS: FollowedUser[] = [];
-
-function formatErr(err: unknown): string {
-  if (err && typeof err === 'object' && 'message' in err) {
-    return String((err as { message: string }).message);
-  }
-  return String(err);
-}
 
 export function FriendsPage() {
   const { t, locale } = useT();
@@ -47,59 +40,20 @@ export function FriendsPage() {
   const { cards, pending } = useMemberCards(ownerId, userIds, isOffline);
   const now = useNow();
   const [search, setSearch] = useState('');
-  const [sort, setSort] = useState<Sort>('activity');
+  const [sort, setSort] = useState<FriendSort>('activity');
 
-  const entries = useMemo<Entry[]>(
-    () =>
-      users.map((user) => {
-        const card = cards[user.userId] ?? null;
-        return { user, card, presence: presenceOf(card?.lastSeenTs, now) };
-      }),
-    [users, cards, now],
+  const entries = useMemo(() => friendEntries(users, cards, now), [users, cards, now]);
+  const visible = useMemo(
+    () => sortFriends(entries.filter((e) => matchesFriend(e, search)), sort),
+    [entries, search, sort],
   );
+  const sections = useMemo(() => groupFriends(visible, sort), [visible, sort]);
 
-  const visible = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    const matches = (e: Entry) =>
-      [e.user.username, e.card?.customTitle ?? e.user.customTitle, e.card?.location ?? e.user.location].some(
-        (v) => v?.toLowerCase().includes(q),
-      );
-    const byName = (a: Entry, b: Entry) =>
-      a.user.username.localeCompare(b.user.username, undefined, { sensitivity: 'base' });
-    const byActivity = (a: Entry, b: Entry) =>
-      (b.card?.lastSeenTs ?? 0) - (a.card?.lastSeenTs ?? 0) || byName(a, b);
-    return [...(q ? entries.filter(matches) : entries)].sort(sort === 'name' ? byName : byActivity);
-  }, [entries, search, sort]);
-
-  const sections = useMemo(() => {
-    if (sort === 'name') return [{ id: 'all', title: null, items: visible }];
-    return [
-      { id: 'online', title: t('friends.group.online'), items: visible.filter((e) => e.presence === 'online') },
-      { id: 'today', title: t('friends.group.today'), items: visible.filter((e) => e.presence === 'today') },
-      {
-        id: 'others',
-        title: t('friends.group.others'),
-        items: visible.filter((e) => e.presence === 'away' || e.presence === 'unknown'),
-      },
-    ].filter((s) => s.items.length > 0);
-  }, [visible, sort, t]);
-
-  const onlineCount = entries.filter((e) => e.presence === 'online').length;
+  const onlineCount = countOnline(entries);
   const neverLoaded = state.kind === 'ready' && state.savedAt === 0;
 
   async function onUnfollow(user: FollowedUser) {
-    const ok = await dialog.confirm(t('friends.unfollow.confirm', { name: user.username }), {
-      kind: 'warning',
-      confirmLabel: t('friends.unfollow.action'),
-    });
-    if (!ok) return;
-    try {
-      if (!(await unfollow(user.userId))) {
-        await dialog.alert(t('friends.unfollow.stillFollowing', { name: user.username }), { kind: 'error' });
-      }
-    } catch (err) {
-      await dialog.alert(t('friends.unfollow.failed', { error: formatErr(err) }), { kind: 'error' });
-    }
+    await confirmUnfollow(user.username, () => unfollow(user.userId), t);
   }
 
   return (
@@ -214,9 +168,9 @@ export function FriendsPage() {
 
             {sections.map((section) => (
               <section key={section.id} className="friends-section">
-                {section.title && (
+                {section.titleKey && (
                   <h2 className="friends-section-title">
-                    {section.title}
+                    {t(section.titleKey)}
                     <span className="friends-section-count">{section.items.length}</span>
                   </h2>
                 )}

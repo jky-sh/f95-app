@@ -15,16 +15,14 @@ export function normalizeBuzzheavierUrl(raw: string): string {
   } catch {
     throw new RpcError(RPC_ERROR.INVALID_PARAMS, `invalid BuzzHeavier URL: ${raw}`);
   }
-  const host = u.hostname.toLowerCase();
+  const host = u.hostname.toLowerCase().replace(/^www\./, '');
+  // bzzhr.to is the domain F95 links use today.
   const ok =
     host === 'buzzheavier.com' ||
-    host === 'www.buzzheavier.com' ||
     host === 'bzzhr.co' ||
-    host === 'www.bzzhr.co' ||
+    host === 'bzzhr.to' ||
     host === 'fuckingfast.net' ||
-    host === 'www.fuckingfast.net' ||
-    host === 'fuckingfast.co' ||
-    host === 'www.fuckingfast.co';
+    host === 'fuckingfast.co';
   if (!ok) {
     throw new RpcError(RPC_ERROR.INVALID_PARAMS, `not a BuzzHeavier URL: ${raw}`);
   }

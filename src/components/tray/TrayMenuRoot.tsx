@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { LocaleProvider, useT } from '../../lib/i18n';
 import * as library from '../../lib/library';
+import * as settings from '../../lib/settings';
+import { KEY_APP_UPDATE_AVAILABLE, KEY_APP_UPDATE_SKIPPED } from '../../lib/updateSettings';
 import {
   emitTrayMenuAction,
   getLastTrayMenuOpen,
@@ -25,6 +27,13 @@ const TOP_ITEMS: NavItem[] = [
   { id: 'big-picture', labelKey: 'tray.bigPicture' },
 ];
 
+interface UpdatesStatus {
+  /** Installed games with an update. */
+  games: number;
+  /** Launcher update offered (and not skipped). */
+  appVersion: string | null;
+}
+
 const BOTTOM_ITEMS: NavItem[] = [
   { id: 'downloads', labelKey: 'tray.downloads' },
   { id: 'settings', labelKey: 'tray.settings' },
@@ -37,6 +46,7 @@ function TrayMenuPanel() {
   const panelRef = useRef<HTMLDivElement>(null);
   const [recent, setRecent] = useState<LibraryGame[]>([]);
   const [loadingRecent, setLoadingRecent] = useState(false);
+  const [updates, setUpdates] = useState<UpdatesStatus>({ games: 0, appVersion: null });
 
   useEffect(() => {
     document.documentElement.classList.add('tray-menu-window');
@@ -87,8 +97,23 @@ function TrayMenuPanel() {
         });
     };
 
+    // Written by the main window; this one only reads them.
+    const loadUpdates = () => {
+      void Promise.all([
+        library.countUpdatesAvailable(),
+        settings.get(KEY_APP_UPDATE_AVAILABLE),
+        settings.get(KEY_APP_UPDATE_SKIPPED),
+      ])
+        .then(([games, available, skipped]) => {
+          if (cancelled) return;
+          setUpdates({ games, appVersion: available && available !== skipped ? available : null });
+        })
+        .catch((err) => console.warn('[tray-menu] update status failed', err));
+    };
+
     void subscribeTrayMenuOpen(() => {
       loadRecent();
+      loadUpdates();
     }).then((fn) => {
       if (cancelled) {
         fn();
@@ -97,7 +122,10 @@ function TrayMenuPanel() {
       unlisten = fn;
     });
 
-    if (getLastTrayMenuOpen()) loadRecent();
+    if (getLastTrayMenuOpen()) {
+      loadRecent();
+      loadUpdates();
+    }
 
     return () => {
       cancelled = true;
@@ -128,7 +156,7 @@ function TrayMenuPanel() {
       window.clearTimeout(t2);
       window.clearTimeout(t3);
     };
-  }, [recent, loadingRecent, t]);
+  }, [recent, loadingRecent, updates, t]);
 
   return (
     <div className="tray-menu-root">
@@ -191,6 +219,27 @@ function TrayMenuPanel() {
         )}
 
         <div className="tray-menu-sep" role="separator" />
+
+        {updates.games > 0 && (
+          <button
+            type="button"
+            role="menuitem"
+            className="tray-menu-item"
+            onClick={() => void emitTrayMenuAction('updates')}
+          >
+            {t('tray.updates', { count: updates.games })}
+          </button>
+        )}
+        {updates.appVersion && (
+          <button
+            type="button"
+            role="menuitem"
+            className="tray-menu-item tray-menu-item--accent"
+            onClick={() => void emitTrayMenuAction('install-app-update')}
+          >
+            {t('tray.installAppUpdate', { version: updates.appVersion })}
+          </button>
+        )}
 
         {BOTTOM_ITEMS.map((item) => (
           <button

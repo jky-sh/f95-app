@@ -272,3 +272,10 @@ CREATE TABLE install_versions (
 );
 CREATE INDEX idx_install_versions_thread ON install_versions(thread_id);
 "#;
+
+/// v12: the F95 section a download was started with, so Retry and the
+/// verification window's continue pick the same file again. Its library
+/// already has a column (`library_path`, added in v3).
+pub const V12_DOWNLOAD_LIBRARY_AND_GROUP: &str = r#"
+ALTER TABLE downloads ADD COLUMN platform_group TEXT;
+"#;

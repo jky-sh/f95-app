@@ -1,10 +1,20 @@
+const SQLITE_DATETIME_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
+
+/**
+ * SQLite's datetime('now') (local notifications' created_at) is UTC but
+ * carries no zone, and `new Date` would read it as local time.
+ */
+function parseDate(input: string): Date {
+  return new Date(SQLITE_DATETIME_RE.test(input) ? `${input.replace(' ', 'T')}Z` : input);
+}
+
 /** Human-readable relative time for alert/RSS timestamps. */
 export function formatRelativeDate(
   input: string | null | undefined,
   locale?: string,
 ): string | null {
   if (!input) return null;
-  const d = new Date(input);
+  const d = parseDate(input);
   if (Number.isNaN(d.getTime())) return input;
 
   const diffSec = Math.round((d.getTime() - Date.now()) / 1000);
@@ -26,7 +36,7 @@ export type DateGroup = 'today' | 'yesterday' | 'week' | 'older';
 
 export function getDateGroup(input: string | null | undefined): DateGroup {
   if (!input) return 'older';
-  const d = new Date(input);
+  const d = parseDate(input);
   if (Number.isNaN(d.getTime())) return 'older';
 
   const now = new Date();

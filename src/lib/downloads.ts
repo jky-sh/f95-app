@@ -17,6 +17,8 @@ interface DbRow {
   started_at: string | null;
   finished_at: string | null;
   game_version: string | null;
+  library_path?: string | null;
+  platform_group?: string | null;
 }
 
 function rowToDownload(r: DbRow): DownloadRow {
@@ -34,6 +36,8 @@ function rowToDownload(r: DbRow): DownloadRow {
     startedAt: r.started_at,
     finishedAt: r.finished_at,
     gameVersion: r.game_version,
+    libraryPath: r.library_path ?? null,
+    platformGroup: r.platform_group ?? null,
   };
 }
 
@@ -44,6 +48,10 @@ export interface CreateInput {
   /** Version F95Zone was showing when the user clicked Baixar. Applied to the
    * library row after extraction succeeds. */
   gameVersion?: string | null;
+  /** Library the user picked; kept so Retry lands in the same place. */
+  libraryPath?: string | null;
+  /** F95 section label of the link, for picking the PC file on retry. */
+  platformGroup?: string | null;
 }
 
 /**
@@ -66,9 +74,17 @@ export async function create(input: CreateInput): Promise<DownloadRow> {
   // (or a stale value from another tx). Use the lastInsertId that `execute()`
   // already returns from the inserting connection.
   const res = await execute(
-    `INSERT INTO downloads (thread_id, host, source_url, state, started_at, game_version)
-       VALUES (?, ?, ?, 'pending', datetime('now'), ?)`,
-    [input.threadId, input.host, input.sourceUrl, input.gameVersion ?? null],
+    `INSERT INTO downloads
+       (thread_id, host, source_url, state, started_at, game_version, library_path, platform_group)
+       VALUES (?, ?, ?, 'pending', datetime('now'), ?, ?, ?)`,
+    [
+      input.threadId,
+      input.host,
+      input.sourceUrl,
+      input.gameVersion ?? null,
+      input.libraryPath ?? null,
+      input.platformGroup ?? null,
+    ],
   );
   const id = res.lastInsertId;
   if (id == null || id <= 0) {
@@ -102,6 +118,7 @@ export async function listByThread(threadId: string): Promise<DownloadRow[]> {
 export async function remove(id: number): Promise<void> {
   const row = await get(id);
   if (row) {
+    await closeVerifyWindow(row);
     await deleteRowFiles(row);
   }
   await execute(`DELETE FROM downloads WHERE id = ?`, [id]);
@@ -113,11 +130,23 @@ export async function clearFinished(): Promise<void> {
     `SELECT * FROM downloads WHERE state IN ('completed','cancelled','failed','needs_browser')`,
   );
   for (const row of rows) {
-    await deleteRowFiles(rowToDownload(row));
+    const download = rowToDownload(row);
+    await closeVerifyWindow(download);
+    await deleteRowFiles(download);
   }
   await execute(
     `DELETE FROM downloads WHERE state IN ('completed','cancelled','failed','needs_browser')`,
   );
+}
+
+/** A removed row must not leave its always-on-top verification window open. */
+async function closeVerifyWindow(row: DownloadRow): Promise<void> {
+  if (row.state === 'completed') return;
+  try {
+    await ipc.closeCaptchaWindow(row.id);
+  } catch (err) {
+    console.warn('[downloads] failed to close verification window', row.id, err);
+  }
 }
 
 /** Delete the downloaded archive/file (and any `.part` sibling) for a row. */
@@ -260,6 +289,33 @@ export async function markCancelled(
       [id],
     );
   }
+}
+
+/**
+ * Rows left in progress by an earlier run of the app (it was closed or
+ * crashed mid-download) become `failed` with `message`, so they offer Retry
+ * instead of a Cancel that does nothing. `activeIds` are the downloads the
+ * backend is still working on; those are left alone. Returns the games of
+ * the rows it failed.
+ */
+export async function failInterrupted(activeIds: number[], message: string): Promise<string[]> {
+  const rows = await query<{ id: number; thread_id: string }>(
+    `SELECT id, thread_id FROM downloads
+       WHERE state IN ('pending','resolving','awaiting_choice','downloading')`,
+  );
+  const active = new Set(activeIds);
+  const stale = rows.filter((r) => !active.has(r.id));
+  for (const { id } of stale) {
+    await execute(
+      `UPDATE downloads
+          SET state = 'failed',
+              error_message = ?,
+              finished_at = datetime('now')
+          WHERE id = ? AND state IN ('pending','resolving','awaiting_choice','downloading')`,
+      [message, id],
+    );
+  }
+  return stale.map((r) => r.thread_id);
 }
 
 /**

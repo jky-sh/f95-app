@@ -8,14 +8,14 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { parseDbTime } from '../lib/dbTime';
 import * as ipc from '../lib/ipc';
 import * as notifications from '../lib/notifications';
-import { pollRssLibraryUpdates } from '../lib/rssUpdates';
 import { useOffline } from './Offline';
 import type { AppNotification, F95Alert } from '../types/alerts';
 
+/** F95's own alerts. Library notifications come from the background scheduler. */
 const ALERTS_POLL_MS = 5 * 60_000;
-const RSS_POLL_MS = 15 * 60_000;
 
 export type UnifiedNotification =
   | { kind: 'f95'; alert: F95Alert }
@@ -48,7 +48,21 @@ function toUnified(
     kind: 'local',
     notification,
   }));
-  return [...localItems, ...f95Items].slice(0, 50);
+  // Newest first across both, then the cap: local rows (achievements,
+  // updates) piling up must not push every F95 alert out of the preview.
+  return [...localItems, ...f95Items]
+    .sort((a, b) => unifiedTime(b) - unifiedTime(a))
+    .slice(0, 50);
+}
+
+function unifiedTime(item: UnifiedNotification): number {
+  const ms =
+    item.kind === 'f95'
+      ? item.alert.date
+        ? Date.parse(item.alert.date)
+        : NaN
+      : (parseDbTime(item.notification.createdAt)?.getTime() ?? NaN);
+  return Number.isNaN(ms) ? 0 : ms;
 }
 
 interface Props {
@@ -87,16 +101,6 @@ export function NotificationsProvider({ children, initialF95Unread = 0 }: Props)
     }
   }, [isOffline]);
 
-  const refreshRss = useCallback(async () => {
-    if (isOffline) return;
-    try {
-      await pollRssLibraryUpdates();
-      await reloadLocal();
-    } catch (err) {
-      console.warn('[notifications] rss poll failed', err);
-    }
-  }, [isOffline, reloadLocal]);
-
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
@@ -109,24 +113,23 @@ export function NotificationsProvider({ children, initialF95Unread = 0 }: Props)
   useEffect(() => {
     mounted.current = true;
     void reloadLocal();
-    if (!isOffline) {
-      void refreshF95();
-      void refreshRss();
-    }
+    if (!isOffline) void refreshF95();
     return () => {
       mounted.current = false;
     };
-  }, [isOffline, reloadLocal, refreshF95, refreshRss]);
+  }, [isOffline, reloadLocal, refreshF95]);
 
   useEffect(() => {
     if (isOffline) return;
     const alertsTimer = setInterval(() => void refreshF95(), ALERTS_POLL_MS);
-    const rssTimer = setInterval(() => void refreshRss(), RSS_POLL_MS);
-    return () => {
-      clearInterval(alertsTimer);
-      clearInterval(rssTimer);
-    };
-  }, [isOffline, refreshF95, refreshRss]);
+    return () => clearInterval(alertsTimer);
+  }, [isOffline, refreshF95]);
+
+  // Update checks and installs write notifications from outside React.
+  useEffect(
+    () => notifications.onNotificationsChanged(() => void reloadLocal().catch(() => undefined)),
+    [reloadLocal],
+  );
 
   const markRead = useCallback(
     async (id: string, kind: 'f95' | 'local') => {

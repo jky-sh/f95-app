@@ -1,4 +1,5 @@
 mod achievements;
+mod bp_gamepad;
 mod bridge;
 mod buzzheavier;
 mod commands;
@@ -119,10 +120,31 @@ pub fn run() {
             sql: migrations::V11_INSTALL_VERSIONS,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 12,
+            description: "downloads_library_and_group",
+            sql: migrations::V12_DOWNLOAD_LIBRARY_AND_GROUP,
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()
+        // First, so a second launch (the shortcut again, a clicked update
+        // notification) only brings this instance forward and quits before
+        // it opens the database or starts a sidecar of its own.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            // The login window only exists while signed out.
+            if let Some(window) = app
+                .get_webview_window("login")
+                .or_else(|| app.get_webview_window("main"))
+            {
+                let _ = window.show();
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
@@ -158,6 +180,8 @@ pub fn run() {
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
             let state = build_state(&app.handle())?;
             app.manage(state);
+            // Xbox button / View + Menu opens Big Picture, also from the tray.
+            crate::bp_gamepad::start(app.handle().clone());
             if let Err(e) = init_overlay_windows(&app.handle()) {
                 eprintln!(
                     "[overlay] init na inicialização falhou (será tentado ao abrir o overlay): {e}"
@@ -190,6 +214,8 @@ pub fn run() {
             download_start,
             download_continue_choice,
             download_continue_captcha,
+            commands::download_continue_verified,
+            commands::download_active_ids,
             open_captcha_window,
             close_captcha_window,
             download_cancel,
@@ -238,6 +264,8 @@ pub fn run() {
             overlay_hide,
             overlay_toggle,
             overlay_sync_hotkey,
+            crate::bp_gamepad::bigpicture_sync_controller,
+            crate::bp_gamepad::bigpicture_controller_env,
             overlay_is_visible,
             overlay_show_game_hint,
             overlay_get_game_hint_payload,
@@ -247,6 +275,8 @@ pub fn run() {
             achievements_configure,
             achievements_scan_now,
             achievement_toast,
+            commands::updater::prepare_app_update,
+            commands::updater::abort_app_update,
             steam_fetch_achievement_schema,
             steam_search_games,
             steam_detect_appid

@@ -1,3 +1,12 @@
+import { useEffect, useState } from 'react';
+import {
+  getAppRuntimeSettings,
+  saveAppRuntimeSettings,
+  subscribeAppRuntimeSettings,
+} from '../../../lib/appRuntimeSettings';
+import { installLabel, useAppUpdate } from '../../../lib/appUpdateState';
+import { checkForAppUpdateInteractive, installAppUpdate } from '../../../lib/appUpdater';
+import { saveUpdatePrefs, useUpdatePrefs } from '../../../lib/updateSettings';
 import { useT } from '../../../lib/i18n';
 import {
   enterBigPictureFullscreen,
@@ -8,6 +17,7 @@ import {
 } from '../../../lib/bigPicture';
 import { Icon } from '../../ui/Icon';
 import { useBp } from '../BpContext';
+import { BpChordGlyph, BpGuideGlyph, ControllerShortcutNotes } from '../BpControllerShortcuts';
 import { BpGlyph, type BpGlyphAction } from '../BpGlyph';
 import { BpHeading } from '../BpParts';
 import { playSound, setSoundsEnabled } from '../bpSound';
@@ -82,6 +92,19 @@ export function BpSettings() {
               }}
             />
             <Toggle
+              on={prefs.controllerGuide}
+              label={t('bp.settings.controllerGuide')}
+              hint={t('bp.settings.controllerGuide.hint')}
+              onChange={(controllerGuide) => set({ controllerGuide })}
+            />
+            <Toggle
+              on={prefs.controllerChord}
+              label={t('bp.settings.controllerChord')}
+              hint={t('bp.settings.controllerChord.hint')}
+              onChange={(controllerChord) => set({ controllerChord })}
+            />
+            <ControllerShortcutNotes className="bp-muted bp-toggle-note" />
+            <Toggle
               on={prefs.intro}
               label={t('bp.settings.intro')}
               hint={t('bp.settings.intro.hint')}
@@ -103,6 +126,7 @@ export function BpSettings() {
               onChange={(onStartup) => set({ onStartup })}
             />
           </div>
+          <BpUpdatesSection />
           <div className="bp-actions">
             <button type="button" className="bp-btn bp-focusable" onClick={() => bp.exit('/settings')}>
               <Icon name="settings" size={20} />
@@ -128,9 +152,72 @@ export function BpSettings() {
               <span className="bp-glyph bp-glyph--key">F11</span>
               <span>{t('bp.settings.fullscreen')}</span>
             </li>
+            {prefs.controllerGuide && (
+              <li className="bp-control">
+                <BpGuideGlyph />
+                <span>{t('bp.controls.guide')}</span>
+              </li>
+            )}
+            {prefs.controllerChord && (
+              <li className="bp-control">
+                <BpChordGlyph />
+                <span>{t('bp.controls.chord')}</span>
+              </li>
+            )}
           </ul>
           <p className="bp-muted">{t('bp.controls.note')}</p>
         </section>
+      </div>
+    </div>
+  );
+}
+
+/** Update notifications and the launcher's own update. */
+function BpUpdatesSection() {
+  const { t } = useT();
+  const prefs = useUpdatePrefs();
+  const app = useAppUpdate();
+  const [autoApp, setAutoApp] = useState(() => getAppRuntimeSettings().autoUpdateEnabled);
+  useEffect(() => subscribeAppRuntimeSettings((s) => setAutoApp(s.autoUpdateEnabled)), []);
+
+  const busy = app.checking || app.install != null;
+  const label = app.install
+    ? installLabel(app.install, t)
+    : app.checking
+      ? t('settings.updates.checking')
+      : app.available
+        ? t('bp.appUpdate.install', { version: app.available.version })
+        : t('bp.appUpdate.check');
+
+  return (
+    <div className="bp-settings-group">
+      <BpHeading title={t('bp.settings.updates')} />
+      <div className="bp-toggle-list">
+        <Toggle
+          on={prefs.gamesNotify}
+          label={t('bp.settings.updateNotify')}
+          hint={t('bp.settings.updateNotify.hint')}
+          onChange={(gamesNotify) => void saveUpdatePrefs({ gamesNotify })}
+        />
+        <Toggle
+          on={autoApp}
+          label={t('bp.settings.appAuto')}
+          hint={t('bp.settings.appAuto.hint')}
+          onChange={(autoUpdateEnabled) => void saveAppRuntimeSettings({ autoUpdateEnabled })}
+        />
+      </div>
+      <div className="bp-actions">
+        <button
+          type="button"
+          className={`bp-btn bp-focusable${app.available ? ' bp-btn--primary' : ''}`}
+          disabled={busy}
+          onClick={() =>
+            void (app.available ? installAppUpdate(t) : checkForAppUpdateInteractive(t))
+          }
+        >
+          <Icon name={app.available ? 'download' : 'refresh'} size={20} />
+          {label}
+        </button>
       </div>
     </div>
   );

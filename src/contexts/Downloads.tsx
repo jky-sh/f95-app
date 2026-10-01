@@ -53,6 +53,9 @@ export function DownloadsProvider({ children }: { children: ReactNode }) {
     if (!fileChoice || choiceBusy) return;
     setChoiceBusy(true);
     try {
+      // Off "Choose file" right away: the pick may wait a long time for a
+      // one-at-a-time host (BowFile) to free its slot.
+      await downloads.markRetry(fileChoice.downloadId);
       await ipc.downloadContinueChoice({
         id: fileChoice.downloadId,
         choiceId,
@@ -66,6 +69,9 @@ export function DownloadsProvider({ children }: { children: ReactNode }) {
         err && typeof err === 'object' && 'message' in err
           ? String((err as { message: string }).message)
           : String(err);
+      // Not left queued with nothing running: Retry starts it over.
+      await downloads.markError(fileChoice.downloadId, msg);
+      await downloadsState.reload();
       await dialog.alert(t('modal.hostFile.failed', { error: msg }), { kind: 'error' });
     } finally {
       setChoiceBusy(false);

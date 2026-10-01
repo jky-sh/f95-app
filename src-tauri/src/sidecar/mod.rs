@@ -4,4 +4,4 @@ mod service;
 
 pub use path::resolve_sidecar_path;
 pub use rpc::{HostResolveResult, SidecarClient, UnmaskResult};
-pub use service::{ensure, kill};
+pub use service::{block_starts, ensure, kill};

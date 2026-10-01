@@ -2,6 +2,7 @@ import { parseSamCategory } from '../constants/samCategories';
 import { execute, query } from './db';
 import { isPathInside, parentDir } from './paths';
 import { forgetGame as forgetCollectionMemberships } from './collections';
+import * as notifications from './notifications';
 import type {
   InstallStatus,
   LibraryFilter,
@@ -222,6 +223,14 @@ export async function applyVersion(
     [version, threadId],
   );
   notifyLibraryChange(threadId);
+  // The bell's "update available" for this game is done with.
+  try {
+    if (await notifications.markReadByThread(threadId, 'game_update')) {
+      notifications.emitNotificationsChanged();
+    }
+  } catch (err) {
+    console.warn('[library] marking update notifications read failed', err);
+  }
 }
 
 /**
@@ -256,6 +265,24 @@ export async function isInLibrary(threadId: string): Promise<boolean> {
 export async function listRecentPlayed(limit = 5): Promise<LibraryGame[]> {
   const items = await list({ sort: 'last_played' });
   return items.filter((g) => !!g.lastPlayedAt).slice(0, Math.max(0, limit));
+}
+
+/** Installed games with an update waiting (the tray menu's count). */
+export async function countUpdatesAvailable(): Promise<number> {
+  const rows = await query<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM library_games WHERE install_status = 'update_available'`,
+  );
+  return rows[0]?.n ?? 0;
+}
+
+/** Library games in any of these install states. */
+export async function countByStatus(statuses: readonly InstallStatus[]): Promise<number> {
+  if (statuses.length === 0) return 0;
+  const rows = await query<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM library_games WHERE install_status IN (${statuses.map(() => '?').join(', ')})`,
+    [...statuses],
+  );
+  return rows[0]?.n ?? 0;
 }
 
 export async function list(filter: LibraryFilter = {}): Promise<LibraryGame[]> {
@@ -352,6 +379,24 @@ export async function setExe(
     [exePath, installPath || null, threadId],
   );
   notifyLibraryChange(threadId);
+}
+
+/**
+ * A download of this game stopped with the app (marked failed at the next
+ * start): back to what is on disk, so it is not stuck as "downloading".
+ */
+export async function recoverInterruptedDownload(threadId: string): Promise<void> {
+  await execute(
+    `UPDATE library_games
+        SET install_status = CASE
+          WHEN exe_path IS NOT NULL OR install_path IS NOT NULL THEN 'installed'
+          ELSE 'not_installed'
+        END
+      WHERE thread_id = ? AND install_status = 'downloading'`,
+    [threadId],
+  );
+  // Installed again: flag the update it was fetching, if any.
+  await syncUpdateStatus(threadId);
 }
 
 export async function setStatus(threadId: string, status: InstallStatus): Promise<void> {

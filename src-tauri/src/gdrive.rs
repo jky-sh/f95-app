@@ -24,14 +24,34 @@ pub enum GdriveOutcome {
 
 /// True when bytes look like an HTML error / interstitial page, not a real file.
 pub fn looks_like_html_bytes(bytes: &[u8]) -> bool {
-    let head = std::str::from_utf8(bytes).unwrap_or("").trim_start();
-    head.starts_with("<!DOCTYPE")
-        || head.starts_with("<html")
-        || head.starts_with("<HTML")
-        || head.contains("Error 404")
-        || head.contains("af-error-container")
-        || head.contains("Google Drive - Virus scan warning")
-        || head.contains("Google Drive - Quota exceeded")
+    let head = &bytes[..bytes.len().min(4096)];
+    // Any case, with or without a BOM or leading whitespace.
+    let lossy = String::from_utf8_lossy(head);
+    let start = lossy
+        .trim_start_matches(|c: char| c.is_whitespace() || c == '\u{feff}')
+        .chars()
+        .take(16)
+        .collect::<String>()
+        .to_ascii_lowercase();
+    if ["<!doctype", "<html", "<head", "<body"]
+        .iter()
+        .any(|p| start.starts_with(p))
+    {
+        return true;
+    }
+    // The markers below are only meaningful in text: a binary file may
+    // contain those bytes by chance. Text cut mid-character at the end of the
+    // chunk still counts as text.
+    let text = match std::str::from_utf8(head) {
+        Ok(s) => s,
+        Err(e) if e.error_len().is_none() => std::str::from_utf8(&head[..e.valid_up_to()])
+            .unwrap_or_default(),
+        Err(_) => return false,
+    };
+    text.contains("Error 404")
+        || text.contains("af-error-container")
+        || text.contains("Google Drive - Virus scan warning")
+        || text.contains("Google Drive - Quota exceeded")
 }
 
 /// Extract a Drive file/folder id from common share URL shapes.
@@ -628,6 +648,19 @@ mod tests {
         assert!(looks_like_html_bytes(b"<!DOCTYPE html><html>"));
         assert!(looks_like_html_bytes(b"<html><title>Error 404"));
         assert!(!looks_like_html_bytes(b"PK\x03\x04"));
+    }
+
+    #[test]
+    fn detects_html_bytes_in_any_case() {
+        assert!(looks_like_html_bytes(b"<!doctype html><html lang=en>"));
+        assert!(looks_like_html_bytes(b"\xEF\xBB\xBF  \r\n<HTML><body>"));
+        assert!(looks_like_html_bytes(b"<Html>"));
+        // Invalid UTF-8 later in the chunk does not hide the start.
+        assert!(looks_like_html_bytes(b"<!DOCTYPE html>\xff\xfe"));
+        // A binary file that happens to contain a marker string.
+        assert!(!looks_like_html_bytes(b"7z\xBC\xAF\x27\x1C\xff Error 404"));
+        // Text cut in the middle of a character is still text.
+        assert!(looks_like_html_bytes(b"x af-error-container \xC3"));
     }
 
     #[test]

@@ -20,7 +20,10 @@ export type TrayMenuAction =
   | 'changelog'
   | 'check-updates'
   | 'quit'
-  | 'open-game';
+  | 'open-game'
+  /** The library filtered to games with an update. */
+  | 'updates'
+  | 'install-app-update';
 
 export interface TrayMenuActionPayload {
   action: TrayMenuAction;

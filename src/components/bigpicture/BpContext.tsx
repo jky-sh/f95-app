@@ -8,7 +8,7 @@ import type { ProfileDto } from '../../types';
 import type { BpAction } from './bpInput';
 
 /** Top-level sections, in the order LB/RB walk them. */
-export const BP_TABS = ['home', 'library', 'store', 'downloads'] as const;
+export const BP_TABS = ['home', 'library', 'store', 'news', 'friends', 'downloads'] as const;
 export type BpTab = (typeof BP_TABS)[number];
 
 export type BpRoute =
@@ -22,7 +22,9 @@ export type BpRoute =
   /** Every store listing of a category, with filters. */
   | { screen: 'storeBrowse'; category: SamCategory }
   /** A comic's pages or an animation's videos. */
-  | { screen: 'media'; threadId: string };
+  | { screen: 'media'; threadId: string }
+  /** Any F95 member's profile (your own opens `profile`). */
+  | { screen: 'friend'; userId: string };
 
 export function routeKey(route: BpRoute): string {
   switch (route.screen) {
@@ -30,6 +32,8 @@ export function routeKey(route: BpRoute): string {
     case 'storeGame':
     case 'media':
       return `${route.screen}:${route.threadId}`;
+    case 'friend':
+      return `friend:${route.userId}`;
     default:
       return route.screen;
   }

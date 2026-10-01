@@ -8,16 +8,17 @@ import {
 import type { MemberCardDto } from '../types/social';
 
 /** Cards older than this are refetched (last seen drifts quickly). */
-const CARD_TTL_MS = 5 * 60 * 1000;
+export const CARD_TTL_MS = 5 * 60 * 1000;
 /** Sidecar cap per call; batches run one after another. */
 const BATCH_SIZE = 24;
 
 /**
  * Member tooltip cards (last seen, cover, badges) for the friends list.
  * Shows saved cards right away and refreshes stale ones in batches, so a
- * long list never holds the sidecar for long.
+ * long list never holds the sidecar for long. A new `revision` checks for
+ * stale cards again (a list that stays mounted, coming back into view).
  */
-export function useMemberCards(ownerId: string, userIds: string[], offline: boolean) {
+export function useMemberCards(ownerId: string, userIds: string[], offline: boolean, revision = 0) {
   const [cache, setCache] = useState<CardCache>({});
   const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
   const cacheRef = useRef<CardCache>({});
@@ -46,9 +47,10 @@ export function useMemberCards(ownerId: string, userIds: string[], offline: bool
         const batch = stale.slice(i, i + BATCH_SIZE);
         try {
           const cards = await ipc.getMemberCards(batch);
-          const savedAt = Date.now();
           const next = { ...cacheRef.current };
-          for (const card of cards) next[card.userId] = { savedAt, data: card };
+          // Stamped with the round's start: its cards age together, so a
+          // check just past the TTL finds them all, however long batches took.
+          for (const card of cards) next[card.userId] = { savedAt: now, data: card };
           cacheRef.current = next;
           if (!cancelled) setCache(next);
           saveMemberCardsCache(ownerId, next).catch(() => {});
@@ -68,7 +70,7 @@ export function useMemberCards(ownerId: string, userIds: string[], offline: bool
       cancelled = true;
       setPending(new Set());
     };
-  }, [ownerId, idsKey, offline]);
+  }, [ownerId, idsKey, offline, revision]);
 
   const cards = useMemo(() => {
     const out: Record<string, MemberCardDto> = {};

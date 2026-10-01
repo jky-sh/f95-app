@@ -2,7 +2,7 @@
  * Handle actions emitted by the custom tray menu (runs in the main window).
  */
 import { exit } from '@tauri-apps/plugin-process';
-import { checkForAppUpdateInteractive } from './appUpdater';
+import { checkForAppUpdateInteractive, installAppUpdate } from './appUpdater';
 import { tStandalone } from './i18n';
 import {
   showMainWindow,
@@ -14,6 +14,7 @@ export type TrayNavigateTarget =
   | '/downloads'
   | '/settings'
   | '/library'
+  | '/library?st=update_available'
   | `/library/game/${string}`;
 
 export function startTrayActionBridge(options: {
@@ -83,6 +84,14 @@ async function handleTrayAction(
     case 'check-updates':
       await showMainWindow();
       await checkForAppUpdateInteractive(tStandalone);
+      break;
+    case 'updates':
+      await showMainWindow();
+      options.navigate('/library?st=update_available');
+      break;
+    case 'install-app-update':
+      await showMainWindow();
+      await installAppUpdate(tStandalone);
       break;
     case 'quit':
       await exit(0);

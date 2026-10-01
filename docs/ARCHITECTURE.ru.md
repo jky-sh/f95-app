@@ -79,7 +79,7 @@ Tauri задаёт три шаблона окон в `src-tauri/tauri.conf.json`
 - **Auth / сеть** — `login`, `logout`, `get_profile`, `is_logged_in`, `has_local_session`, `check_network`, `ping_sidecar`
 - **Каталог** — `sam_list`, `sam_tag_search`, `sam_options`, `game_detail`
 - **Социальное / ленты** — `get_following`, `fetch_rss_feed`, `fetch_alerts_popup`, `fetch_alerts_list`
-- **Загрузки** — `download_start`, `download_cancel`, `download_continue_choice`, `download_continue_captcha`, `open_captcha_window`, `close_captcha_window`
+- **Загрузки** — `download_start`, `download_cancel`, `download_continue_choice`, `download_continue_captcha`, `download_continue_verified`, `download_active_ids`, `open_captcha_window`, `close_captcha_window`
 - **Учётные данные хостов** — `set_*` / `verify_*` / `login_*` для GoFile, MEGA, UploadHaven, BuzzHeavier, Datanodes, MixDrop
 - **Файловая система** — `extract_archive`, `scan_install_media`, `resolve_media_preview`, `migrate_saves`, `move_install_start`, `disk_info`, `reveal_in_explorer`
 - **Лаунчер** — `launch_game`, `stop_game`, `running_games`, `create_game_shortcuts`
@@ -120,7 +120,7 @@ Sidecar использует Playwright, когда простой HTTP упир
 
 1. Frontend вызывает `download_start` с thread ID, URL хоста, путём библиотеки
 2. Rust резолвит прямой URL:
-   - Часть хостов в Rust (`mega.rs`, `gdrive.rs`, `uploadhaven.rs`, `buzzheavier.rs`)
+   - Часть хостов в Rust (`mega.rs`, `gdrive.rs`, `uploadhaven.rs` и `download/resolvers/`: Pixeldrain, MediaFire, API GoFile, VikingFile, AkiraBox, BowFile, UploadNow, Terminal)
    - Остальные делегируются резолверам sidecar
 3. `reqwest` стримит байты на диск; события прогресса в frontend
 4. По завершении `extraction.rs` распаковывает zip/7z/rar при включённом auto-extract
@@ -129,10 +129,10 @@ Sidecar использует Playwright, когда простой HTTP упир
 Особые случаи:
 
 - **GoFile multi-build** — резолвер возвращает несколько файлов; UI спрашивает через `download_continue_choice`
-- **Капча MixDrop** — `open_captcha_window` открывает webview; пользователь решает капчу; `download_continue_captcha` продолжает
+- **Окно проверки** — `open_captcha_window` открывает webview поверх всех окон для хостов из `VERIFY_WINDOW_HOSTS` (`download/host.rs`). MixDrop: пользователь проходит reCAPTCHA, и `download_continue_captcha` передаёт cookies окна в sidecar. VikingFile / AkiraBox: Turnstile проходит, окно перехватывает ссылку на загрузку и шлёт `download:verified`, а UI вызывает `download_continue_verified`
 - **MEGA / UploadHaven** — сессия в Stronghold или `app_settings`; проверяется перед загрузкой
 
-Поддерживаемые хосты: GoFile, MEGA, UploadHaven, BuzzHeavier, Datanodes, MixDrop, Google Drive, WorkUpload, MediaFire, Pixeldrain.
+Поддерживаемые хосты: GoFile, MEGA, UploadHaven, BuzzHeavier, Datanodes, MixDrop, Google Drive, WorkUpload, MediaFire, Pixeldrain, VikingFile, AkiraBox, BowFile, UploadNow, Terminal. Ссылки KrakenFiles, wdho.ru, qu.ax и files.dp.ua показываются и открываются в браузере.
 
 ---
 

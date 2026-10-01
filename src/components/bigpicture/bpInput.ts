@@ -140,7 +140,9 @@ interface GamepadHandlers {
 /**
  * Polls connected gamepads while `enabled`. Presses fire once; directions
  * repeat while held, getting faster. Ignored while the window has no focus
- * (a game running in front must not drive the menus behind it).
+ * (a game running in front must not drive the menus behind it). What is
+ * already held when polling starts or focus comes back (the buttons that
+ * woke Big Picture, a game's input) waits for a release instead of firing.
  */
 export function useGamepad(enabled: boolean, handlers: GamepadHandlers): void {
   const handlersRef = useRef(handlers);
@@ -153,20 +155,33 @@ export function useGamepad(enabled: boolean, handlers: GamepadHandlers): void {
     let heldDir: BpDirection | null = null;
     let nextRepeat = 0;
     let repeats = 0;
+    let resync = true;
+    // Frames stop while the window is hidden to the tray or minimized, so the
+    // loop alone may never see the focus go: these mark it from outside.
+    const lostFocus = () => {
+      resync = true;
+      heldDir = null;
+    };
+    window.addEventListener('blur', lostFocus);
+    document.addEventListener('visibilitychange', lostFocus);
 
     const loop = (now: number) => {
       raf = requestAnimationFrame(loop);
       if (!document.hasFocus()) {
-        pressed.clear();
-        heldDir = null;
+        lostFocus();
         return;
       }
       let dir: BpDirection | null = null;
       let scroll = 0;
+      let seeded = false;
       for (const pad of navigator.getGamepads()) {
         if (!pad || !pad.connected) continue;
-        const prev = pressed.get(pad.index) ?? [];
         const now_ = pad.buttons.map((b) => b.pressed);
+        // First look at this pad (it can show up a few frames late), or focus
+        // just came back: what it holds now is the starting point, not a press.
+        const seen = pressed.get(pad.index);
+        const prev = resync || !seen ? now_ : seen;
+        if (prev === now_) seeded = true;
         pressed.set(pad.index, now_);
         now_.forEach((isDown, i) => {
           if (!isDown) return;
@@ -194,7 +209,12 @@ export function useGamepad(enabled: boolean, handlers: GamepadHandlers): void {
         }
       }
 
-      if (dir !== heldDir) {
+      resync = false;
+      if (seeded) {
+        // A direction held from before doesn't move or repeat until let go.
+        heldDir = dir;
+        nextRepeat = Infinity;
+      } else if (dir !== heldDir) {
         heldDir = dir;
         repeats = 0;
         if (dir) {
@@ -213,7 +233,11 @@ export function useGamepad(enabled: boolean, handlers: GamepadHandlers): void {
       }
     };
     raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('blur', lostFocus);
+      document.removeEventListener('visibilitychange', lostFocus);
+    };
   }, [enabled]);
 }
 
