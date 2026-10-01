@@ -30,7 +30,13 @@ If you rotate keys, ship a transitional release that embeds both verification st
 1. Bump versions together (`package.json`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`, sidecar package files) and update `CHANGELOG.md`.
 2. Merge to the release branch / tag `vX.Y.Z`.
 3. The [Release workflow](../.github/workflows/release.yml) builds Windows artifacts, uploads them, and publishes `latest.json` for the updater (`includeUpdaterJson`).
-4. Publish the draft GitHub release when ready.
+4. Publish the draft GitHub release when ready. Its notes become the app's changelog (see below), so write them for users.
+
+## The changelog in the app
+
+- Settings → About and the version modal list the notes of every published release (drafts are skipped), newest first, as GitHub renders them (`body_html`), with the running version marked.
+- `src/lib/appReleases.ts` asks the GitHub API (`/repos/jky-sh/f95-app/releases`) when one of them opens and the saved copy is more than 30 minutes old, or more than 2 minutes old and missing the running version. That stays well below GitHub's 60 requests an hour without a token. The last answer is kept in `localStorage`, so the list shows at once and offline.
+- With no saved copy and GitHub out of reach, the `CHANGELOG.md` bundled with the build stands in.
 
 ## How the app finds and installs its own updates
 

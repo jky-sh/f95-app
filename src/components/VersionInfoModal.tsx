@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useOffline } from '../contexts/Offline';
 import { installLabel, useAppUpdate } from '../lib/appUpdateState';
 import { checkForAppUpdateInteractive, installAppUpdate } from '../lib/appUpdater';
-import { getChangelogEntries } from '../lib/changelog';
 import { useT } from '../lib/i18n';
+import { AppChangelog } from './settings/AppChangelog';
 
 interface Props {
   open: boolean;
@@ -19,15 +19,12 @@ export function VersionInfoModal({ open, version, onClose }: Props) {
   const { t } = useT();
   const { isOffline } = useOffline();
   const [updateBusy, setUpdateBusy] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-  const entries = useMemo(() => getChangelogEntries(), []);
   const appUpdate = useAppUpdate();
   const available = appUpdate.available;
   const busy = updateBusy || appUpdate.checking || appUpdate.install != null;
 
   useEffect(() => {
     if (!open) return;
-    setExpanded(false);
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {
         e.preventDefault();
@@ -39,8 +36,6 @@ export function VersionInfoModal({ open, version, onClose }: Props) {
   }, [open, onClose]);
 
   if (!open) return null;
-
-  const visible = expanded ? entries : entries.slice(0, 4);
 
   return (
     <div
@@ -86,48 +81,7 @@ export function VersionInfoModal({ open, version, onClose }: Props) {
           )}
           <h3 className="version-info-section-title">{t('settings.changelog.section')}</h3>
           <p className="version-info-hint">{t('settings.changelog.hint')}</p>
-          <div className="settings-changelog version-info-changelog">
-            {visible.map((entry) => (
-              <article
-                key={`${entry.version}-${entry.date ?? 'na'}`}
-                className="settings-changelog-entry"
-              >
-                <header className="settings-changelog-head">
-                  <h4 className="settings-changelog-version">
-                    {entry.version === 'Unreleased'
-                      ? t('settings.changelog.unreleased')
-                      : `v${entry.version.replace(/^v/i, '')}`}
-                  </h4>
-                  {entry.date && (
-                    <time className="settings-changelog-date" dateTime={entry.date}>
-                      {entry.date}
-                    </time>
-                  )}
-                </header>
-                {entry.sections.map((section) => (
-                  <div key={section.title} className="settings-changelog-section">
-                    <h5 className="settings-changelog-section-title">{section.title}</h5>
-                    <ul className="settings-changelog-list">
-                      {section.items.map((item) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </article>
-            ))}
-          </div>
-          {entries.length > 4 && (
-            <button
-              type="button"
-              className="settings-toolbar-btn settings-toolbar-btn-ghost version-info-more"
-              onClick={() => setExpanded((v) => !v)}
-            >
-              {expanded
-                ? t('settings.changelog.showLess')
-                : t('settings.changelog.showMore')}
-            </button>
-          )}
+          <AppChangelog currentVersion={version} initialCount={4} className="version-info-changelog" />
         </div>
 
         <footer className="app-dialog-footer version-info-footer">
