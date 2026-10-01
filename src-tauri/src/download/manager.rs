@@ -1,21 +1,25 @@
 //! Background download manager.
 
 use super::host::{
-    clean_download_filename, host_label, host_of, is_f95_masked, masked_host, sanitize_segment,
+    clean_download_filename, host_label, host_of, is_f95_masked, masked_host,
+    needs_verify_window, sanitize_segment,
 };
 use super::platform::recommended_file_id;
+use super::resolvers::uploadnow::{self, UploadnowGuest};
 use super::resolvers::{
-    normalize_uploadhaven_url, resolve_buzzheavier, resolve_datanodes, resolve_gdrive,
-    resolve_gofile, resolve_mediafire, resolve_mixdrop, resolve_mixdrop_interactive,
-    resolve_mixdrop_with_cookies, resolve_pixeldrain, resolve_uploadhaven, resolve_workupload,
+    akirabox, bowfile, normalize_uploadhaven_url, resolve_akirabox, resolve_bowfile,
+    resolve_buzzheavier, resolve_datanodes, resolve_gdrive, resolve_gofile, resolve_mediafire,
+    resolve_mixdrop, resolve_mixdrop_interactive, resolve_mixdrop_with_cookies,
+    resolve_pixeldrain, resolve_terminal, resolve_uploadhaven, resolve_uploadnow,
+    resolve_vikingfile, resolve_workupload, vikingfile,
 };
 use super::stream::{hash_existing, hash_file, parse_content_range_total, with_part_ext};
 use super::types::{ResolveResult, ResolvedFileOption};
 use crate::error::AppError;
 use crate::sidecar::SidecarClient;
 use crate::uploadhaven::UploadHavenSession;
-use futures_util::StreamExt;
-use reqwest::header::{HeaderMap, HeaderValue, CONTENT_RANGE, RANGE};
+use futures_util::{Stream, StreamExt};
+use reqwest::header::{HeaderMap, HeaderValue, CONTENT_RANGE, CONTENT_TYPE, RANGE};
 use reqwest::StatusCode;
 use serde_json::json;
 use sha2::{Digest, Sha256};
@@ -26,8 +30,74 @@ use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
 use tokio::fs::{self, OpenOptions};
 use tokio::io::AsyncWriteExt;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::{Mutex, RwLock, Semaphore};
 use tokio::task::JoinHandle;
+
+/// No bytes for this long means the transfer is stuck. Failing then lets
+/// Retry resume from the `.part` file instead of hanging in "downloading".
+const STALL_TIMEOUT: Duration = Duration::from_secs(60);
+
+/// `download:error` with the `dl.error.*` code the UI translates, if any.
+fn emit_download_error(app: &AppHandle, id: i64, e: &AppError, source_url: Option<&str>) {
+    let code = matches!(e, AppError::Download { .. }).then(|| e.code());
+    let _ = app.emit(
+        "download:error",
+        json!({
+            "id": id,
+            "message": e.to_string(),
+            "sourceUrl": source_url,
+            "code": code,
+        }),
+    );
+}
+
+fn stalled() -> AppError {
+    AppError::download(
+        "stalled",
+        format!("download stalled: no data for {} s", STALL_TIMEOUT.as_secs()),
+    )
+}
+
+/// HTTP failures worth explaining to the user.
+fn status_error(status: StatusCode) -> AppError {
+    let msg = format!("http status: {status}");
+    match status.as_u16() {
+        403 | 404 | 410 => AppError::download("link_expired", msg),
+        429 => AppError::download("rate_limited", msg),
+        // BowFile: a free user already has a download running.
+        460 => AppError::download("host_busy", msg),
+        500..=599 => AppError::download("host_offline", msg),
+        _ => AppError::Other(msg),
+    }
+}
+
+/// Why a link the verification window just captured can't be used, from the
+/// probe's reply. `None` when it looks like the file.
+fn probe_error(status: StatusCode, html: bool) -> Option<AppError> {
+    let msg = format!("http status: {status}");
+    match status.as_u16() {
+        404 | 410 => Some(AppError::download("file_gone", msg)),
+        401 | 403 => Some(AppError::download("link_refused", msg)),
+        _ if status.is_success() && html => Some(AppError::download(
+            "html_page",
+            "download: the host sent a web page instead of the file",
+        )),
+        _ => None,
+    }
+}
+
+/// Next body chunk, failing when nothing arrives for `STALL_TIMEOUT`.
+async fn next_chunk<S, B>(stream: &mut S) -> Result<Option<B>, AppError>
+where
+    S: Stream<Item = Result<B, reqwest::Error>> + Unpin,
+{
+    match tokio::time::timeout(STALL_TIMEOUT, stream.next()).await {
+        Err(_) => Err(stalled()),
+        Ok(None) => Ok(None),
+        Ok(Some(Ok(chunk))) => Ok(Some(chunk)),
+        Ok(Some(Err(e))) => Err(AppError::Other(format!("stream chunk: {e}"))),
+    }
+}
 
 pub struct Manager {
     tasks: Mutex<HashMap<i64, JoinHandle<()>>>,
@@ -59,9 +129,15 @@ pub struct Manager {
     mixdrop_creds: RwLock<Option<MixdropCreds>>,
     /// Multi-file host folders awaiting user selection in the UI.
     pending_file_choices: Mutex<HashMap<i64, PendingFileChoice>>,
+    /// BowFile gives a free user one connection per IP (a second one gets
+    /// HTTP 460), so its downloads queue on this single permit.
+    bowfile_slot: Arc<Semaphore>,
+    /// UploadNow guest login (Firebase anonymous), reused across downloads.
+    uploadnow_guest: Mutex<Option<UploadnowGuest>>,
 }
 
 struct PendingFileChoice {
+    host: String,
     thread_id: String,
     dest_root: Option<PathBuf>,
     extra_headers: Vec<(String, String)>,
@@ -104,7 +180,20 @@ impl Manager {
             datanodes_key: RwLock::new(None),
             mixdrop_creds: RwLock::new(None),
             pending_file_choices: Mutex::new(HashMap::new()),
+            bowfile_slot: Arc::new(Semaphore::new(1)),
+            uploadnow_guest: Mutex::new(None),
         }
+    }
+
+    /// Ids the manager is still working on (running, or waiting for a file
+    /// choice). Rows the UI shows as in progress but missing here were cut
+    /// short by an app restart.
+    pub async fn active_ids(&self) -> Vec<i64> {
+        let mut ids: Vec<i64> = self.tasks.lock().await.keys().copied().collect();
+        ids.extend(self.pending_file_choices.lock().await.keys().copied());
+        ids.sort_unstable();
+        ids.dedup();
+        ids
     }
 
     /// Replace the cached GoFile credentials. Pass `token = None` (or empty)
@@ -240,14 +329,7 @@ impl Manager {
                     "download",
                     format!("failed id={id} err={e} url={source_for_err}"),
                 );
-                let _ = app2.emit(
-                    "download:error",
-                    json!({
-                        "id": id,
-                        "message": e.to_string(),
-                        "sourceUrl": source_for_err,
-                    }),
-                );
+                emit_download_error(&app2, id, &e, Some(&source_for_err));
             }
             me.tasks.lock().await.remove(&id);
         });
@@ -294,14 +376,7 @@ impl Manager {
                     "download",
                     format!("interactive verify failed id={id} err={e} url={source_for_err}"),
                 );
-                let _ = app2.emit(
-                    "download:error",
-                    json!({
-                        "id": id,
-                        "message": e.to_string(),
-                        "sourceUrl": source_for_err,
-                    }),
-                );
+                emit_download_error(&app2, id, &e, Some(&source_for_err));
             }
             me.tasks.lock().await.remove(&id);
         });
@@ -444,14 +519,7 @@ impl Manager {
                     "download",
                     format!("captcha continue failed id={id} err={e} url={source_for_err}"),
                 );
-                let _ = app2.emit(
-                    "download:error",
-                    json!({
-                        "id": id,
-                        "message": e.to_string(),
-                        "sourceUrl": source_for_err,
-                    }),
-                );
+                emit_download_error(&app2, id, &e, Some(&source_for_err));
             }
             me.tasks.lock().await.remove(&id);
         });
@@ -555,6 +623,142 @@ impl Manager {
         }
     }
 
+    /// Download a link the verification window captured (VikingFile,
+    /// AkiraBox). The link is checked first: one the host already refuses
+    /// fails with a coded error (Retry runs the check again) instead of
+    /// reopening the window in a loop.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn start_verified(
+        self: &Arc<Self>,
+        app: AppHandle,
+        id: i64,
+        source_url: String,
+        host: String,
+        page_url: String,
+        link: String,
+        thread_id: String,
+        dest_root_override: Option<PathBuf>,
+    ) -> Result<(), AppError> {
+        {
+            let g = self.tasks.lock().await;
+            if g.contains_key(&id) {
+                return Ok(());
+            }
+        }
+        let me = self.clone();
+        let app2 = app.clone();
+        let handle = tokio::spawn(async move {
+            let result = me
+                .run_verified(
+                    &app2,
+                    id,
+                    &host,
+                    &page_url,
+                    &link,
+                    &thread_id,
+                    dest_root_override.as_deref(),
+                )
+                .await;
+            if let Err(e) = result {
+                crate::dev_debug::log_error(
+                    Some(&app2),
+                    "download",
+                    format!("verified download failed id={id} host={host} err={e}"),
+                );
+                emit_download_error(&app2, id, &e, Some(&source_url));
+            }
+            me.tasks.lock().await.remove(&id);
+        });
+        self.tasks.lock().await.insert(id, handle);
+        Ok(())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn run_verified(
+        &self,
+        app: &AppHandle,
+        id: i64,
+        host: &str,
+        page_url: &str,
+        link: &str,
+        thread_id: &str,
+        dest_root_override: Option<&Path>,
+    ) -> Result<(), AppError> {
+        let _ = app.emit("download:resolving", json!({ "id": id }));
+        let resolved = match host {
+            "vikingfile" => vikingfile::direct_from_verified(&self.http, page_url, link).await?,
+            "akirabox" => akirabox::direct_from_verified(&self.http, page_url, link).await?,
+            other => {
+                return Err(AppError::Other(format!(
+                    "verification window: unsupported host {other}"
+                )))
+            }
+        };
+        let ResolveResult::Direct {
+            url,
+            file_name,
+            file_size,
+            expected_sha256,
+            extra_headers,
+        } = resolved
+        else {
+            return Err(AppError::Other("verification window: no download link".into()));
+        };
+        crate::dev_debug::log(
+            Some(app),
+            host,
+            format!("verified link → {file_name} ({url})"),
+        );
+
+        let mut url = url;
+        if let Some(err) = self.probe_link(&url, &extra_headers).await {
+            // akirabox.to may wall the link behind a Cloudflare check; the
+            // same path on akirabox.com does not.
+            match akirabox::alternate_link(&url) {
+                Some(alt) if self.probe_link(&alt, &extra_headers).await.is_none() => url = alt,
+                // The link is seconds old, so this is not expiry: the host
+                // refuses this client or its storage is failing. Sending the
+                // row back to the window would only loop, so fail and let
+                // Retry start over.
+                _ => return Err(err),
+            }
+        }
+
+        self.begin_direct_stream(
+            app,
+            id,
+            thread_id,
+            dest_root_override,
+            &url,
+            &file_name,
+            file_size,
+            expected_sha256.as_deref(),
+            &extra_headers,
+        )
+        .await
+    }
+
+    /// One-byte GET (HEAD fails on signed R2 URLs). The error to report when
+    /// the link is refused, gone or answers with a web page; `None` when it
+    /// looks like the file.
+    async fn probe_link(&self, url: &str, extra_headers: &[(String, String)]) -> Option<AppError> {
+        let mut req = self.http.get(url).header(RANGE, "bytes=0-0");
+        for (k, v) in extra_headers {
+            req = req.header(k.as_str(), v.as_str());
+        }
+        let Ok(Ok(resp)) = tokio::time::timeout(STALL_TIMEOUT, req.send()).await else {
+            // Network trouble is not a dead link; let the download report it.
+            return None;
+        };
+        let status = resp.status();
+        let html = resp
+            .headers()
+            .get(CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|t| t.to_ascii_lowercase().contains("text/html"));
+        probe_error(status, html)
+    }
+
     /// Resume after the user picks one file from a multi-build folder.
     pub async fn continue_with_file_choice(
         self: &Arc<Self>,
@@ -594,6 +798,7 @@ impl Manager {
         let file_name = picked.file_name.clone();
         let file_size = picked.file_size;
         let extra_headers = pending.extra_headers;
+        let host = pending.host;
         let thread = if thread_id.is_empty() {
             pending.thread_id
         } else {
@@ -602,8 +807,18 @@ impl Manager {
         let dest_root = dest_root_override.or(pending.dest_root);
 
         let handle = tokio::spawn(async move {
-            let result = me
-                .begin_direct_stream(
+            let result = async {
+                // The file is chosen: leave "Choose file" before a possibly
+                // long wait for the host's single download slot.
+                let _ = app2.emit("download:resolving", json!({ "id": id }));
+                let _slot = me.host_slot(&host).await;
+                // UploadNow links are minted only for the file actually taken.
+                let direct_url = if direct_url.starts_with(uploadnow::SENTINEL_PREFIX) {
+                    uploadnow::mint_link(&me.http, &me.uploadnow_guest, &direct_url).await?
+                } else {
+                    direct_url
+                };
+                me.begin_direct_stream(
                     &app2,
                     id,
                     &thread,
@@ -614,25 +829,30 @@ impl Manager {
                     None,
                     &extra_headers,
                 )
-                .await;
+                .await
+            }
+            .await;
             if let Err(e) = result {
                 crate::dev_debug::log_error(
                     Some(&app2),
                     "download",
                     format!("choice continue failed id={id} err={e}"),
                 );
-                let _ = app2.emit(
-                    "download:error",
-                    json!({
-                        "id": id,
-                        "message": e.to_string(),
-                    }),
-                );
+                emit_download_error(&app2, id, &e, None);
             }
             me.tasks.lock().await.remove(&id);
         });
         self.tasks.lock().await.insert(id, handle);
         Ok(())
+    }
+
+    /// Hosts that allow one download at a time wait here for their turn.
+    async fn host_slot(&self, label: &str) -> Option<tokio::sync::OwnedSemaphorePermit> {
+        if label == "bowfile" {
+            self.bowfile_slot.clone().acquire_owned().await.ok()
+        } else {
+            None
+        }
     }
 
     async fn run(
@@ -659,12 +879,15 @@ impl Manager {
                     unmasked
                 }
                 Err(AppError::Cloudflare(_)) => {
+                    let host = masked_host(&source_url)
+                        .map(|h| host_label(&h))
+                        .unwrap_or_else(|| "f95-masked".into());
                     let _ = app.emit(
                         "download:needs-browser",
                         json!({
                             "id": id,
                             "url": source_url,
-                            "host": masked_host(&source_url).unwrap_or("f95-masked".into()),
+                            "host": host,
                         }),
                     );
                     return Ok(());
@@ -688,6 +911,9 @@ impl Manager {
                 )
                 .await;
         }
+
+        // Held through resolve and stream for one-at-a-time hosts.
+        let _slot = self.host_slot(&label).await;
 
         // Step 2: classify + resolve.
         crate::dev_debug::log(
@@ -729,6 +955,7 @@ impl Manager {
                 self.pending_file_choices.lock().await.insert(
                     id,
                     PendingFileChoice {
+                        host: host.clone(),
                         thread_id: thread_id.clone(),
                         dest_root: dest_root_override.clone(),
                         extra_headers,
@@ -766,7 +993,7 @@ impl Manager {
                 Ok(())
             }
             ResolveResult::NeedsBrowser { url, host } => {
-                let captcha = host == "mixdrop";
+                let captcha = needs_verify_window(&host);
                 let _ = app.emit(
                     "download:needs-browser",
                     json!({
@@ -876,11 +1103,16 @@ impl Manager {
         }
         req = req.headers(header_map);
 
-        let response = req
-            .send()
+        let response = tokio::time::timeout(STALL_TIMEOUT, req.send())
             .await
+            .map_err(|_| stalled())?
             .map_err(|e| AppError::Other(format!("http get: {e}")))?;
         let status = response.status();
+
+        // BowFile sends expired or refused tokens to its error page.
+        if let Some(e) = bowfile::error_from_final_url(response.url()) {
+            return Err(e);
+        }
 
         // 416 = the byte range we asked for is past the end. Usually means the
         // file is already complete on disk.
@@ -892,8 +1124,14 @@ impl Manager {
 
         // Anything other than 200 or 206 is fatal.
         if !status.is_success() {
-            return Err(AppError::Other(format!("http status: {}", status)));
+            return Err(status_error(status));
         }
+
+        let html_type = response
+            .headers()
+            .get(CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|t| t.to_ascii_lowercase().contains("text/html"));
 
         // Decide whether we're resuming (206) or starting over (200, possibly
         // because the host doesn't honor Range).
@@ -909,6 +1147,19 @@ impl Manager {
                     .map(|c| if resuming { c + existing } else { c })
             })
             .or(hint_total);
+
+        // Look at the first bytes before touching the `.part`: a web page in
+        // place of the file must not replace what is already on disk.
+        let mut stream = response.bytes_stream();
+        let mut pending = next_chunk(&mut stream).await?;
+        if let Some(chunk) = pending.as_ref() {
+            if (!resuming || html_type) && crate::gdrive::looks_like_html_bytes(chunk) {
+                return Err(AppError::download(
+                    "html_page",
+                    "download: the host sent a web page instead of the file",
+                ));
+            }
+        }
 
         // Hasher state. If resuming and we know an expected hash, we have to
         // rehash the bytes we already have on disk so the final digest covers
@@ -939,21 +1190,14 @@ impl Manager {
 
         let mut last_emit = Instant::now();
         let mut last_bytes: u64 = downloaded;
-        let mut stream = response.bytes_stream();
-        let mut sniffed = resuming;
-        while let Some(chunk) = stream.next().await {
-            let chunk = chunk.map_err(|e| AppError::Other(format!("stream chunk: {e}")))?;
-            if !sniffed {
-                sniffed = true;
-                if crate::gdrive::looks_like_html_bytes(&chunk) {
-                    drop(file);
-                    let _ = fs::remove_file(part_path).await;
-                    return Err(AppError::Other(
-                        "download: resposta HTML em vez do arquivo — abra o link no navegador"
-                            .into(),
-                    ));
-                }
-            }
+        loop {
+            let chunk = match pending.take() {
+                Some(c) => c,
+                None => match next_chunk(&mut stream).await? {
+                    Some(c) => c,
+                    None => break,
+                },
+            };
             file.write_all(&chunk).await?;
             if let Some(h) = hasher.as_mut() {
                 h.update(&chunk);
@@ -1033,6 +1277,7 @@ impl Manager {
         if let Some(h) = self.tasks.lock().await.remove(&id) {
             h.abort();
         }
+        self.pending_file_choices.lock().await.remove(&id);
     }
 
     async fn run_mega(
@@ -1191,10 +1436,42 @@ impl Manager {
                 )
                 .await
             }
+            "vikingfile" => resolve_vikingfile(&self.http, url, &label).await,
+            "akirabox" => resolve_akirabox(&self.http, url, &label).await,
+            "terminal" => resolve_terminal(&self.http, url, &label).await,
+            "bowfile" => resolve_bowfile(url, &label, platform_group).await,
+            "uploadnow" => {
+                resolve_uploadnow(&self.http, &self.uploadnow_guest, url, &label, platform_group)
+                    .await
+            }
             _ => Ok(ResolveResult::NeedsBrowser {
                 url: url.to_string(),
                 host: label,
             }),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn code(status: u16, html: bool) -> Option<&'static str> {
+        probe_error(StatusCode::from_u16(status).unwrap(), html).map(|e| e.code())
+    }
+
+    #[test]
+    fn probe_maps_a_dead_verified_link_to_a_final_error() {
+        assert_eq!(code(206, false), None);
+        assert_eq!(code(200, false), None);
+        // A redirect the client did not follow, or a server hiccup, is left
+        // for the download itself to report.
+        assert_eq!(code(302, false), None);
+        assert_eq!(code(503, true), None);
+        assert_eq!(code(404, false), Some("file_gone"));
+        assert_eq!(code(410, true), Some("file_gone"));
+        assert_eq!(code(403, true), Some("link_refused"));
+        assert_eq!(code(401, false), Some("link_refused"));
+        assert_eq!(code(200, true), Some("html_page"));
     }
 }

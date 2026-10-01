@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import { useDownloads } from '../../../contexts/Downloads';
 import { useDownloadSettings } from '../../../contexts/DownloadSettings';
 import { formatDownloadSpeed } from '../../../lib/downloadSettings';
+import { canVerifyInApp, verifyNeedsContinue } from '../../../lib/downloadHosts';
+import { formatIpcError } from '../../../lib/ipcError';
 import * as downloads from '../../../lib/downloads';
 import * as ipc from '../../../lib/ipc';
 import * as library from '../../../lib/library';
@@ -39,6 +41,37 @@ export function BpDownloads() {
     await reload();
   }
 
+  /** The verification window stays on top, so it shows over Big Picture. */
+  async function verify(row: DownloadRow) {
+    try {
+      await ipc.openCaptchaWindow({
+        downloadId: row.id,
+        url: row.resolvedUrl ?? row.sourceUrl,
+        host: row.host,
+        title: t('downloads.verify.windowTitle', { host: row.host }),
+      });
+    } catch (err) {
+      console.warn('[bp] open verification failed', err);
+    }
+  }
+
+  /** MixDrop: after the check, its session goes to the downloader. */
+  async function continueVerified(row: DownloadRow) {
+    try {
+      await downloads.markRetry(row.id);
+      await ipc.downloadContinueCaptcha({
+        id: row.id,
+        sourceUrl: row.sourceUrl,
+        pageUrl: row.resolvedUrl ?? row.sourceUrl,
+        threadId: row.threadId,
+        libraryPath: row.libraryPath,
+      });
+    } catch (err) {
+      await downloads.markError(row.id, formatIpcError(err));
+    }
+    await reload();
+  }
+
   const totalSpeed = active.reduce((sum, r) => sum + (r.state === 'downloading' ? (progress[r.id]?.speedBps ?? 0) : 0), 0);
 
   return (
@@ -65,7 +98,9 @@ export function BpDownloads() {
                   ? Math.min(100, Math.floor((done / total) * 100))
                   : null;
             const speed = live?.speedBps ?? 0;
-            const needsDesktop = row.state === 'awaiting_choice' || row.state === 'needs_browser';
+            const verifyHere = canVerifyInApp(row);
+            const needsDesktop =
+              row.state === 'awaiting_choice' || (row.state === 'needs_browser' && !verifyHere);
             return (
               <article key={row.id} className="bp-dl" style={{ '--i': i } as React.CSSProperties}>
                 <span className="bp-dl-art">
@@ -97,6 +132,16 @@ export function BpDownloads() {
                   </div>
                 </div>
                 <div className="bp-dl-actions" data-bp-row="" data-bp-group={`dl-${row.id}`}>
+                  {verifyHere && (
+                    <button type="button" className="bp-btn bp-focusable" onClick={() => void verify(row)}>
+                      {t('bp.downloads.verify')}
+                    </button>
+                  )}
+                  {verifyHere && verifyNeedsContinue(row.host) && (
+                    <button type="button" className="bp-btn bp-focusable" onClick={() => void continueVerified(row)}>
+                      {t('downloads.action.continueCaptcha')}
+                    </button>
+                  )}
                   {needsDesktop && (
                     <button type="button" className="bp-btn bp-focusable" onClick={() => bp.exit('/downloads')}>
                       {t('bp.downloads.desktop')}

@@ -24,8 +24,8 @@ The backend splits work across Rust (downloads, launcher, overlay) and a Node.js
 - **Store** — SAM catalog with prefix/tag filters, search, sorting, pagination
 - **Library** — installed titles, version tracking, playtime, multiple install folders
 - **Downloads** — queued transfers with live progress, auto-extract (zip/7z/rar), save migration
-- **File hosts** — GoFile, MEGA, UploadHaven, BuzzHeavier, Datanodes, MixDrop, Google Drive, WorkUpload, MediaFire, Pixeldrain
-- **Captcha** — interactive MixDrop flow through a dedicated webview window
+- **File hosts** — GoFile, MEGA, UploadHaven, BuzzHeavier, Datanodes, MixDrop, Google Drive, WorkUpload, MediaFire, Pixeldrain, VikingFile, AkiraBox, BowFile, UploadNow, Terminal
+- **Verification window** — MixDrop, VikingFile and AkiraBox show their human check (reCAPTCHA / Turnstile) in a small in-app window; the download then continues in the app
 - **Social** — following list, F95 alerts, RSS feed for library updates
 - **Offline** — cached profile and local library when disconnected
 - **Overlay** — experimental in-game overlay on Windows (notes, guides, hotkey toggle)

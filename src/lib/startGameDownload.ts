@@ -36,6 +36,8 @@ export async function startGameDownload(
     host: download.host,
     sourceUrl: download.url,
     gameVersion: game.version,
+    libraryPath: libraryPath ?? null,
+    platformGroup: download.group ?? null,
   });
   await ipc.downloadStart({
     id: row.id,

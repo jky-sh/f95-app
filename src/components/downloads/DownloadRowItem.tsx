@@ -5,6 +5,7 @@ import { useT } from '../../lib/i18n';
 import { useDownloadSettings } from '../../contexts/DownloadSettings';
 import { formatDownloadSpeed } from '../../lib/downloadSettings';
 import { isArchivePath, cleanDownloadFileName } from '../../lib/archives';
+import { canVerifyInApp, verifyNeedsContinue } from '../../lib/downloadHosts';
 import type { DownloadProgress, DownloadRow } from '../../types/download';
 import {
   formatBytes,
@@ -117,7 +118,8 @@ export function DownloadHistoryRow({
   const displayTitle = game?.title ?? t('dl.thread', { id: row.threadId });
   const fileName = fileLabel(row, displayTitle);
   const size = formatBytes(row.bytesTotal ?? row.bytesDone);
-  const captchaHost = supportsCaptchaWindow(row.host);
+  const captchaHost = canVerifyInApp(row);
+  const needsContinue = captchaHost && verifyNeedsContinue(row.host);
   const finished = parseDbTime(row.finishedAt);
   const date = finished
     ? finished.toLocaleString(undefined, {
@@ -166,29 +168,35 @@ export function DownloadHistoryRow({
       )}
 
       <div className="dl-history-actions">
-        {row.state === 'needs_browser' && captchaHost && row.resolvedUrl && (
+        {captchaHost && (
           <>
-            <button type="button" className="dl-action-btn" onClick={onOpenCaptcha}>
-              {t('downloads.action.openCaptcha')}
-            </button>
             <button
               type="button"
-              className="dl-action-btn dl-action-btn-accent"
-              disabled={continuing}
-              onClick={async () => {
-                if (!onContinueCaptcha) return;
-                setContinuing(true);
-                try {
-                  await onContinueCaptcha();
-                } finally {
-                  setContinuing(false);
-                }
-              }}
+              className={`dl-action-btn${needsContinue ? '' : ' dl-action-btn-accent'}`}
+              onClick={onOpenCaptcha}
             >
-              {continuing
-                ? t('downloads.action.continuingCaptcha')
-                : t('downloads.action.continueCaptcha')}
+              {t('downloads.action.openCaptcha')}
             </button>
+            {needsContinue && (
+              <button
+                type="button"
+                className="dl-action-btn dl-action-btn-accent"
+                disabled={continuing}
+                onClick={async () => {
+                  if (!onContinueCaptcha) return;
+                  setContinuing(true);
+                  try {
+                    await onContinueCaptcha();
+                  } finally {
+                    setContinuing(false);
+                  }
+                }}
+              >
+                {continuing
+                  ? t('downloads.action.continuingCaptcha')
+                  : t('downloads.action.continueCaptcha')}
+              </button>
+            )}
           </>
         )}
         {row.state === 'needs_browser' && !captchaHost && row.resolvedUrl && (
@@ -238,10 +246,6 @@ export function DownloadHistoryRow({
       </div>
     </article>
   );
-}
-
-function supportsCaptchaWindow(host: string): boolean {
-  return host.trim().toLowerCase() === 'mixdrop';
 }
 
 function looksLikeGarbageName(name: string): boolean {

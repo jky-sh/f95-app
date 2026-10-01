@@ -8,6 +8,7 @@ mod resolvers;
 mod stream;
 mod types;
 mod util;
+pub(crate) mod verify;
 
 pub use manager::{GoFileCreds, Manager};
 pub(crate) use types::ResolveResult;

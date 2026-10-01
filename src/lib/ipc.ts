@@ -177,11 +177,14 @@ export async function openCaptchaWindow(args: {
   downloadId: number;
   url: string;
   host: string;
+  /** Window title, already translated. */
+  title?: string;
 }): Promise<void> {
   return invoke('open_captcha_window', {
     downloadId: args.downloadId,
     url: args.url,
     host: args.host,
+    title: args.title ?? null,
   });
 }
 
@@ -199,6 +202,37 @@ export async function downloadContinueCaptcha(args: {
     threadId: args.threadId,
     libraryPath: args.libraryPath ?? null,
   });
+}
+
+/** Download the link the verification window captured (`download:verified`). */
+export async function downloadContinueVerified(args: {
+  id: number;
+  sourceUrl: string;
+  host: string;
+  pageUrl: string;
+  link: string;
+  threadId: string;
+  libraryPath?: string | null;
+}): Promise<void> {
+  return invoke('download_continue_verified', {
+    id: args.id,
+    sourceUrl: args.sourceUrl,
+    host: args.host,
+    pageUrl: args.pageUrl,
+    link: args.link,
+    threadId: args.threadId,
+    libraryPath: args.libraryPath ?? null,
+  });
+}
+
+/** Downloads the backend is still running or waiting on (file choice). */
+export async function downloadActiveIds(): Promise<number[]> {
+  return invoke('download_active_ids');
+}
+
+/** Closes a download's verification window, if one is open. */
+export async function closeCaptchaWindow(downloadId: number): Promise<void> {
+  return invoke('close_captcha_window', { downloadId });
 }
 
 export async function revealInExplorer(path: string): Promise<void> {

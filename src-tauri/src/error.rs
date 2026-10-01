@@ -27,8 +27,22 @@ pub enum AppError {
     #[error("io error: {0}")]
     Io(String),
 
+    /// A download failure the UI explains in the user's language. `code` is
+    /// one of the `dl.error.*` keys; `message` is the raw detail for logs.
+    #[error("{message}")]
+    Download { code: &'static str, message: String },
+
     #[error("{0}")]
     Other(String),
+}
+
+impl AppError {
+    pub fn download(code: &'static str, message: impl Into<String>) -> Self {
+        AppError::Download {
+            code,
+            message: message.into(),
+        }
+    }
 }
 
 impl AppError {
@@ -42,6 +56,7 @@ impl AppError {
             AppError::SidecarCrash => "sidecar_crash",
             AppError::Protocol(_) => "protocol",
             AppError::Io(_) => "io",
+            AppError::Download { code, .. } => code,
             AppError::Other(_) => "other",
         }
     }
