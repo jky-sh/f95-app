@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import type { GameDownload, SocialLink } from '../../types/game';
-import * as downloads from '../../lib/downloads';
-import * as library from '../../lib/library';
 import * as libraries from '../../lib/libraries';
-import * as ipc from '../../lib/ipc';
+import { HOST_COLORS, STREAMABLE_HOSTS, groupDownloads, shouldShowHostBadge } from '../../lib/downloadHosts';
+import { startGameDownload } from '../../lib/startGameDownload';
 import { useOffline } from '../../contexts/Offline';
 import { useT } from '../../lib/i18n';
 import { dialog } from '../../lib/dialog';
@@ -30,26 +29,6 @@ interface Props {
   onDownloadStarted?: () => void;
 }
 
-const STREAMABLE_HOSTS = new Set(['pixeldrain', 'mediafire', 'gofile', 'mega', 'uploadhaven', 'buzzheavier', 'datanodes', 'gdrive', 'workupload', 'mixdrop']);
-
-const HOST_COLORS: Record<string, string> = {
-  mega: '#d9272e',
-  mediafire: 'var(--status-info)',
-  mixdrop: '#e85c00',
-  pixeldrain: '#3a3a8f',
-  gofile: '#4d4d4d',
-  workupload: '#1f7a3a',
-  uploadhaven: '#888888',
-  datanodes: '#2a8aa8',
-  buzzheavier: '#a87a2a',
-  gdrive: '#4285f4',
-  bunkr: '#8a3a3a',
-  cyberfile: '#6f4d8a',
-  cyberdrop: '#8a4d6f',
-  rapidgator: '#cc8a3a',
-  '1fichier': '#3aaa8a',
-};
-
 export function DownloadLinks({ game, downloads: items, social, embedded, onDownloadStarted }: Props) {
   const { t } = useT();
   const { isOffline } = useOffline();
@@ -66,27 +45,7 @@ export function DownloadLinks({ game, downloads: items, social, embedded, onDown
     }
     setBusyUrl(download.url);
     try {
-      await library.add({
-        threadId: game.threadId,
-        category: game.category,
-        title: game.title,
-        threadUrl: game.threadUrl,
-        thumbnailUrl: game.thumbnailUrl,
-        currentVersion: game.version,
-      });
-      const row = await downloads.create({
-        threadId: game.threadId,
-        host: download.host,
-        sourceUrl: download.url,
-        gameVersion: game.version,
-      });
-      await ipc.downloadStart({
-        id: row.id,
-        sourceUrl: row.sourceUrl,
-        threadId: row.threadId,
-        libraryPath,
-        platformGroup: download.group,
-      });
+      await startGameDownload(game, download, libraryPath);
       onDownloadStarted?.();
     } catch (err) {
       await dialog.alert(t('dl.start.failed', { error: formatError(err) }), { kind: 'error' });
@@ -210,30 +169,6 @@ export function DownloadLinks({ game, downloads: items, social, embedded, onDown
       />
     </>
   );
-}
-
-function shouldShowHostBadge(label: string, host: string): boolean {
-  const norm = (s: string) => s.trim().toLowerCase().replace(/[\s._-]+/g, '');
-  const nl = norm(label);
-  const nh = norm(host);
-  if (!nh) return false;
-  if (nl === nh) return false;
-  if (nl.includes(nh) || nh.includes(nl)) return false;
-  return true;
-}
-
-function groupDownloads(items: GameDownload[]): [string | null, GameDownload[]][] {
-  const map = new Map<string | null, GameDownload[]>();
-  const order: (string | null)[] = [];
-  for (const item of items) {
-    const key = item.group?.trim() || null;
-    if (!map.has(key)) {
-      order.push(key);
-      map.set(key, []);
-    }
-    map.get(key)!.push(item);
-  }
-  return order.map((key) => [key, map.get(key)!]);
 }
 
 function formatError(err: unknown): string {
