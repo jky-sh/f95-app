@@ -45,6 +45,9 @@ sluice = "0.5"
 futures = "0.3"
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-process = "2"
+# ~2.4: their 2.5 releases need tauri 2.12 (this app is on 2.11).
+tauri-plugin-notification = "~2.4"
+tauri-plugin-single-instance = "~2.4"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.61", features = [

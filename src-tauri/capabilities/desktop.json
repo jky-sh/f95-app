@@ -6,6 +6,7 @@
     "global-shortcut:default",
     "updater:default",
     "process:default",
+    "notification:default",
     "core:tray:default",
     "core:menu:default",
     "core:image:default",
