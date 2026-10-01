@@ -5,6 +5,7 @@ import {
   useBigPicturePrefs,
 } from '../../lib/bigPicture';
 import { Icon } from '../ui/Icon';
+import { ControllerShortcutNotes } from '../bigpicture/BpControllerShortcuts';
 
 /** Settings → Appearance: open Big Picture and choose how it starts. */
 export function BigPictureSettingsCard() {
@@ -47,7 +48,24 @@ export function BigPictureSettingsCard() {
           />
           <span>{t('bp.settings.startup.hint')}</span>
         </label>
+        <label className="settings-check-row">
+          <input
+            type="checkbox"
+            checked={prefs.controllerGuide}
+            onChange={(e) => void saveBigPicturePrefs({ controllerGuide: e.target.checked })}
+          />
+          <span>{t('bp.settings.controllerGuide.hint')}</span>
+        </label>
+        <label className="settings-check-row">
+          <input
+            type="checkbox"
+            checked={prefs.controllerChord}
+            onChange={(e) => void saveBigPicturePrefs({ controllerChord: e.target.checked })}
+          />
+          <span>{t('bp.settings.controllerChord.hint')}</span>
+        </label>
       </div>
+      <ControllerShortcutNotes className="settings-card-hint" style={{ margin: '12px 0 0' }} />
       <div className="settings-bigpicture-actions">
         <button
           type="button"

@@ -2349,6 +2349,21 @@ html[data-bp] .app-dialog-btn-danger:focus {
 .bp-control .bp-glyph {
   min-width: calc(var(--s) * 2.2);
 }
+/* Two buttons held together (View + Menu) share one cap. */
+.bp-glyph--chord {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--s) * 0.18);
+  padding: 0 calc(var(--s) * 0.15);
+  border-radius: 999px;
+}
+/* What else answers the Xbox button (Game Bar, Steam), under the toggles. */
+.bp-toggle-note {
+  margin: calc(var(--s) * 0.2) calc(var(--s) * 1) 0;
+  font-size: calc(var(--s) * 0.78);
+  line-height: 1.45;
+}
 
 /* Profile ---------------------------------------------------------------------- */
 
