@@ -1391,6 +1391,14 @@ const pt: Record<string, string> = {
   'bp.install.where': 'Escolha onde instalar.',
   'bp.install.free': '{size} livres',
   'bp.install.cancelDownload': 'Cancelar download',
+  'bp.tab.news': 'Novidades',
+  'bp.tab.friends': 'Amigos',
+  'bp.news.tab.feed': 'Novidades do F95',
+  'bp.news.tab.updates': 'Suas atualizações',
+  'bp.news.tab.alerts': 'Alertas',
+  'bp.news.tab.activity': 'Sua atividade',
+  'bp.news.filter.updates': 'Atualizações',
+  'bp.news.feedError': 'Não foi possível carregar o feed',
 };
 
 export default pt;

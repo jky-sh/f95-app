@@ -1388,6 +1388,14 @@ const de: Record<string, string> = {
   'bp.install.where': 'Wähle, wo es installiert wird.',
   'bp.install.free': '{size} frei',
   'bp.install.cancelDownload': 'Download abbrechen',
+  'bp.tab.news': 'Neuigkeiten',
+  'bp.tab.friends': 'Freunde',
+  'bp.news.tab.feed': 'Neu auf F95',
+  'bp.news.tab.updates': 'Deine Updates',
+  'bp.news.tab.alerts': 'Benachrichtigungen',
+  'bp.news.tab.activity': 'Deine Aktivität',
+  'bp.news.filter.updates': 'Updates',
+  'bp.news.feedError': 'Feed konnte nicht geladen werden',
 };
 
 export default de;

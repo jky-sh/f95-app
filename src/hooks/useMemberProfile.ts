@@ -8,6 +8,15 @@ const FRESH_MS = 2 * 60 * 1000;
 const profiles = new Map<string, { data: MemberProfileDto; savedAt: number }>();
 const tabData = new Map<string, { data: unknown; savedAt: number }>();
 
+/**
+ * Unfollowed from a list: their page must not show "Following" from the
+ * cache (nor you among their followers), so the next visit loads it fresh.
+ */
+export function forgetMemberProfile(userId: string): void {
+  profiles.delete(userId);
+  tabData.delete(`${userId}:about`);
+}
+
 function formatErr(err: unknown): string {
   if (err && typeof err === 'object' && 'message' in err) {
     return String((err as { message: string }).message);

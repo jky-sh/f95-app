@@ -2723,6 +2723,347 @@ html[data-bp] .app-dialog-btn-danger:focus {
   animation: bp-fade-in 0.2s ease both;
 }
 
+/* News and friends ------------------------------------------------------------- */
+
+/* Six sections and a busy bar (a game running, downloads) don't always fit
+ * with their names: then the tabs show their icons only. The frame keeps
+ * to the window, so the tabs are what gives way, never the bar's edge. */
+.bp-frame {
+  grid-template-columns: minmax(0, 1fr);
+}
+.bp-tabs[data-compact] .bp-tab > span:not(.bp-count) {
+  display: none;
+}
+.bp-count--online {
+  background: var(--bp-green);
+  color: #0d1f10;
+}
+
+/* A section's title and status, its controls on a row below: on the way
+ * from the top bar to the content, not off to the side of it. */
+.bp-page-head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: calc(var(--s) * 0.8);
+  margin: calc(var(--s) * 1) 0 calc(var(--s) * 0.5);
+}
+.bp-page-head .bp-page-title {
+  margin: 0;
+}
+.bp-page-head-text {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: calc(var(--s) * 0.4) calc(var(--s) * 1.6);
+  min-width: 0;
+}
+.bp-page-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(var(--s) * 0.6);
+}
+.bp-page-tools > .bp-chip-row {
+  margin-left: calc(var(--s) * 0.8);
+}
+.bp-meta .bp-meta-online {
+  color: var(--bp-green);
+  font-weight: 600;
+}
+.bp-meta-online::before {
+  content: '';
+  width: 0.55em;
+  height: 0.55em;
+  border-radius: 50%;
+  background: var(--bp-green);
+}
+.bp-badge--role {
+  background: rgba(226, 58, 46, 0.2);
+  color: #ffb3ab;
+}
+
+/* Profile pictures scale with the rest of the interface. */
+.bp-profile-avatar .bp-avatar {
+  width: calc(var(--s) * 6.6);
+  height: calc(var(--s) * 6.6);
+}
+
+/* Alerts and notifications. */
+.bp-news-alerts-tools {
+  gap: calc(var(--s) * 1.2);
+  margin: calc(var(--s) * 0.4) 0 calc(var(--s) * 0.2);
+}
+.bp-alerts {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: calc(var(--s) * 56);
+}
+.bp-alert {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: calc(var(--s) * 0.9);
+  padding: calc(var(--s) * 0.55) calc(var(--s) * 0.8);
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.bp-alert:hover {
+  background: var(--bp-surface);
+}
+.bp-alert:focus {
+  background: var(--bp-surface-2);
+  box-shadow: 0 0 0 2px var(--bp-focus);
+}
+.bp-alert-media {
+  display: grid;
+  place-items: center;
+  width: calc(var(--s) * 4.6);
+  aspect-ratio: 16 / 9;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #1c1c20;
+  color: var(--bp-ink);
+  font-family: var(--bp-display);
+  font-size: calc(var(--s) * 1.1);
+  font-weight: 700;
+}
+.bp-alert-media--round {
+  width: calc(var(--s) * 2.6);
+  aspect-ratio: 1;
+  border-radius: 50%;
+}
+.bp-alert-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.bp-alert-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25em;
+  min-width: 0;
+}
+.bp-alert-text {
+  color: var(--bp-ink-2);
+  font-size: calc(var(--s) * 0.88);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.bp-alert.is-unread .bp-alert-text {
+  color: var(--bp-ink);
+  font-weight: 600;
+}
+.bp-alert-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3em 1em;
+  color: var(--bp-ink-3);
+  font-size: calc(var(--s) * 0.72);
+}
+.bp-alert-source {
+  color: var(--bp-ink-2);
+  font-weight: 600;
+}
+.bp-alert-dot {
+  width: calc(var(--s) * 0.55);
+  height: calc(var(--s) * 0.55);
+  border-radius: 50%;
+  background: var(--bp-red);
+}
+.bp-news-activity {
+  max-width: calc(var(--s) * 56);
+}
+
+/* Friends: a tile per member, cover strip on top and the avatar over it. */
+.bp-friends-group + .bp-friends-group {
+  margin-top: calc(var(--s) * 0.6);
+}
+.bp-grid--friends {
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--s) * 16), 1fr));
+  gap: calc(var(--s) * 1.1);
+}
+.bp-friend {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--s) * 0.5);
+  min-width: 0;
+  padding: 0 0 calc(var(--s) * 0.9);
+  border: 0;
+  border-radius: 12px;
+  background: var(--bp-panel);
+  color: var(--bp-ink-2);
+  text-align: left;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+  transition: transform 0.24s var(--bp-ease), box-shadow 0.24s ease;
+}
+.bp-friend:focus {
+  transform: scale(1.04);
+  box-shadow: 0 0 0 3px var(--bp-focus), 0 16px 36px rgba(0, 0, 0, 0.6);
+}
+.bp-root[data-phase='enter'] .bp-screen:not([hidden]) .bp-friend,
+.bp-grid[data-fresh] .bp-friend {
+  animation: bp-rise 0.55s var(--bp-ease) both;
+  animation-delay: calc(var(--i, 0) * 40ms + 100ms);
+}
+.bp-friend-cover {
+  height: calc(var(--s) * 4.2);
+  background-color: #1c1c20;
+  background-size: cover;
+  background-position: center;
+}
+.bp-friend-cover--empty {
+  background: radial-gradient(ellipse at 20% 0%, rgba(226, 58, 46, 0.3), transparent 65%),
+    linear-gradient(180deg, #26262b, #1a1a1e);
+}
+/* Only the avatar reaches up into the cover; the name stays on the panel. */
+.bp-friend-head {
+  display: flex;
+  align-items: flex-start;
+  gap: calc(var(--s) * 0.7);
+  padding: 0 calc(var(--s) * 0.9);
+}
+.bp-friend-avatar {
+  position: relative;
+  flex: none;
+  margin-top: calc(var(--s) * -1.9);
+}
+.bp-friend-avatar .bp-avatar {
+  width: calc(var(--s) * 3.8);
+  height: calc(var(--s) * 3.8);
+  box-shadow: 0 0 0 3px #18181b;
+  font-size: calc(var(--s) * 1.6);
+}
+.bp-friend-dot {
+  position: absolute;
+  right: 2%;
+  bottom: 2%;
+  width: 26%;
+  height: 26%;
+  border-radius: 50%;
+  background: var(--bp-green);
+  box-shadow: 0 0 0 3px #18181b;
+}
+.bp-friend-id {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15em;
+  min-width: 0;
+  padding-top: calc(var(--s) * 0.35);
+}
+.bp-friend-name {
+  overflow: hidden;
+  color: var(--bp-ink);
+  font-family: var(--bp-display);
+  font-size: calc(var(--s) * 1.05);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bp-friend-status {
+  color: var(--bp-ink-3);
+  font-size: calc(var(--s) * 0.75);
+  white-space: nowrap;
+}
+.bp-friend--online .bp-friend-status {
+  color: var(--bp-green);
+  font-weight: 600;
+}
+.bp-friend-status--loading {
+  width: 6em;
+  height: 0.9em;
+  border-radius: 4px;
+  background: var(--bp-surface-2);
+  animation: bp-pulse 1.2s ease-in-out infinite;
+}
+.bp-friend-sub,
+.bp-friend-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35em 1em;
+  min-width: 0;
+  padding: 0 calc(var(--s) * 0.9);
+  font-size: calc(var(--s) * 0.75);
+}
+.bp-friend-text {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--bp-ink-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bp-friend-stats > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+}
+.bp-friend-stats .ui-icon {
+  color: var(--bp-ink-3);
+}
+
+/* A member's About: who they follow and who follows them. */
+.bp-about-title {
+  margin: 0 0 calc(var(--s) * 0.8);
+  color: var(--bp-ink);
+  font-family: var(--bp-display);
+  font-size: calc(var(--s) * 1.15);
+  font-weight: 600;
+}
+.bp-people {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--s) * 0.4);
+  padding-top: calc(var(--s) * 0.3);
+}
+.bp-person {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35em;
+  width: calc(var(--s) * 4.6);
+  padding: calc(var(--s) * 0.45) calc(var(--s) * 0.2);
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--bp-ink-3);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.18s var(--bp-ease);
+}
+.bp-person:hover {
+  background: var(--bp-surface);
+}
+.bp-person:focus {
+  background: var(--bp-focus);
+  color: var(--bp-dark);
+  transform: scale(1.05);
+}
+.bp-person .bp-avatar {
+  width: calc(var(--s) * 3);
+  height: calc(var(--s) * 3);
+  font-size: calc(var(--s) * 1.2);
+}
+.bp-person--more .bp-avatar {
+  background: var(--bp-surface-2);
+  font-size: calc(var(--s) * 0.85);
+}
+.bp-person-name {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: calc(var(--s) * 0.68);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Layers: menu, options, viewer, launch ---------------------------------------- */
 
 .bp-layer {
