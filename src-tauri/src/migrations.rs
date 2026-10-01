@@ -272,3 +272,11 @@ CREATE TABLE install_versions (
 );
 CREATE INDEX idx_install_versions_thread ON install_versions(thread_id);
 "#;
+
+/// v12: the library and F95 section a download was started with, so Retry
+/// and the verification window's continue land the file in the same place
+/// (and resume its `.part`) instead of the default downloads folder.
+pub const V12_DOWNLOAD_LIBRARY_AND_GROUP: &str = r#"
+ALTER TABLE downloads ADD COLUMN library_path TEXT;
+ALTER TABLE downloads ADD COLUMN platform_group TEXT;
+"#;

@@ -119,6 +119,12 @@ pub fn run() {
             sql: migrations::V11_INSTALL_VERSIONS,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 12,
+            description: "downloads_library_and_group",
+            sql: migrations::V12_DOWNLOAD_LIBRARY_AND_GROUP,
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()
@@ -190,6 +196,8 @@ pub fn run() {
             download_start,
             download_continue_choice,
             download_continue_captcha,
+            commands::download_continue_verified,
+            commands::download_active_ids,
             open_captcha_window,
             close_captcha_window,
             download_cancel,

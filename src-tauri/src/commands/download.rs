@@ -61,3 +61,10 @@ pub async fn download_cancel(state: State<'_, AppState>, id: i64) -> Result<(), 
     state.downloader.cancel(id).await;
     Ok(())
 }
+
+/// Downloads the backend is still working on. The UI marks any other
+/// in-progress row as interrupted (the app was closed mid-download).
+#[tauri::command]
+pub async fn download_active_ids(state: State<'_, AppState>) -> Result<Vec<i64>, AppError> {
+    Ok(state.downloader.active_ids().await)
+}
