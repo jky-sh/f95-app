@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useT } from '../lib/i18n';
 import { handleTitleBarClose } from '../lib/tray';
+import { openBigPictureFrom } from '../lib/bigPicture';
+import { Icon } from './ui/Icon';
 
 /**
  * Custom title bar — replaces Windows' native chrome (we set
@@ -46,6 +48,17 @@ export function TitleBar() {
       </div>
 
       <div style={controlsStyle}>
+        <button
+          type="button"
+          style={btnStyle}
+          className="titlebar-btn titlebar-bigpicture"
+          onClick={(e) => openBigPictureFrom(e.currentTarget)}
+          aria-label={t('titlebar.bigPicture')}
+          title={t('titlebar.bigPicture')}
+        >
+          <Icon name="bigPicture" size={15} />
+        </button>
+        <span style={dividerStyle} aria-hidden />
         <button
           type="button"
           style={btnStyle}
@@ -137,6 +150,14 @@ const controlsStyle: React.CSSProperties = {
   height: '100%',
   // Make sure controls are NOT inside the drag region so the buttons
   // capture clicks normally.
+};
+
+const dividerStyle: React.CSSProperties = {
+  alignSelf: 'center',
+  width: 1,
+  height: 14,
+  marginRight: 4,
+  background: 'var(--border)',
 };
 
 const btnStyle: React.CSSProperties = {

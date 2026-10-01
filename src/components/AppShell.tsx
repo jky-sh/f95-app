@@ -15,6 +15,8 @@ import { LaunchingOverlay } from './LaunchingOverlay';
 import { CollectionPickerModal } from './library/CollectionPickerModal';
 import { GameDownloadModal } from './GameDownloadModal';
 import { CommandPalette } from './CommandPalette';
+import { BigPictureHost } from './bigpicture/BigPicture';
+import { openBigPicture } from '../lib/bigPicture';
 import { CatalogBootstrap } from './store/CatalogBootstrap';
 import { MainScrollRestoration } from './MainScrollRestoration';
 import { UpdateCheckScheduler } from './library/UpdateCheckControl';
@@ -52,6 +54,7 @@ export function AppShell({ profile, onLoggedOut }: Props) {
         openChangelog: () => {
           window.dispatchEvent(new CustomEvent('f95:open-version-modal'));
         },
+        openBigPicture: () => openBigPicture(null),
       }),
     [navigate],
   );
@@ -69,19 +72,24 @@ export function AppShell({ profile, onLoggedOut }: Props) {
                 <UpdateCheckScheduler />
                 <AchievementsBridge />
                 <div style={rootStyle} className="app-shell">
-                  <TitleBar />
-                  {steamNav && <SteamTopNav profile={profile} />}
-                  <div style={bodyStyle} className="app-shell-body">
-                    {!steamNav && <Sidebar profile={profile} />}
-                    <main style={contentStyle} className="app-main">
-                      <Outlet context={{ profile, onLoggedOut }} />
-                    </main>
+                  {/* The desktop chrome, apart from the dialogs below so Big
+                      Picture can push it back without moving them. */}
+                  <div style={frameStyle} className="app-shell-frame">
+                    <TitleBar />
+                    {steamNav && <SteamTopNav profile={profile} />}
+                    <div style={bodyStyle} className="app-shell-body">
+                      {!steamNav && <Sidebar profile={profile} />}
+                      <main style={contentStyle} className="app-main">
+                        <Outlet context={{ profile, onLoggedOut }} />
+                      </main>
+                    </div>
+                    <StatusBar />
                   </div>
-                  <StatusBar />
                   <LaunchingOverlay />
                   <CollectionPickerModal />
                   <GameDownloadModal />
                   <CommandPalette />
+                  <BigPictureHost profile={profile} />
                 </div>
               </PrefixCatalogProvider>
             </TagCatalogProvider>
@@ -100,6 +108,13 @@ const rootStyle: React.CSSProperties = {
   background: 'var(--bg-base)',
   color: 'var(--text-secondary)',
   overflow: 'hidden',
+};
+
+const frameStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  flex: 1,
+  minHeight: 0,
 };
 
 const bodyStyle: React.CSSProperties = {

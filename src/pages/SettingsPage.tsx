@@ -43,6 +43,7 @@ import {
 } from '../lib/overlayHotkey';
 import { LoadingState } from '../components/ui/LoadingState';
 import { AchievementsSettingsCard } from '../components/settings/AchievementsSettingsCard';
+import { BigPictureSettingsCard } from '../components/settings/BigPictureSettingsCard';
 import { Icon, type IconName } from '../components/ui/Icon';
 import {
   loadAppRuntimeSettings,
@@ -1056,6 +1057,8 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                 )}
               </div>
             </div>
+
+            <BigPictureSettingsCard />
           </section>
 
           <section id="settings-storage" className="settings-section" hidden={activeSection !== 'storage'}>

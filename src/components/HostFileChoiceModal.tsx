@@ -56,7 +56,13 @@ export function HostFileChoiceModal({
 
   return (
     <div style={overlayStyle} onClick={onCancel}>
-      <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
+      <div
+        style={modalStyle}
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('modal.hostFile.title')}
+        onClick={(e) => e.stopPropagation()}
+      >
         <h2 style={titleStyle}>{t('modal.hostFile.title')}</h2>
         <p style={descStyle}>
           {t('modal.hostFile.description', { host, count: sortedFiles.length })}

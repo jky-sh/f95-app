@@ -19,6 +19,7 @@ export type TrayNavigateTarget =
 export function startTrayActionBridge(options: {
   navigate: (to: TrayNavigateTarget) => void;
   openChangelog: () => void;
+  openBigPicture: () => void;
 }): () => void {
   let active = true;
   let unlisten: (() => void) | null = null;
@@ -46,12 +47,17 @@ async function handleTrayAction(
   options: {
     navigate: (to: TrayNavigateTarget) => void;
     openChangelog: () => void;
+    openBigPicture: () => void;
   },
 ): Promise<void> {
   const { action, threadId } = payload;
   switch (action) {
     case 'show':
       await showMainWindow();
+      break;
+    case 'big-picture':
+      await showMainWindow();
+      options.openBigPicture();
       break;
     case 'library':
       await showMainWindow();

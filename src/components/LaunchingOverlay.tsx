@@ -5,6 +5,7 @@ import {
   type LaunchEntry,
 } from '../contexts/RunningGames';
 import { useT } from '../lib/i18n';
+import { useBigPictureState } from '../lib/bigPicture';
 import { Spinner } from './ui/Spinner';
 import { formatPlaytime } from '../types/library';
 
@@ -20,7 +21,9 @@ import { formatPlaytime } from '../types/library';
  */
 export function LaunchingOverlay() {
   const { launching } = useRunningGames();
-  if (launching.size === 0) return null;
+  // Big Picture shows its own full-screen launch screen (and dismisses it).
+  const bigPicture = useBigPictureState().status !== 'closed';
+  if (launching.size === 0 || bigPicture) return null;
 
   return (
     <div style={stackStyle}>

@@ -9,7 +9,8 @@ import {
   shouldUseFolderNav,
   type MediaFolderGroup,
 } from '../../lib/mediaFolders';
-import { naturalSortBy, sortPaths } from '../../lib/naturalSort';
+import { sortPaths } from '../../lib/naturalSort';
+import { buildMediaItems, pageLabel } from '../../lib/mediaItems';
 import { useT } from '../../lib/i18n';
 import type { InstallMediaIndex, MediaViewItem } from '../../types/media';
 import type { LibraryGame } from '../../types/library';
@@ -49,7 +50,7 @@ export function MediaViewer({ game, onClose }: Props) {
   const [fitMode, setFitMode] = useState<FitMode>('contain');
   const [activeFolderRel, setActiveFolderRel] = useState<string | null>(null);
 
-  const items = useMemo(() => (index ? buildItems(index) : []), [index]);
+  const items = useMemo(() => (index ? buildMediaItems(index) : []), [index]);
   const imageItems = useMemo(() => items.filter((i) => i.kind === 'image'), [items]);
   const videoItems = useMemo(() => items.filter((i) => i.kind === 'video'), [items]);
 
@@ -150,7 +151,7 @@ export function MediaViewer({ game, onClose }: Props) {
       .then(async (idx) => {
         if (cancelled) return;
         setIndex(idx);
-        const built = buildItems(idx);
+        const built = buildMediaItems(idx);
         const folderItems =
           game.category === 'animations'
             ? built.filter((i) => i.kind === 'image' || i.kind === 'video')
@@ -719,35 +720,6 @@ function buildImageSequence(
     index: index >= 0 ? index : 0,
     activePath: path,
   };
-}
-
-function buildItems(index: InstallMediaIndex): MediaViewItem[] {
-  const out: MediaViewItem[] = [];
-  const images = naturalSortBy(index.images, (f) => f.path.replace(/\\/g, '/'));
-  for (const f of images) {
-    out.push({ kind: 'image', path: f.path, name: f.name, size: f.size });
-  }
-  const videos = naturalSortBy(index.videos, (f) => f.name);
-  for (const f of videos) {
-    out.push({ kind: 'video', path: f.path, name: f.name, size: f.size });
-  }
-  const pdfs = naturalSortBy(index.pdfs, (f) => f.path.replace(/\\/g, '/'));
-  for (const f of pdfs) {
-    out.push({ kind: 'pdf', path: f.path, name: f.name });
-  }
-  const archives = naturalSortBy(index.archives, (f) => f.path.replace(/\\/g, '/'));
-  for (const f of archives) {
-    const ext = f.name.split('.').pop()?.toLowerCase() ?? '';
-    if (ext === 'cbz' || ext === 'cbr') {
-      out.push({ kind: 'cbz', path: f.path, name: f.name });
-    }
-  }
-  return out;
-}
-
-function pageLabel(path: string, fallbackNum: number): string {
-  const base = path.replace(/\\/g, '/').split('/').pop() ?? '';
-  return base || `Page ${fallbackNum}`;
 }
 
 function toAssetUrl(path: string): string {

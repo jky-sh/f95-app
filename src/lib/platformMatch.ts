@@ -120,6 +120,20 @@ function targetOsFromGroup(group: string): OsKind[] {
   return targets;
 }
 
+/** The system the app runs on, from the webview's user agent. */
+export function currentOs(): OsKind {
+  const ua = navigator.userAgent;
+  if (/Android/i.test(ua)) return 'android';
+  if (/Windows/i.test(ua)) return 'windows';
+  if (/Mac OS|Macintosh/i.test(ua)) return 'mac';
+  return 'linux';
+}
+
+/** Whether a thread's download section ("Win/Linux", "PC", "Mac") is meant for `os`. */
+export function groupFitsOs(group: string, os: OsKind): boolean {
+  return targetOsFromGroup(group).includes(os);
+}
+
 export function inferPlatformLabel(fileName: string): string | null {
   const scores = fileOsScores(fileName);
   let best: { os: OsKind; score: number } | null = null;
