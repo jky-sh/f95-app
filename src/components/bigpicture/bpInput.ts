@@ -130,6 +130,8 @@ const REPEAT_FAST_MS = 60;
 const SCROLL_DEADZONE = 0.15;
 /** Pixels per frame at full tilt (about 2,700 px/s at 60 fps); gentle near the center. */
 const SCROLL_SPEED = 46;
+/** No frame for this long: the window was hidden or minimized meanwhile. */
+const FRAME_GAP_MS = 500;
 
 interface GamepadHandlers {
   onAction: (action: BpAction) => void;
@@ -156,12 +158,22 @@ export function useGamepad(enabled: boolean, handlers: GamepadHandlers): void {
     let nextRepeat = 0;
     let repeats = 0;
     let resync = true;
+    let lastFrame = 0;
+    // Frames stop while the window is hidden to the tray or minimized, so the
+    // loop alone may never see the focus go: these mark it from outside.
+    const lostFocus = () => {
+      resync = true;
+      heldDir = null;
+    };
+    window.addEventListener('blur', lostFocus);
+    document.addEventListener('visibilitychange', lostFocus);
 
     const loop = (now: number) => {
       raf = requestAnimationFrame(loop);
+      if (now - lastFrame > FRAME_GAP_MS) resync = true;
+      lastFrame = now;
       if (!document.hasFocus()) {
-        resync = true;
-        heldDir = null;
+        lostFocus();
         return;
       }
       let dir: BpDirection | null = null;
@@ -226,7 +238,11 @@ export function useGamepad(enabled: boolean, handlers: GamepadHandlers): void {
       }
     };
     raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('blur', lostFocus);
+      document.removeEventListener('visibilitychange', lostFocus);
+    };
   }, [enabled]);
 }
 
