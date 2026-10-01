@@ -4,6 +4,7 @@ import * as library from '../lib/library';
 import { useT } from '../lib/i18n';
 import { useSectionHref } from '../lib/lastSearch';
 import { storeLink } from '../lib/storeQuery';
+import { openBigPicture } from '../lib/bigPicture';
 import { statusKey, type LibraryGame } from '../types/library';
 import { LibraryCover } from './library/LibraryCover';
 import { Icon, type IconName } from './ui/Icon';
@@ -25,6 +26,8 @@ interface Entry {
   icon?: IconName;
   game?: LibraryGame;
   to: string;
+  /** Instead of navigating to `to`. */
+  run?: () => void;
 }
 
 const GROUP_ORDER: Group[] = ['recent', 'library', 'store', 'pages'];
@@ -175,6 +178,14 @@ export function CommandPalette() {
         icon: p.icon,
         to: p.to === '/store' ? storeHref : p.to === '/library' ? libraryHref : p.to,
       })),
+      {
+        id: 'big-picture',
+        group: 'pages',
+        label: t('bp.open'),
+        icon: 'bigPicture',
+        to: '',
+        run: () => openBigPicture(null),
+      },
       ...SETTINGS_SECTIONS.map((s) => ({
         id: `settings-${s.id}`,
         group: 'pages' as const,
@@ -183,8 +194,8 @@ export function CommandPalette() {
         to: s.id === 'appearance' ? '/settings' : `/settings?section=${s.id}`,
       })),
     ];
-    // Without a query the list stays short: the main pages only.
-    out.push(...(tokens.length ? pages.filter((p) => matches(p.label, tokens)) : pages.slice(0, PAGES.length)));
+    // Without a query the list stays short: the main pages and Big Picture.
+    out.push(...(tokens.length ? pages.filter((p) => matches(p.label, tokens)) : pages.slice(0, PAGES.length + 1)));
     return out;
   }, [games, query, t, storeHref, libraryHref]);
 
@@ -200,7 +211,8 @@ export function CommandPalette() {
   function run(entry: Entry | undefined) {
     if (!entry) return;
     setOpen(false);
-    navigate(entry.to);
+    if (entry.run) entry.run();
+    else navigate(entry.to);
   }
 
   function onKeyDown(e: React.KeyboardEvent) {

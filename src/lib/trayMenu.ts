@@ -13,6 +13,7 @@ export const TRAY_MENU_OPEN_EVENT = 'tray-menu:open';
 
 export type TrayMenuAction =
   | 'show'
+  | 'big-picture'
   | 'library'
   | 'downloads'
   | 'settings'

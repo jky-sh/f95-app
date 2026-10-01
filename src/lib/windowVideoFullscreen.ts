@@ -25,16 +25,33 @@ export function isCustomVideoFullscreen(container: HTMLElement | null): boolean 
   return fs === container || fs === target;
 }
 
+/** A janela estava maximizada antes do fullscreen do vídeo. */
+let restoreMaximized = false;
+
 /**
- * Maximizar quebra o cálculo de :fullscreen no WebView2/Tauri.
+ * Maximizar quebra o cálculo de :fullscreen no WebView2/Tauri (sobra uma faixa
+ * preta da altura da barra de tarefas): restaura a janela antes.
  */
 export async function prepareWindowForVideoFullscreen(): Promise<void> {
   try {
     const win = getCurrentWindow();
     if (await win.isMaximized()) {
       await win.unmaximize();
+      restoreMaximized = true;
       await waitForWindowLayout();
     }
+  } catch {
+    /* browser dev */
+  }
+}
+
+/** Ao sair do fullscreen do vídeo: maximiza de novo se estava maximizada. */
+export async function restoreWindowAfterVideoFullscreen(): Promise<void> {
+  if (!restoreMaximized) return;
+  restoreMaximized = false;
+  try {
+    await waitForWindowLayout();
+    await getCurrentWindow().maximize();
   } catch {
     /* browser dev */
   }

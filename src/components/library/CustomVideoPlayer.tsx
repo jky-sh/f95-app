@@ -7,6 +7,7 @@ import {
   getVideoFullscreenTarget,
   isCustomVideoFullscreen,
   prepareWindowForVideoFullscreen,
+  restoreWindowAfterVideoFullscreen,
   setVideoFullscreenChrome,
 } from '../../lib/windowVideoFullscreen';
 
@@ -90,6 +91,7 @@ export function CustomVideoPlayer({ src, filePath, title }: Props) {
         requestAnimationFrame(() => applyNativeFullscreenLayout(el));
       } else {
         clearNativeFullscreenLayout(el);
+        void restoreWindowAfterVideoFullscreen();
       }
     };
     const onPip = () => {

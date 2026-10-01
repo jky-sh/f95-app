@@ -30,3 +30,5 @@ button.settings-version-badge:hover { color: var(--text-primary); border-color: 
 
 /* Steam: the active entry is already an accent slab, so its icon follows the text. */
 :root[data-skin='steam'] .settings-nav-item-active .settings-nav-icon { color: inherit; }
+
+.settings-bigpicture-actions { display: flex; margin-top: 14px; }

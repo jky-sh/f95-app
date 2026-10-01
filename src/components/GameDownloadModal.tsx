@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { isBigPictureOpen } from '../lib/bigPicture';
 import { loadGameDetail } from '../lib/gameDetailCache';
 import {
   GAME_DOWNLOAD_MODAL_EVENT,
@@ -32,7 +33,8 @@ export function GameDownloadModal() {
   useEffect(() => {
     function onOpen(e: Event) {
       const detail = (e as CustomEvent<GameDownloadModalDetail>).detail;
-      if (!detail?.threadId) return;
+      // Big Picture answers with its own install panel.
+      if (!detail?.threadId || isBigPictureOpen()) return;
       setRequest(detail);
     }
     window.addEventListener(GAME_DOWNLOAD_MODAL_EVENT, onOpen);
@@ -64,6 +66,15 @@ export function GameDownloadModal() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [request]);
 
+  useEffect(() => {
+    if (!request) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setRequest(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [request]);
+
   if (!request) return null;
 
   const close = () => setRequest(null);
@@ -81,7 +92,13 @@ export function GameDownloadModal() {
 
   return (
     <div style={overlayStyle} onClick={close}>
-      <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
+      <div
+        style={modalStyle}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        onClick={(e) => e.stopPropagation()}
+      >
         <h2 style={titleStyle}>{title}</h2>
         <div style={descStyle}>{hint}</div>
 

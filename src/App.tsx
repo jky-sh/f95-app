@@ -44,6 +44,7 @@ import './styles/profile.css';
 import './styles/achievements.css';
 import './styles/command-palette.css';
 import './styles/page-chrome.css';
+import './styles/big-picture.css';
 
 type AppWindowKind = 'login' | 'main' | 'overlay' | 'overlay-hint' | 'tray-menu';
 

@@ -20,7 +20,10 @@ interface NavItem {
   labelKey: string;
 }
 
-const TOP_ITEMS: NavItem[] = [{ id: 'show', labelKey: 'tray.show' }];
+const TOP_ITEMS: NavItem[] = [
+  { id: 'show', labelKey: 'tray.show' },
+  { id: 'big-picture', labelKey: 'tray.bigPicture' },
+];
 
 const BOTTOM_ITEMS: NavItem[] = [
   { id: 'downloads', labelKey: 'tray.downloads' },
