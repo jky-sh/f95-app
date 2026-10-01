@@ -86,6 +86,11 @@ impl PadTriggers {
         self.chord_since.is_some() && !self.chord_latched
     }
 
+    /// The Xbox button goes down with these buttons (checked before `step`).
+    fn guide_pressed(&self, buttons: u16) -> bool {
+        buttons & !self.last & GUIDE != 0
+    }
+
     fn step(&mut self, buttons: u16, now: Instant, on: Enabled) -> Option<Trigger> {
         let pressed = buttons & !self.last;
         let released = self.last & !buttons;
@@ -190,7 +195,7 @@ mod win {
         Cooldown, Enabled, PadTriggers, Trigger, CHORD_ENABLED, GUIDE_ENABLED, OPEN_REQUEST_EVENT,
     };
     use std::sync::atomic::Ordering;
-    use std::sync::OnceLock;
+    use std::sync::{Arc, Mutex, OnceLock};
     use std::time::{Duration, Instant};
     use tauri::{AppHandle, Emitter, Manager};
     use windows::core::{s, w, PCSTR};
@@ -264,6 +269,8 @@ mod win {
     struct Pad {
         packet: u32,
         triggers: PadTriggers,
+        /// The window in front when the Xbox button went down.
+        guide_fg: Option<isize>,
     }
 
     pub fn start(app: AppHandle) {
@@ -281,7 +288,7 @@ mod win {
             return;
         };
         let mut pads: [Option<Pad>; XUSER_MAX_COUNT as usize] = Default::default();
-        let mut cooldown = Cooldown::default();
+        let cooldown = Arc::new(Mutex::new(Cooldown::default()));
         let mut next_probe = Instant::now();
         loop {
             let on = Enabled {
@@ -311,7 +318,11 @@ mod win {
                     continue;
                 };
                 let Some(p) = pad else {
-                    *pad = Some(Pad { packet, triggers: PadTriggers::seeded(buttons) });
+                    *pad = Some(Pad {
+                        packet,
+                        triggers: PadTriggers::seeded(buttons),
+                        guide_fg: None,
+                    });
                     continue;
                 };
                 // Same packet: nothing changed, unless a hold is being timed.
@@ -319,10 +330,17 @@ mod win {
                     continue;
                 }
                 p.packet = packet;
+                // Noted on the press: by the release, Game Bar or Steam (opened
+                // by the same press) may be the window in front.
+                if p.triggers.guide_pressed(buttons) {
+                    p.guide_fg = crate::game_window::capture_foreground_hwnd();
+                }
                 if let Some(trigger) = p.triggers.step(buttons, now, on) {
-                    if cooldown.allow(now) {
-                        fire(&app, trigger);
-                    }
+                    let fg = match trigger {
+                        Trigger::Guide => p.guide_fg.take(),
+                        Trigger::Chord => crate::game_window::capture_foreground_hwnd(),
+                    };
+                    fire(&app, trigger, fg, now, cooldown.clone());
                 }
             }
 
@@ -331,13 +349,24 @@ mod win {
         }
     }
 
-    fn fire(app: &AppHandle, trigger: Trigger) {
-        // Taken now: by the time the async checks run, focus may have moved.
-        let fg = crate::game_window::capture_foreground_hwnd();
+    /// `fg` is the window that was in front for this gesture, taken in the
+    /// polling thread: by the time the async checks run, focus may have moved.
+    fn fire(
+        app: &AppHandle,
+        trigger: Trigger,
+        fg: Option<isize>,
+        at: Instant,
+        cooldown: Arc<Mutex<Cooldown>>,
+    ) {
         let app = app.clone();
         tauri::async_runtime::spawn(async move {
             if let Some(reason) = suppressed(&app, fg).await {
                 eprintln!("[big-picture] {} ignored: {reason}", trigger.source());
+                return;
+            }
+            // Counted only for an open that goes ahead, so an ignored press
+            // doesn't swallow a retry.
+            if !cooldown.lock().is_ok_and(|mut c| c.allow(at)) {
                 return;
             }
             let Some(main) = app.get_webview_window("main") else {
@@ -466,6 +495,19 @@ mod tests {
         assert_eq!(pad.step(0, ms(t, 100), ON), None);
         pad.step(GUIDE, ms(t, 300), ON);
         assert_eq!(pad.step(0, ms(t, 400), ON), Some(Trigger::Guide));
+    }
+
+    #[test]
+    fn guide_press_edge_is_seen_once() {
+        let t = Instant::now();
+        let mut pad = PadTriggers::seeded(GUIDE);
+        // Held since before we looked: not a press.
+        assert!(!pad.guide_pressed(GUIDE));
+        pad.step(0, t, ON);
+        assert!(pad.guide_pressed(GUIDE | BACK));
+        pad.step(GUIDE, ms(t, 50), ON);
+        assert!(!pad.guide_pressed(GUIDE));
+        assert!(!pad.guide_pressed(0));
     }
 
     #[test]
