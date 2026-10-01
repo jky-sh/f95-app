@@ -230,6 +230,11 @@ export async function downloadActiveIds(): Promise<number[]> {
   return invoke('download_active_ids');
 }
 
+/** Closes a download's verification window, if one is open. */
+export async function closeCaptchaWindow(downloadId: number): Promise<void> {
+  return invoke('close_captcha_window', { downloadId });
+}
+
 export async function revealInExplorer(path: string): Promise<void> {
   return invoke('reveal_in_explorer', { path });
 }

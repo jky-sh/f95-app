@@ -1,7 +1,8 @@
+use super::captcha::captcha_window_label;
 use super::state::{ensure_sidecar, AppState};
 use crate::error::AppError;
 use std::path::PathBuf;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager as _, State};
 
 /// `platform_group` is the F95 section label (e.g. "Win/Linux") — used to
 /// auto-pick the PC build when a GoFile folder has several files.
@@ -57,8 +58,17 @@ pub async fn download_continue_choice(
 }
 
 #[tauri::command]
-pub async fn download_cancel(state: State<'_, AppState>, id: i64) -> Result<(), AppError> {
+pub async fn download_cancel(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: i64,
+) -> Result<(), AppError> {
     state.downloader.cancel(id).await;
+    // The verification window stays on top (also over Big Picture) and a
+    // check passed later would start the download again.
+    if let Some(win) = app.get_webview_window(&captcha_window_label(id)) {
+        let _ = win.close();
+    }
     Ok(())
 }
 

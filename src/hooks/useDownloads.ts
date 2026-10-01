@@ -256,6 +256,7 @@ interface VerifiedPayload {
 const DOWNLOAD_ERROR_CODES = new Set([
   'file_gone',
   'link_expired',
+  'link_refused',
   'session_expired',
   'host_busy',
   'host_offline',
@@ -538,10 +539,12 @@ export function useDownloads(options?: UseDownloadsOptions): {
       );
       unlisten.push(
         // The verification window found the download link: queue the row
-        // again and download it into the library it was meant for.
+        // again and download it into the library it was meant for. Only a
+        // row still waiting on the check: a cancelled or removed one stays
+        // that way (the window closes itself after the capture).
         await listen<VerifiedPayload>('download:verified', async (e) => {
           const row = await downloads.get(e.payload.id);
-          if (!row) return;
+          if (!row || row.state !== 'needs_browser') return;
           await downloads.markRetry(row.id);
           try {
             await ipc.downloadContinueVerified({

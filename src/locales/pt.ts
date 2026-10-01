@@ -833,6 +833,7 @@ const pt: Record<string, string> = {
   'dl.error.stalled': 'O download parou de receber dados. Tente de novo para continuar.',
   'dl.error.html_page': 'O host mandou uma página em vez do arquivo. Abra o link no navegador.',
   'dl.error.interrupted': 'Interrompido quando o app fechou. Tente de novo para continuar.',
+  'dl.error.link_refused': 'O host recusou o link que tinha acabado de gerar (bloqueio ou falha no armazenamento). Tente mais tarde ou abra no navegador.',
   'modal.hostFile.title': 'Vários arquivos neste link',
   'modal.hostFile.description':
     'O {host} listou {count} arquivos. Escolha qual versão baixar.',

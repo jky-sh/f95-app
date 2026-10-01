@@ -828,6 +828,9 @@ const de: Record<string, string> = {
   'dl.error.stalled': 'Der Download empfängt keine Daten mehr. Erneut versuchen setzt ihn fort.',
   'dl.error.html_page': 'Der Hoster hat eine Webseite statt der Datei geschickt. Öffne den Link im Browser.',
   'dl.error.interrupted': 'Beim Schließen der App unterbrochen. Erneut versuchen setzt ihn fort.',
+  'dl.error.link_refused': 'Der Hoster hat den Link abgelehnt, den er gerade ausgegeben hat (Sperre oder Speicherfehler). Versuche es später erneut oder öffne ihn im Browser.',
+  'downloads.action.continueCaptcha': 'Download fortsetzen',
+  'downloads.action.continuingCaptcha': 'Wird fortgesetzt…',
   'modal.hostFile.title': 'Mehrere Dateien in diesem Link',
   'modal.hostFile.description':
     '{host} listet {count} Dateien. Wähle die gewünschte Version.',

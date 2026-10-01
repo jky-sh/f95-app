@@ -71,6 +71,21 @@ fn status_error(status: StatusCode) -> AppError {
     }
 }
 
+/// Why a link the verification window just captured can't be used, from the
+/// probe's reply. `None` when it looks like the file.
+fn probe_error(status: StatusCode, html: bool) -> Option<AppError> {
+    let msg = format!("http status: {status}");
+    match status.as_u16() {
+        404 | 410 => Some(AppError::download("file_gone", msg)),
+        401 | 403 => Some(AppError::download("link_refused", msg)),
+        _ if status.is_success() && html => Some(AppError::download(
+            "html_page",
+            "download: the host sent a web page instead of the file",
+        )),
+        _ => None,
+    }
+}
+
 /// Next body chunk, failing when nothing arrives for `STALL_TIMEOUT`.
 async fn next_chunk<S, B>(stream: &mut S) -> Result<Option<B>, AppError>
 where
@@ -609,8 +624,9 @@ impl Manager {
     }
 
     /// Download a link the verification window captured (VikingFile,
-    /// AkiraBox). The link is checked first: an expired one sends the row
-    /// back to the window instead of failing.
+    /// AkiraBox). The link is checked first: one the host already refuses
+    /// fails with a coded error (Retry runs the check again) instead of
+    /// reopening the window in a loop.
     #[allow(clippy::too_many_arguments)]
     pub async fn start_verified(
         self: &Arc<Self>,
@@ -695,19 +711,16 @@ impl Manager {
         );
 
         let mut url = url;
-        if !self.link_alive(&url, &extra_headers).await {
+        if let Some(err) = self.probe_link(&url, &extra_headers).await {
             // akirabox.to may wall the link behind a Cloudflare check; the
             // same path on akirabox.com does not.
             match akirabox::alternate_link(&url) {
-                Some(alt) if self.link_alive(&alt, &extra_headers).await => url = alt,
-                _ => {
-                    crate::dev_debug::log(Some(app), host, "verified link expired, asking again");
-                    let _ = app.emit(
-                        "download:needs-browser",
-                        json!({ "id": id, "url": page_url, "host": host, "captcha": true }),
-                    );
-                    return Ok(());
-                }
+                Some(alt) if self.probe_link(&alt, &extra_headers).await.is_none() => url = alt,
+                // The link is seconds old, so this is not expiry: the host
+                // refuses this client or its storage is failing. Sending the
+                // row back to the window would only loop, so fail and let
+                // Retry start over.
+                _ => return Err(err),
             }
         }
 
@@ -725,24 +738,25 @@ impl Manager {
         .await
     }
 
-    /// One-byte GET (HEAD fails on signed R2 URLs): false when the link is
-    /// refused, gone or answers with a web page.
-    async fn link_alive(&self, url: &str, extra_headers: &[(String, String)]) -> bool {
+    /// One-byte GET (HEAD fails on signed R2 URLs). The error to report when
+    /// the link is refused, gone or answers with a web page; `None` when it
+    /// looks like the file.
+    async fn probe_link(&self, url: &str, extra_headers: &[(String, String)]) -> Option<AppError> {
         let mut req = self.http.get(url).header(RANGE, "bytes=0-0");
         for (k, v) in extra_headers {
             req = req.header(k.as_str(), v.as_str());
         }
         let Ok(Ok(resp)) = tokio::time::timeout(STALL_TIMEOUT, req.send()).await else {
-            // Network trouble is not expiry; let the download report it.
-            return true;
+            // Network trouble is not a dead link; let the download report it.
+            return None;
         };
         let status = resp.status();
         let html = resp
             .headers()
             .get(CONTENT_TYPE)
             .and_then(|v| v.to_str().ok())
-            .is_some_and(|t| t.contains("text/html"));
-        !(matches!(status.as_u16(), 401 | 403 | 404 | 410) || (status.is_success() && html))
+            .is_some_and(|t| t.to_ascii_lowercase().contains("text/html"));
+        probe_error(status, html)
     }
 
     /// Resume after the user picks one file from a multi-build folder.
@@ -794,6 +808,9 @@ impl Manager {
 
         let handle = tokio::spawn(async move {
             let result = async {
+                // The file is chosen: leave "Choose file" before a possibly
+                // long wait for the host's single download slot.
+                let _ = app2.emit("download:resolving", json!({ "id": id }));
                 let _slot = me.host_slot(&host).await;
                 // UploadNow links are minted only for the file actually taken.
                 let direct_url = if direct_url.starts_with(uploadnow::SENTINEL_PREFIX) {
@@ -1432,5 +1449,29 @@ impl Manager {
                 host: label,
             }),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn code(status: u16, html: bool) -> Option<&'static str> {
+        probe_error(StatusCode::from_u16(status).unwrap(), html).map(|e| e.code())
+    }
+
+    #[test]
+    fn probe_maps_a_dead_verified_link_to_a_final_error() {
+        assert_eq!(code(206, false), None);
+        assert_eq!(code(200, false), None);
+        // A redirect the client did not follow, or a server hiccup, is left
+        // for the download itself to report.
+        assert_eq!(code(302, false), None);
+        assert_eq!(code(503, true), None);
+        assert_eq!(code(404, false), Some("file_gone"));
+        assert_eq!(code(410, true), Some("file_gone"));
+        assert_eq!(code(403, true), Some("link_refused"));
+        assert_eq!(code(401, false), Some("link_refused"));
+        assert_eq!(code(200, true), Some("html_page"));
     }
 }

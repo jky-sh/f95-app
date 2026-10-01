@@ -118,6 +118,7 @@ export async function listByThread(threadId: string): Promise<DownloadRow[]> {
 export async function remove(id: number): Promise<void> {
   const row = await get(id);
   if (row) {
+    await closeVerifyWindow(row);
     await deleteRowFiles(row);
   }
   await execute(`DELETE FROM downloads WHERE id = ?`, [id]);
@@ -129,11 +130,23 @@ export async function clearFinished(): Promise<void> {
     `SELECT * FROM downloads WHERE state IN ('completed','cancelled','failed','needs_browser')`,
   );
   for (const row of rows) {
-    await deleteRowFiles(rowToDownload(row));
+    const download = rowToDownload(row);
+    await closeVerifyWindow(download);
+    await deleteRowFiles(download);
   }
   await execute(
     `DELETE FROM downloads WHERE state IN ('completed','cancelled','failed','needs_browser')`,
   );
+}
+
+/** A removed row must not leave its always-on-top verification window open. */
+async function closeVerifyWindow(row: DownloadRow): Promise<void> {
+  if (row.state === 'completed') return;
+  try {
+    await ipc.closeCaptchaWindow(row.id);
+  } catch (err) {
+    console.warn('[downloads] failed to close verification window', row.id, err);
+  }
 }
 
 /** Delete the downloaded archive/file (and any `.part` sibling) for a row. */
