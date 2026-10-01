@@ -1313,6 +1313,14 @@ const ru: Record<string, string> = {
   'bp.install.where': 'Выберите, куда установить.',
   'bp.install.free': 'Свободно {size}',
   'bp.install.cancelDownload': 'Отменить загрузку',
+  'bp.tab.news': 'Новости',
+  'bp.tab.friends': 'Друзья',
+  'bp.news.tab.feed': 'Новое на F95',
+  'bp.news.tab.updates': 'Ваши обновления',
+  'bp.news.tab.alerts': 'Оповещения',
+  'bp.news.tab.activity': 'Ваша активность',
+  'bp.news.filter.updates': 'Обновления',
+  'bp.news.feedError': 'Не удалось загрузить ленту',
 };
 
 export default ru;

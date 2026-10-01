@@ -1,7 +1,9 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useDownloads } from '../../contexts/Downloads';
+import { useNotifications } from '../../contexts/Notifications';
 import { useOffline } from '../../contexts/Offline';
 import { useRunningGames } from '../../contexts/RunningGames';
+import { useFriendsOnline } from '../../hooks/useFriendsOnline';
 import { useNavCounts } from '../../hooks/useNavCounts';
 import { useNow } from '../../hooks/useNow';
 import { useT } from '../../lib/i18n';
@@ -19,6 +21,8 @@ const TAB_LABEL: Record<BpTab, string> = {
   home: 'bp.tab.home',
   library: 'bp.tab.library',
   store: 'bp.tab.store',
+  news: 'bp.tab.news',
+  friends: 'bp.tab.friends',
   downloads: 'bp.tab.downloads',
 };
 
@@ -26,15 +30,57 @@ const TAB_ICON: Record<BpTab, IconName> = {
   home: 'home',
   library: 'library',
   store: 'store',
+  news: 'news',
+  friends: 'users',
   downloads: 'download',
 };
 
-export function BpAvatar({ profile, size = 36 }: { profile: ProfileDto; size?: number }) {
-  return profile.avatarUrl ? (
-    <img className="bp-avatar" src={profile.avatarUrl} alt="" style={{ width: size, height: size }} />
+/**
+ * A member's picture, or their initial. `size` is in pixels; null leaves it
+ * to the stylesheet (lists sized with the rest of Big Picture).
+ */
+export function BpAvatar({
+  profile,
+  size = 36,
+  className,
+}: {
+  profile: Pick<ProfileDto, 'avatarUrl' | 'username'>;
+  size?: number | null;
+  className?: string;
+}) {
+  // A picture F95 no longer serves falls back to the initial.
+  const [failed, setFailed] = useState<string | null>(null);
+  const style = size == null ? undefined : { width: size, height: size };
+  const cls = className ? `bp-avatar ${className}` : 'bp-avatar';
+  return profile.avatarUrl && failed !== profile.avatarUrl ? (
+    <img className={cls} src={profile.avatarUrl} alt="" style={style} onError={() => setFailed(profile.avatarUrl)} />
   ) : (
-    <span className="bp-avatar bp-avatar--letter" style={{ width: size, height: size }}>
+    <span className={`${cls} bp-avatar--letter`} style={style}>
       {profile.username.charAt(0).toUpperCase()}
+    </span>
+  );
+}
+
+/** Unread alerts and notifications, on the News tab. */
+function NewsCount() {
+  const { t } = useT();
+  const { unreadCount } = useNotifications();
+  if (unreadCount <= 0) return null;
+  return (
+    <span className="bp-count bp-count--accent" title={t('notifications.unreadCount', { count: unreadCount })}>
+      {unreadCount > 99 ? '99+' : unreadCount}
+    </span>
+  );
+}
+
+/** Followed members online, on the Friends tab (saved data, nothing fetched). */
+function FriendsCount({ ownerId }: { ownerId: string }) {
+  const { t } = useT();
+  const online = useFriendsOnline(ownerId);
+  if (online <= 0) return null;
+  return (
+    <span className="bp-count bp-count--online" title={t('friends.onlineCount', { count: online })}>
+      {online}
     </span>
   );
 }
@@ -71,17 +117,35 @@ export function BpTopBar({
   const { rows, progress } = useDownloads();
   const now = useNow(1000);
 
-  // The underline under the active section slides between tabs.
+  // The underline under the active section slides between tabs. When the
+  // names don't all fit beside the rest of the bar (a game running,
+  // downloads, a long language), the tabs show their icons only.
   const tabsRef = useRef<HTMLDivElement>(null);
   const [indicator, setIndicator] = useState<{ x: number; w: number } | null>(null);
   useLayoutEffect(() => {
+    const tabs = tabsRef.current;
+    if (!tabs) return;
     const measure = () => {
-      const el = tabsRef.current?.querySelector<HTMLElement>(`[data-tab="${tab}"]`);
+      tabs.removeAttribute('data-compact');
+      tabs.toggleAttribute('data-compact', tabs.scrollWidth > tabs.clientWidth + 1);
+      const el = tabs.querySelector<HTMLElement>(`[data-tab="${tab}"]`);
       if (el) setIndicator({ x: el.offsetLeft, w: el.offsetWidth });
     };
     measure();
+    // Counts coming and going and the side of the bar growing resize the tabs.
+    let frame = 0;
+    const observer = new ResizeObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(measure);
+    });
+    observer.observe(tabs);
+    for (const el of tabs.querySelectorAll('.bp-tab')) observer.observe(el);
     window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(frame);
+      window.removeEventListener('resize', measure);
+    };
   }, [tab, locale, counts.downloads, counts.updates, method]);
 
   const playing = useMemo(() => {
@@ -143,6 +207,8 @@ export function BpTopBar({
             <Icon name={TAB_ICON[id]} size={18} />
             <span>{t(TAB_LABEL[id])}</span>
             {id === 'library' && counts.updates > 0 && <span className="bp-count">{counts.updates}</span>}
+            {id === 'news' && <NewsCount />}
+            {id === 'friends' && <FriendsCount ownerId={profile.userId ?? profile.username} />}
             {id === 'downloads' && counts.downloads > 0 && (
               <span className="bp-count bp-count--accent">{counts.downloads}</span>
             )}

@@ -12,6 +12,7 @@ import type { ThreadDownload } from '../../hooks/useDownloadsByThread';
 import { statusKey, type LibraryGame } from '../../types/library';
 import type { SamCategory, SamGameCard } from '../../types/sam';
 import { useBp } from './BpContext';
+import { rememberGroupFocus } from './bpInput';
 
 /** "4:07" / "1:02:33": time in the current session. */
 export function formatElapsed(ms: number): string {
@@ -234,8 +235,15 @@ export function BpSubTabs<T extends string>({
   active: T;
   onChange: (tab: T) => void;
 }) {
+  // Coming into the row lands on the open tab, not on whichever is nearest
+  // (focusing one switches the panel).
+  const rowRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const open = rowRef.current?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (open) rememberGroupFocus(open);
+  }, [active]);
   return (
-    <div className="bp-subtabs" role="tablist" data-bp-group={id} data-bp-row="">
+    <div className="bp-subtabs" role="tablist" data-bp-group={id} data-bp-row="" ref={rowRef}>
       {tabs.map((tab) => (
         <button
           key={tab.id}
@@ -390,6 +398,10 @@ interface StoreTileProps {
   size?: 'lg' | 'md';
   onFocusCard?: (card: SamGameCard, index: number) => void;
   autoFocus?: boolean;
+  /** In place of the NEW flag (the F95 feed's New / Update). */
+  flag?: { label: string; tone: 'new' | 'info' } | null;
+  /** In place of creator, rating and likes under the title. */
+  sub?: string | null;
 }
 
 export const BpStoreTile = memo(function BpStoreTile({
@@ -401,6 +413,8 @@ export const BpStoreTile = memo(function BpStoreTile({
   size = 'md',
   onFocusCard,
   autoFocus,
+  flag,
+  sub,
 }: StoreTileProps) {
   const { t } = useT();
   const bp = useBp();
@@ -426,23 +440,33 @@ export const BpStoreTile = memo(function BpStoreTile({
         <LibraryCover url={card.thumbnailUrl} title={card.title} quality="preview" />
         <span className="bp-tile-badges">
           {badge && <span className={`bp-badge bp-badge--lib-${badge}`}>{t(`store.lib.${badge}`)}</span>}
-          {card.isNew && <span className="bp-badge bp-badge--new">{t('store.card.new')}</span>}
+          {flag ? (
+            <span className={`bp-badge bp-badge--${flag.tone}`}>{flag.label}</span>
+          ) : (
+            card.isNew && <span className="bp-badge bp-badge--new">{t('store.card.new')}</span>
+          )}
         </span>
         {card.version && <span className="bp-tile-version">{card.version}</span>}
       </span>
       <span className="bp-tile-caption">
         <span className="bp-tile-title">{card.title}</span>
         <span className="bp-tile-sub">
-          {card.creator && <span className="bp-tile-creator">{card.creator}</span>}
-          {card.rating != null && card.rating > 0 && (
-            <span className="bp-tile-stat">
-              <Icon name="star" size={12} /> {card.rating.toFixed(1)}
-            </span>
-          )}
-          {card.likes != null && card.likes > 0 && (
-            <span className="bp-tile-stat">
-              <Icon name="heart" size={12} /> {formatCount(card.likes)}
-            </span>
+          {sub != null ? (
+            <span className="bp-tile-creator">{sub}</span>
+          ) : (
+            <>
+              {card.creator && <span className="bp-tile-creator">{card.creator}</span>}
+              {card.rating != null && card.rating > 0 && (
+                <span className="bp-tile-stat">
+                  <Icon name="star" size={12} /> {card.rating.toFixed(1)}
+                </span>
+              )}
+              {card.likes != null && card.likes > 0 && (
+                <span className="bp-tile-stat">
+                  <Icon name="heart" size={12} /> {formatCount(card.likes)}
+                </span>
+              )}
+            </>
           )}
         </span>
       </span>

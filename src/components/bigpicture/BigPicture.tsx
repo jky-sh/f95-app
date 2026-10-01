@@ -75,6 +75,9 @@ import { BpStoreGame } from './screens/BpStoreGame';
 import { BpSettings } from './screens/BpSettings';
 import { BpProfile } from './screens/BpProfile';
 import { BpMedia } from './screens/BpMedia';
+import { BpNews, showNewsSection } from './screens/BpNews';
+import { BpFriends } from './screens/BpFriends';
+import { BpFriend } from './screens/BpFriend';
 
 /** Mounted once in the app shell: renders Big Picture over everything while open. */
 export function BigPictureHost({ profile }: { profile: ProfileDto }) {
@@ -418,10 +421,29 @@ function BigPicture({
         push({ screen: 'profile' });
         return;
       }
+      // Member links (activity feeds, follower lists): your own is the profile.
+      const member = /^\/friends\/(\d+)\/?(?:[?#].*)?$/.exec(path);
+      if (member) {
+        push(member[1] === profile.userId ? { screen: 'profile' } : { screen: 'friend', userId: member[1] });
+        return;
+      }
+      if (/^\/friends\/?(?:[?#].*)?$/.test(path)) {
+        switchTab('friends');
+        return;
+      }
+      if (/^\/news\/?(?:[?#].*)?$/.test(path)) {
+        switchTab('news');
+        return;
+      }
+      if (/^\/alerts\/?(?:[?#].*)?$/.test(path)) {
+        showNewsSection('alerts');
+        switchTab('news');
+        return;
+      }
       navigate(to, options);
       closeBigPicture();
     },
-    [navigate, push, pop, switchTab],
+    [navigate, push, pop, switchTab, profile.userId],
   );
 
   const depsRef = useRef<LibraryGameActionsDeps>(null!);
@@ -1056,6 +1078,10 @@ function Screen({ route, active }: { route: BpRoute; active: boolean }) {
       return <BpLibrary />;
     case 'store':
       return <BpStore />;
+    case 'news':
+      return <BpNews active={active} />;
+    case 'friends':
+      return <BpFriends active={active} />;
     case 'downloads':
       return <BpDownloads />;
     case 'search':
@@ -1072,6 +1098,8 @@ function Screen({ route, active }: { route: BpRoute; active: boolean }) {
       return <BpStoreBrowse initialCategory={route.category} />;
     case 'media':
       return <BpMedia threadId={route.threadId} active={active} />;
+    case 'friend':
+      return <BpFriend userId={route.userId} active={active} />;
   }
 }
 

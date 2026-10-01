@@ -1319,6 +1319,14 @@ const en: Record<string, string> = {
   'bp.install.where': 'Choose where to install it.',
   'bp.install.free': '{size} free',
   'bp.install.cancelDownload': 'Cancel download',
+  'bp.tab.news': 'News',
+  'bp.tab.friends': 'Friends',
+  'bp.news.tab.feed': 'Latest on F95',
+  'bp.news.tab.updates': 'Your updates',
+  'bp.news.tab.alerts': 'Alerts',
+  'bp.news.tab.activity': 'Your activity',
+  'bp.news.filter.updates': 'Updates',
+  'bp.news.feedError': 'Couldn\'t load the feed',
 };
 
 export default en;
