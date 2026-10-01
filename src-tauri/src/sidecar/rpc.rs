@@ -1,4 +1,4 @@
-use crate::bridge::Sidecar;
+use crate::bridge::{Sidecar, RPC_TIMEOUT_INTERACTIVE};
 use crate::error::AppError;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -266,7 +266,11 @@ impl SidecarClient {
         if let Some(key) = api_key.filter(|s| !s.is_empty()) {
             params["apiKey"] = json!(key);
         }
-        let value = self.inner.call("resolveMixdrop", params).await?;
+        // The sidecar opens a visible window and waits up to 5 minutes on it.
+        let value = self
+            .inner
+            .call_with_timeout("resolveMixdrop", params, RPC_TIMEOUT_INTERACTIVE)
+            .await?;
         Ok(serde_json::from_value(value)?)
     }
 
@@ -284,7 +288,10 @@ impl SidecarClient {
         if let Some(key) = api_key.filter(|s| !s.is_empty()) {
             params["apiKey"] = json!(key);
         }
-        let value = self.inner.call("resolveMixdropWithCookies", params).await?;
+        let value = self
+            .inner
+            .call_with_timeout("resolveMixdropWithCookies", params, RPC_TIMEOUT_INTERACTIVE)
+            .await?;
         Ok(serde_json::from_value(value)?)
     }
 
@@ -303,11 +310,7 @@ impl SidecarClient {
         }
         let value = self
             .inner
-            .call_with_timeout(
-                "resolveMixdropInteractive",
-                params,
-                Duration::from_secs(360),
-            )
+            .call_with_timeout("resolveMixdropInteractive", params, RPC_TIMEOUT_INTERACTIVE)
             .await?;
         Ok(serde_json::from_value(value)?)
     }
