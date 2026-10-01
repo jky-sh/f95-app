@@ -120,7 +120,7 @@ Sidecar использует Playwright, когда простой HTTP упир
 
 1. Frontend вызывает `download_start` с thread ID, URL хоста, путём библиотеки
 2. Rust резолвит прямой URL:
-   - Часть хостов в Rust (`mega.rs`, `gdrive.rs`, `uploadhaven.rs`, `buzzheavier.rs`)
+   - Часть хостов в Rust (`mega.rs`, `gdrive.rs`, `uploadhaven.rs` и `download/resolvers/`: Pixeldrain, MediaFire, API GoFile, VikingFile, AkiraBox, BowFile, UploadNow, Terminal)
    - Остальные делегируются резолверам sidecar
 3. `reqwest` стримит байты на диск; события прогресса в frontend
 4. По завершении `extraction.rs` распаковывает zip/7z/rar при включённом auto-extract
@@ -129,10 +129,10 @@ Sidecar использует Playwright, когда простой HTTP упир
 Особые случаи:
 
 - **GoFile multi-build** — резолвер возвращает несколько файлов; UI спрашивает через `download_continue_choice`
-- **Капча MixDrop** — `open_captcha_window` открывает webview; пользователь решает капчу; `download_continue_captcha` продолжает
+- **Окно проверки** — `open_captcha_window` открывает webview поверх всех окон для хостов из `VERIFY_WINDOW_HOSTS` (`download/host.rs`). MixDrop: пользователь проходит reCAPTCHA, и `download_continue_captcha` передаёт cookies окна в sidecar. VikingFile / AkiraBox: Turnstile проходит, окно перехватывает ссылку на загрузку и шлёт `download:verified`, а UI вызывает `download_continue_verified`
 - **MEGA / UploadHaven** — сессия в Stronghold или `app_settings`; проверяется перед загрузкой
 
-Поддерживаемые хосты: GoFile, MEGA, UploadHaven, BuzzHeavier, Datanodes, MixDrop, Google Drive, WorkUpload, MediaFire, Pixeldrain.
+Поддерживаемые хосты: GoFile, MEGA, UploadHaven, BuzzHeavier, Datanodes, MixDrop, Google Drive, WorkUpload, MediaFire, Pixeldrain, VikingFile, AkiraBox, BowFile, UploadNow, Terminal. Ссылки KrakenFiles, wdho.ru, qu.ax и files.dp.ua показываются и открываются в браузере.
 
 ---
 

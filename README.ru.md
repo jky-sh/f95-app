@@ -24,8 +24,8 @@ F95 App оборачивает F95Zone в оболочку Tauri с интерф
 - **Магазин** — каталог SAM с фильтрами префиксов/тегов, поиском, сортировкой, пагинацией
 - **Библиотека** — установленные тайтлы, версии, время игры, несколько папок установки
 - **Загрузки** — очередь с прогрессом в реальном времени, авто-распаковка (zip/7z/rar), миграция сейвов
-- **Файловые хосты** — GoFile, MEGA, UploadHaven, BuzzHeavier, Datanodes, MixDrop, Google Drive, WorkUpload, MediaFire, Pixeldrain
-- **Капча** — интерактивный MixDrop через отдельное окно webview
+- **Файловые хосты** — GoFile, MEGA, UploadHaven, BuzzHeavier, Datanodes, MixDrop, Google Drive, WorkUpload, MediaFire, Pixeldrain, VikingFile, AkiraBox, BowFile, UploadNow, Terminal
+- **Окно проверки** — MixDrop, VikingFile и AkiraBox показывают проверку на человека (reCAPTCHA / Turnstile) в маленьком окне приложения; затем загрузка продолжается в приложении
 - **Социальное** — список following, алерты F95, RSS-лента обновлений библиотеки
 - **Офлайн** — кэшированный профиль и локальная библиотека без сети
 - **Оверлей** — экспериментальный in-game оверлей в Windows (заметки, гайды, hotkey)

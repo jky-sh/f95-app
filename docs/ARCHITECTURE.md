@@ -120,7 +120,7 @@ Downloads are orchestrated in `src-tauri/src/download/`. Flow:
 
 1. Frontend calls `download_start` with thread ID, host URL, target library path
 2. Rust resolves the direct URL:
-   - Some hosts handled in Rust (`mega.rs`, `gdrive.rs`, `uploadhaven.rs`, `buzzheavier.rs`)
+   - Some hosts handled in Rust (`mega.rs`, `gdrive.rs`, `uploadhaven.rs`, and `download/resolvers/`: Pixeldrain, MediaFire, the GoFile API, VikingFile, AkiraBox, BowFile, UploadNow, Terminal)
    - Others delegated to sidecar resolvers
 3. `reqwest` streams bytes to disk; progress events emitted to frontend
 4. On completion, `extraction.rs` unpacks zip/7z/rar if auto-extract is enabled
@@ -129,10 +129,10 @@ Downloads are orchestrated in `src-tauri/src/download/`. Flow:
 Special cases:
 
 - **GoFile multi-build** — resolver returns multiple files; UI prompts via `download_continue_choice`
-- **MixDrop captcha** — `open_captcha_window` loads a webview; user solves captcha; `download_continue_captcha` resumes
+- **Verification window** — `open_captcha_window` opens an always-on-top webview for the hosts in `VERIFY_WINDOW_HOSTS` (`download/host.rs`). MixDrop: the user passes reCAPTCHA and `download_continue_captcha` hands the window's cookies to the sidecar. VikingFile / AkiraBox: Turnstile passes, the window captures the download link and emits `download:verified`, and the UI calls `download_continue_verified`
 - **MEGA / UploadHaven** — session stored in Stronghold or `app_settings`; verified before download
 
-Supported hosts: GoFile, MEGA, UploadHaven, BuzzHeavier, Datanodes, MixDrop, Google Drive, WorkUpload, MediaFire, Pixeldrain.
+Supported hosts: GoFile, MEGA, UploadHaven, BuzzHeavier, Datanodes, MixDrop, Google Drive, WorkUpload, MediaFire, Pixeldrain, VikingFile, AkiraBox, BowFile, UploadNow, Terminal. KrakenFiles, wdho.ru, qu.ax and files.dp.ua links are listed and open in the browser.
 
 ---
 

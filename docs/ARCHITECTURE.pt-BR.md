@@ -120,7 +120,7 @@ Downloads orquestrados em `src-tauri/src/download/`. Fluxo:
 
 1. Frontend chama `download_start` com thread ID, URL do host, pasta da biblioteca
 2. Rust resolve URL direta:
-   - Alguns hosts no Rust (`mega.rs`, `gdrive.rs`, `uploadhaven.rs`, `buzzheavier.rs`)
+   - Alguns hosts no Rust (`mega.rs`, `gdrive.rs`, `uploadhaven.rs` e `download/resolvers/`: Pixeldrain, MediaFire, a API do GoFile, VikingFile, AkiraBox, BowFile, UploadNow, Terminal)
    - Outros delegados aos resolvers do sidecar
 3. `reqwest` faz stream para disco; eventos de progresso para o frontend
 4. Ao concluir, `extraction.rs` descompacta zip/7z/rar se auto-extract estiver ativo
@@ -129,10 +129,10 @@ Downloads orquestrados em `src-tauri/src/download/`. Fluxo:
 Casos especiais:
 
 - **GoFile multi-build** — resolver retorna vários arquivos; UI pergunta via `download_continue_choice`
-- **Captcha MixDrop** — `open_captcha_window` abre webview; usuário resolve; `download_continue_captcha` retoma
+- **Janela de verificação** — `open_captcha_window` abre uma webview sempre no topo para os hosts de `VERIFY_WINDOW_HOSTS` (`download/host.rs`). MixDrop: o usuário passa o reCAPTCHA e `download_continue_captcha` entrega os cookies da janela ao sidecar. VikingFile / AkiraBox: o Turnstile passa, a janela captura o link de download e emite `download:verified`, e a UI chama `download_continue_verified`
 - **MEGA / UploadHaven** — sessão no Stronghold ou `app_settings`; verificada antes do download
 
-Hosts suportados: GoFile, MEGA, UploadHaven, BuzzHeavier, Datanodes, MixDrop, Google Drive, WorkUpload, MediaFire, Pixeldrain.
+Hosts suportados: GoFile, MEGA, UploadHaven, BuzzHeavier, Datanodes, MixDrop, Google Drive, WorkUpload, MediaFire, Pixeldrain, VikingFile, AkiraBox, BowFile, UploadNow, Terminal. Links de KrakenFiles, wdho.ru, qu.ax e files.dp.ua aparecem e abrem no navegador.
 
 ---
 

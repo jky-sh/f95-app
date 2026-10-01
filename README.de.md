@@ -24,8 +24,8 @@ Das Backend verteilt die Arbeit auf Rust (Downloads, Launcher, Overlay) und eine
 - **Store** — SAM-Katalog mit Prefix-/Tag-Filtern, Suche, Sortierung, Paginierung
 - **Bibliothek** — installierte Titel, Versionsverfolgung, Spielzeit, mehrere Installationsordner
 - **Downloads** — Warteschlange mit Live-Fortschritt, Auto-Entpacken (zip/7z/rar), Save-Migration
-- **File-Hoster** — GoFile, MEGA, UploadHaven, BuzzHeavier, Datanodes, MixDrop, Google Drive, WorkUpload, MediaFire, Pixeldrain
-- **Captcha** — interaktiver MixDrop-Flow in einem dedizierten Webview-Fenster
+- **File-Hoster** — GoFile, MEGA, UploadHaven, BuzzHeavier, Datanodes, MixDrop, Google Drive, WorkUpload, MediaFire, Pixeldrain, VikingFile, AkiraBox, BowFile, UploadNow, Terminal
+- **Prüffenster** — MixDrop, VikingFile und AkiraBox zeigen ihre Menschen-Prüfung (reCAPTCHA / Turnstile) in einem kleinen App-Fenster; danach läuft der Download in der App weiter
 - **Social** — Following-Liste, F95-Alerts, RSS-Feed für Bibliotheks-Updates
 - **Offline** — gecachtes Profil und lokale Bibliothek ohne Verbindung
 - **Overlay** — experimentelles In-Game-Overlay unter Windows (Notizen, Guides, Hotkey)
