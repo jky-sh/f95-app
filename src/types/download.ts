@@ -23,6 +23,10 @@ export interface DownloadRow {
   finishedAt: string | null;
   /** F95 version captured at click-time. Applied to library after extract. */
   gameVersion: string | null;
+  /** Install library chosen at click-time; Retry downloads into it again. */
+  libraryPath: string | null;
+  /** F95 section label ("Win/Linux"…) the link came from. */
+  platformGroup: string | null;
 }
 
 /** Live progress that doesn't merit a DB write each tick. */

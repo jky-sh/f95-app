@@ -121,6 +121,7 @@ export function DownloadsPage() {
         sourceUrl: row.sourceUrl,
         pageUrl,
         threadId: row.threadId,
+        libraryPath: row.libraryPath,
       });
       await reload();
     } catch (err) {
@@ -136,11 +137,18 @@ export function DownloadsPage() {
       return;
     }
     const pageUrl = row.resolvedUrl ?? row.sourceUrl;
-    await ipc.openCaptchaWindow({
-      downloadId: row.id,
-      url: pageUrl,
-      host: row.host,
-    });
+    try {
+      await ipc.openCaptchaWindow({
+        downloadId: row.id,
+        url: pageUrl,
+        host: row.host,
+        title: t('downloads.verify.windowTitle', { host: row.host }),
+      });
+    } catch (err) {
+      await dialog.alert(t('downloads.captcha.failed', { error: formatError(err) }), {
+        kind: 'error',
+      });
+    }
   }
 
   async function onRetry(row: DownloadRow) {
@@ -149,10 +157,13 @@ export function DownloadsPage() {
       return;
     }
     await downloads.markRetry(row.id);
+    // Same library and section as the first try, so the `.part` resumes.
     await ipc.downloadStart({
       id: row.id,
       sourceUrl: row.sourceUrl,
       threadId: row.threadId,
+      libraryPath: row.libraryPath,
+      platformGroup: row.platformGroup,
     });
     await reload();
   }

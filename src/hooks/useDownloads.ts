@@ -242,7 +242,40 @@ interface DonePayload {
 interface ErrorPayload {
   id: number;
   message: string;
+  /** `dl.error.<code>` explains it in the user's language. */
+  code?: string | null;
 }
+interface VerifiedPayload {
+  id: number;
+  host: string;
+  pageUrl: string;
+  url: string;
+}
+
+/** Backend error codes with a translated explanation. */
+const DOWNLOAD_ERROR_CODES = new Set([
+  'file_gone',
+  'link_expired',
+  'session_expired',
+  'host_busy',
+  'host_offline',
+  'rate_limited',
+  'stalled',
+  'html_page',
+]);
+
+/** The translated explanation, with the host's own detail kept for reference. */
+function downloadErrorText(payload: ErrorPayload): string {
+  if (payload.code && DOWNLOAD_ERROR_CODES.has(payload.code)) {
+    const detail = payload.message?.trim();
+    const text = tStandalone(`dl.error.${payload.code}`);
+    return detail ? `${text} (${detail})` : text;
+  }
+  return payload.message;
+}
+
+/** Rows cut short by closing the app are reconciled once per app run. */
+let interruptedChecked = false;
 interface ExtractProgressPayload {
   archivePath: string;
   percent: number;
@@ -435,7 +468,7 @@ export function useDownloads(options?: UseDownloadsOptions): {
       unlisten.push(
         await listen<ErrorPayload>('download:error', async (e) => {
           const liveBytes = progressRef.current[e.payload.id]?.bytes;
-          await downloads.markError(e.payload.id, e.payload.message, liveBytes);
+          await downloads.markError(e.payload.id, downloadErrorText(e.payload), liveBytes);
           const row = await downloads.get(e.payload.id);
           if (row) {
             try {
@@ -494,6 +527,7 @@ export function useDownloads(options?: UseDownloadsOptions): {
                 downloadId: e.payload.id,
                 url: e.payload.url,
                 host: e.payload.host,
+                title: tStandalone('downloads.verify.windowTitle', { host: e.payload.host }),
               });
             } catch (err) {
               console.warn('[captcha] open webview failed', err);
@@ -502,6 +536,40 @@ export function useDownloads(options?: UseDownloadsOptions): {
           if (!cancelled) reload();
         }),
       );
+      unlisten.push(
+        // The verification window found the download link: queue the row
+        // again and download it into the library it was meant for.
+        await listen<VerifiedPayload>('download:verified', async (e) => {
+          const row = await downloads.get(e.payload.id);
+          if (!row) return;
+          await downloads.markRetry(row.id);
+          try {
+            await ipc.downloadContinueVerified({
+              id: row.id,
+              sourceUrl: row.sourceUrl,
+              host: e.payload.host,
+              pageUrl: e.payload.pageUrl,
+              link: e.payload.url,
+              threadId: row.threadId,
+              libraryPath: row.libraryPath,
+            });
+          } catch (err) {
+            await downloads.markError(row.id, formatError(err));
+          }
+          if (!cancelled) reload();
+        }),
+      );
+
+      if (!interruptedChecked) {
+        interruptedChecked = true;
+        try {
+          const active = await ipc.downloadActiveIds();
+          const n = await downloads.failInterrupted(active, tStandalone('dl.error.interrupted'));
+          if (n > 0 && !cancelled) reload();
+        } catch (err) {
+          console.warn('[downloads] reconcile interrupted rows failed', err);
+        }
+      }
 
       if (!cancelled) {
         await reconcilePendingExtractions(tryAutoExtract);

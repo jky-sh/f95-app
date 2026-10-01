@@ -17,6 +17,8 @@ interface DbRow {
   started_at: string | null;
   finished_at: string | null;
   game_version: string | null;
+  library_path?: string | null;
+  platform_group?: string | null;
 }
 
 function rowToDownload(r: DbRow): DownloadRow {
@@ -34,6 +36,8 @@ function rowToDownload(r: DbRow): DownloadRow {
     startedAt: r.started_at,
     finishedAt: r.finished_at,
     gameVersion: r.game_version,
+    libraryPath: r.library_path ?? null,
+    platformGroup: r.platform_group ?? null,
   };
 }
 
@@ -44,6 +48,10 @@ export interface CreateInput {
   /** Version F95Zone was showing when the user clicked Baixar. Applied to the
    * library row after extraction succeeds. */
   gameVersion?: string | null;
+  /** Library the user picked; kept so Retry lands in the same place. */
+  libraryPath?: string | null;
+  /** F95 section label of the link, for picking the PC file on retry. */
+  platformGroup?: string | null;
 }
 
 /**
@@ -66,9 +74,17 @@ export async function create(input: CreateInput): Promise<DownloadRow> {
   // (or a stale value from another tx). Use the lastInsertId that `execute()`
   // already returns from the inserting connection.
   const res = await execute(
-    `INSERT INTO downloads (thread_id, host, source_url, state, started_at, game_version)
-       VALUES (?, ?, ?, 'pending', datetime('now'), ?)`,
-    [input.threadId, input.host, input.sourceUrl, input.gameVersion ?? null],
+    `INSERT INTO downloads
+       (thread_id, host, source_url, state, started_at, game_version, library_path, platform_group)
+       VALUES (?, ?, ?, 'pending', datetime('now'), ?, ?, ?)`,
+    [
+      input.threadId,
+      input.host,
+      input.sourceUrl,
+      input.gameVersion ?? null,
+      input.libraryPath ?? null,
+      input.platformGroup ?? null,
+    ],
   );
   const id = res.lastInsertId;
   if (id == null || id <= 0) {
@@ -260,6 +276,32 @@ export async function markCancelled(
       [id],
     );
   }
+}
+
+/**
+ * Rows left in progress by an earlier run of the app (it was closed or
+ * crashed mid-download) become `failed` with `message`, so they offer Retry
+ * instead of a Cancel that does nothing. `activeIds` are the downloads the
+ * backend is still working on; those are left alone.
+ */
+export async function failInterrupted(activeIds: number[], message: string): Promise<number> {
+  const rows = await query<{ id: number }>(
+    `SELECT id FROM downloads
+       WHERE state IN ('pending','resolving','awaiting_choice','downloading')`,
+  );
+  const active = new Set(activeIds);
+  const stale = rows.map((r) => r.id).filter((id) => !active.has(id));
+  for (const id of stale) {
+    await execute(
+      `UPDATE downloads
+          SET state = 'failed',
+              error_message = ?,
+              finished_at = datetime('now')
+          WHERE id = ? AND state IN ('pending','resolving','awaiting_choice','downloading')`,
+      [message, id],
+    );
+  }
+  return stale.length;
 }
 
 /**

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import type { GameDownload, SocialLink } from '../../types/game';
 import * as libraries from '../../lib/libraries';
-import { HOST_COLORS, STREAMABLE_HOSTS, groupDownloads, shouldShowHostBadge } from '../../lib/downloadHosts';
+import { HOST_COLORS, groupDownloads, hostDelivery, shouldShowHostBadge } from '../../lib/downloadHosts';
 import { startGameDownload } from '../../lib/startGameDownload';
 import { useOffline } from '../../contexts/Offline';
 import { useT } from '../../lib/i18n';
@@ -90,15 +90,22 @@ export function DownloadLinks({ game, downloads: items, social, embedded, onDown
           )}
           <ul className="dl-item-list">
             {groupItems.map((download) => {
-              const streamable = STREAMABLE_HOSTS.has(download.host);
+              const delivery = hostDelivery(download.host);
               const color = HOST_COLORS[download.host] ?? 'var(--text-muted)';
               const labelText = download.text?.trim() || download.host;
               const showHost = shouldShowHostBadge(labelText, download.host);
+              // Hosts with a quick check say so next to the host name.
+              const badge = [
+                showHost ? download.host : null,
+                delivery === 'verify' ? t('dl.btn.quickCheck') : null,
+              ]
+                .filter(Boolean)
+                .join(' · ');
               const rowKey = `${download.group ?? ''}\0${download.url}`;
               return (
                 <li
                   key={rowKey}
-                  className={`dl-item-row${showHost ? ' dl-item-row--with-host' : ''}`}
+                  className={`dl-item-row${badge ? ' dl-item-row--with-host' : ''}`}
                 >
                   <span
                     className="dl-item-dot"
@@ -108,25 +115,25 @@ export function DownloadLinks({ game, downloads: items, social, embedded, onDown
                   <span className="dl-item-label" title={labelText}>
                     {labelText}
                   </span>
-                  {showHost && (
-                    <span className="dl-item-host">{download.host}</span>
-                  )}
+                  {badge && <span className="dl-item-host">{badge}</span>}
                   <button
                     type="button"
                     className="dl-action-btn dl-action-btn-accent dl-item-action"
                     disabled={busyUrl === download.url}
                     title={
-                      streamable
+                      delivery === 'app'
                         ? t('dl.btn.tooltipSupported', { host: download.host })
-                        : t('dl.btn.tooltipUnsupported', { host: download.host })
+                        : delivery === 'verify'
+                          ? t('dl.btn.tooltipVerify', { host: download.host })
+                          : t('dl.btn.tooltipUnsupported', { host: download.host })
                     }
                     onClick={() => onDownloadClick(download)}
                   >
                     {busyUrl === download.url
                       ? '…'
-                      : streamable
-                        ? t('dl.btn.download')
-                        : t('dl.btn.queue')}
+                      : delivery === 'browser'
+                        ? t('dl.btn.queue')
+                        : t('dl.btn.download')}
                   </button>
                 </li>
               );

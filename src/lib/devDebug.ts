@@ -23,6 +23,9 @@ const KNOWN_TAGS = [
   'sidecar',
   'mega',
   'gofile',
+  'gdrive',
+  'vikingfile',
+  'akirabox',
 ] as const;
 
 let nextId = 1;

@@ -4,7 +4,7 @@ import { useDownloads, type FileChoiceRequest } from '../../contexts/Downloads';
 import { useOffline } from '../../contexts/Offline';
 import type { ThreadDownload } from '../../hooks/useDownloadsByThread';
 import { dialog } from '../../lib/dialog';
-import { HOST_COLORS, STREAMABLE_HOSTS, groupDownloads, shouldShowHostBadge } from '../../lib/downloadHosts';
+import { HOST_COLORS, STREAMABLE_HOSTS, groupDownloads, hostDelivery, shouldShowHostBadge } from '../../lib/downloadHosts';
 import { loadGameDetail } from '../../lib/gameDetailCache';
 import type { GameDownloadModalDetail } from '../../lib/gameDownloadModal';
 import { useT } from '../../lib/i18n';
@@ -385,7 +385,7 @@ function HostTile({
 }) {
   const { t } = useT();
   const label = download.text?.trim() || download.host;
-  const inApp = STREAMABLE_HOSTS.has(download.host);
+  const delivery = hostDelivery(download.host);
   return (
     <button
       type="button"
@@ -396,9 +396,11 @@ function HostTile({
       data-bp-autofocus={autoFocus || undefined}
       data-bp-a={t('dl.btn.download')}
       title={
-        inApp
+        delivery === 'app'
           ? t('dl.btn.tooltipSupported', { host: download.host })
-          : t('dl.btn.tooltipUnsupported', { host: download.host })
+          : delivery === 'verify'
+            ? t('dl.btn.tooltipVerify', { host: download.host })
+            : t('dl.btn.tooltipUnsupported', { host: download.host })
       }
       onClick={() => {
         if (!disabled) onPick(download);
@@ -407,7 +409,13 @@ function HostTile({
       <span className="bp-host-name">{label}</span>
       <span className="bp-host-sub">
         {shouldShowHostBadge(label, download.host) && <span className="bp-host-tag">{download.host}</span>}
-        {busy ? t('bp.install.starting') : inApp ? t('bp.install.inApp') : t('bp.install.viaBrowser')}
+        {busy
+          ? t('bp.install.starting')
+          : delivery === 'app'
+            ? t('bp.install.inApp')
+            : delivery === 'verify'
+              ? t('bp.install.quickCheck')
+              : t('bp.install.viaBrowser')}
       </span>
       {busy && <span className="bp-spinner bp-host-spinner" aria-hidden />}
     </button>
