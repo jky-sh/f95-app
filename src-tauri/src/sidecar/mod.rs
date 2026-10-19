@@ -1,3 +1,5 @@
+#[cfg(windows)]
+pub(crate) mod job;
 mod path;
 mod rpc;
 mod service;

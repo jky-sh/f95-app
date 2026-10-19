@@ -1,6 +1,6 @@
 {
   "name": "f95-bridge",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "license": "GPL-3.0-or-later",
   "private": true,
   "type": "commonjs",
@@ -11,8 +11,7 @@
     "prebuild:bundle": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
-    "postinstall": "playwright install chromium --no-shell",
-    "build:bundle": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=cjs --outfile=dist/bundle.cjs --external:playwright",
+    "build:bundle": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=cjs --outfile=dist/bundle.cjs --external:playwright --external:playwright-core",
     "build:sea": "node scripts/build-sea.mjs",
     "build:prune": "node scripts/prune-playwright-artifacts.mjs"
   },

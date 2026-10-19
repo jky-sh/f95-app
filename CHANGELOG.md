@@ -19,6 +19,23 @@ and stands in when GitHub can't be reached, so keep it in step with them.
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-10-19
+
+### Fixed
+- Installing or updating could stop with "Error opening file for writing
+  … sidecar\node.exe": the app's background helper and its browser kept
+  running after the app closed. They now close with the app, and the
+  installer stops any left running by older versions.
+- Cloudflare checks failed with "Executable doesn't exist …
+  chromium_headless_shell" ("Looks like Playwright was just installed or
+  updated"). Every browser the app opens now uses the Chromium it ships.
+- Updates no longer leave old browser files behind in the install folder.
+
+### Improved
+- The built-in browser repairs itself: when it's missing or damaged (an
+  antivirus removed it, an install was cut short), the app downloads it
+  again in the background, with no `playwright install` needed.
+
 ## [1.0.1] - 2026-10-01
 
 ### Added
