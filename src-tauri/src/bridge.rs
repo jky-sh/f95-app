@@ -37,10 +37,15 @@ pub struct Sidecar {
     pending: Arc<Mutex<HashMap<u64, oneshot::Sender<Result<Value, RpcErrorPayload>>>>>,
     next_id: AtomicU64,
     _child: Mutex<Child>,
+    /// Holds node.exe and the Chromium it starts; see `sidecar::job`.
+    #[cfg(windows)]
+    job: Option<crate::sidecar::job::ProcessJob>,
 }
 
 impl Sidecar {
-    pub async fn spawn(sidecar_path: PathBuf) -> Result<Self, AppError> {
+    /// `browsers_dir` is the per-user Playwright cache the sidecar downloads
+    /// Chromium into when the copy shipped with the app can't be used.
+    pub async fn spawn(sidecar_path: PathBuf, browsers_dir: PathBuf) -> Result<Self, AppError> {
         // Dev: spawn `node dist/index.js` — relies on the developer's local
         //      Node install.
         // Prod: spawn `<resources>/sidecar/node.exe bundle.cjs`. We ship the
@@ -54,7 +59,7 @@ impl Sidecar {
         let mut cmd = if cfg!(debug_assertions) {
             let mut c = Command::new("node");
             c.arg(&sidecar_path);
-            configure_sidecar_env(&mut c, &sidecar_path);
+            configure_sidecar_env(&mut c, &sidecar_path, &browsers_dir);
             c
         } else {
             // sidecar_path is bundle.cjs; node.exe lives next to it.
@@ -70,7 +75,7 @@ impl Sidecar {
                 .ok_or_else(|| AppError::Other("could not resolve bundled node binary".into()))?;
             let mut c = Command::new(node_exe);
             c.arg(&sidecar_path);
-            configure_sidecar_env(&mut c, &sidecar_path);
+            configure_sidecar_env(&mut c, &sidecar_path, &browsers_dir);
             c
         };
         cmd.stdin(std::process::Stdio::piped())
@@ -91,6 +96,12 @@ impl Sidecar {
         }
 
         let mut child = cmd.spawn()?;
+        #[cfg(windows)]
+        let job = child.raw_handle().and_then(|handle| {
+            crate::sidecar::job::ProcessJob::adopt(handle)
+                .map_err(|e| eprintln!("[sidecar] could not tie the sidecar to the app: {e}"))
+                .ok()
+        });
         let stdin = child
             .stdin
             .take()
@@ -161,6 +172,8 @@ impl Sidecar {
             pending,
             next_id: AtomicU64::new(1),
             _child: Mutex::new(child),
+            #[cfg(windows)]
+            job,
         })
     }
 
@@ -218,44 +231,38 @@ impl Sidecar {
     /// tokio runtime tears down before our `AppState` drops, so the
     /// destructor-driven kill never fires. Hooking `RunEvent::Exit` and
     /// calling this method explicitly is the bulletproof fix.
+    ///
+    /// On Windows this ends the whole job, Chromium included, which keeps
+    /// running for a moment after node.exe dies otherwise.
     pub fn kill_now(&self) {
+        #[cfg(windows)]
+        if let Some(job) = &self.job {
+            job.terminate();
+        }
         if let Ok(mut child) = self._child.try_lock() {
             let _ = child.start_kill();
         }
     }
 }
 
-/// Point Playwright at bundled Chromium and set cwd so `require('playwright')`
-/// resolves from `dist/node_modules` (dev + prod ship the same layout).
-fn configure_sidecar_env(cmd: &mut Command, sidecar_path: &std::path::Path) {
+/// Set cwd so `require('playwright')` resolves from `dist/node_modules` (dev
+/// + prod ship the same layout) and tell the sidecar where browsers live:
+/// Playwright's own dir is the writable per-user cache, and release builds
+/// add the Chromium shipped in `sidecar/ms-playwright`, which may sit in
+/// read-only Program Files. Dev leaves `dist/ms-playwright` alone:
+/// `build:sea` deletes it while the dev sidecar's Chromium runs.
+fn configure_sidecar_env(
+    cmd: &mut Command,
+    sidecar_path: &std::path::Path,
+    browsers_dir: &std::path::Path,
+) {
+    cmd.env("PLAYWRIGHT_BROWSERS_PATH", browsers_dir);
     if let Some(sidecar_dir) = sidecar_path.parent() {
         cmd.current_dir(sidecar_dir);
-        let browsers = playwright_browsers_path(sidecar_dir);
-        if browsers.exists() {
-            cmd.env("PLAYWRIGHT_BROWSERS_PATH", browsers);
+        if !cfg!(debug_assertions) {
+            cmd.env("F95_BUNDLED_BROWSERS", sidecar_dir.join("ms-playwright"));
         }
     }
-}
-
-/// In dev, keep Chromium cache outside `src-tauri` so runtime logs don't
-/// trigger `tauri dev` rebuilds. Release uses bundled `sidecar/ms-playwright`.
-fn playwright_browsers_path(sidecar_dir: &std::path::Path) -> std::path::PathBuf {
-    #[cfg(debug_assertions)]
-    {
-        if let Some(local) = std::env::var_os("LOCALAPPDATA").map(std::path::PathBuf::from) {
-            let dev_cache = local.join("f95-app").join("ms-playwright");
-            let bundled = sidecar_dir.join("ms-playwright");
-            // Prefer dev cache when populated; fall back to bundled install from postinstall.
-            if dev_cache.exists() {
-                return dev_cache;
-            }
-            if bundled.exists() {
-                return bundled;
-            }
-            return dev_cache;
-        }
-    }
-    sidecar_dir.join("ms-playwright")
 }
 
 fn map_rpc_error(err: RpcErrorPayload) -> AppError {

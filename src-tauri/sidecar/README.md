@@ -20,6 +20,16 @@ O `beforeBuildCommand` em `tauri.conf.json` encadeia:
 
 Tauri empacota `bundle.cjs` + `node.exe` + browsers.
 
+## Chromium do Playwright
+
+Ninguém precisa rodar `playwright install`: `src/infra/playwright/runtime.ts` cuida disso.
+
+- O Rust passa `PLAYWRIGHT_BROWSERS_PATH` = `%LOCALAPPDATA%\com.f95.app\ms-playwright` (cache por usuário, sempre gravável) e, só no release, `F95_BUNDLED_BROWSERS` = `sidecar/ms-playwright` da instalação (pode estar em Program Files, só leitura).
+- Todo `chromium.launch` passa por um guard: usa o Chromium completo (o instalado se tiver a revisão que este Playwright espera, senão o do cache), inclusive no `browser-rest-api`, que lança só com `{ headless: true }` e pediria o headless shell que não é empacotado.
+- Se nenhum dos dois tiver a revisão (Playwright atualizado, antivírus apagou o `chrome.exe`, instalação interrompida), o sidecar baixa com o instalador do próprio Playwright para o cache. Na inicialização isso já começa em segundo plano.
+
+Em dev o cache é o mesmo do app instalado; `dist/ms-playwright` não é usado.
+
 ## Testes
 
 ```bash

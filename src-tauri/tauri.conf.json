@@ -123,6 +123,7 @@
         "uninstallerIcon": "icons/icon.ico",
         "headerImage": "windows/installer/nsis-header.bmp",
         "sidebarImage": "windows/installer/nsis-sidebar.bmp",
+        "installerHooks": "windows/installer/hooks.nsh",
         "installMode": "both",
         "languages": ["English", "PortugueseBR"],
         "displayLanguageSelector": true,

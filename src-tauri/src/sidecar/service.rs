@@ -18,6 +18,7 @@ pub async fn ensure(
     slot: &Mutex<Option<Arc<SidecarClient>>>,
     session_dir: &Path,
     sidecar_path: PathBuf,
+    browsers_dir: PathBuf,
 ) -> Result<Arc<SidecarClient>, AppError> {
     let mut guard = slot.lock().await;
     if let Some(existing) = guard.as_ref() {
@@ -27,7 +28,7 @@ pub async fn ensure(
     if STARTS_BLOCKED.load(Ordering::SeqCst) {
         return Err(AppError::Other("an app update is being installed".into()));
     }
-    let raw = Sidecar::spawn(sidecar_path).await?;
+    let raw = Sidecar::spawn(sidecar_path, browsers_dir).await?;
     let session_dir_str = session_dir
         .to_str()
         .ok_or_else(|| AppError::Other("session dir not utf-8".into()))?
@@ -54,7 +55,13 @@ mod tests {
         let slot = Mutex::new(None);
         block_starts(true);
         // The path does not exist: reaching the spawn would fail differently.
-        let result = ensure(&slot, Path::new("."), PathBuf::from("no-such-sidecar")).await;
+        let result = ensure(
+            &slot,
+            Path::new("."),
+            PathBuf::from("no-such-sidecar"),
+            PathBuf::from("no-such-browsers"),
+        )
+        .await;
         block_starts(false);
         match result {
             Err(AppError::Other(msg)) => assert!(msg.contains("app update"), "{msg}"),
