@@ -1,20 +1,11 @@
 import type { Browser } from 'playwright';
-import os from 'node:os';
-import path from 'node:path';
+import { loadPlaywright } from './runtime';
 
 let sharedBrowser: Browser | null = null;
 
-/** Dev: cache browsers under %LOCALAPPDATA%/f95-app so Chromium logs don't touch src-tauri. */
-function ensurePlaywrightBrowsersPath(): void {
-  if (process.env.PLAYWRIGHT_BROWSERS_PATH) return;
-  const base = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
-  process.env.PLAYWRIGHT_BROWSERS_PATH = path.join(base, 'f95-app', 'ms-playwright');
-}
-
 export async function getPlaywrightBrowser(): Promise<Browser> {
-  ensurePlaywrightBrowsersPath();
   if (!sharedBrowser || !sharedBrowser.isConnected()) {
-    const { chromium } = await import('playwright');
+    const { chromium } = loadPlaywright();
     sharedBrowser = await chromium.launch({
       channel: 'chromium',
       headless: true,
@@ -38,8 +29,7 @@ export async function closePlaywrightBrowser(): Promise<void> {
 
 /** Headed Chromium for captcha / interactive host flows (separate from shared headless). */
 export async function launchInteractiveBrowser(): Promise<Browser> {
-  ensurePlaywrightBrowsersPath();
-  const { chromium } = await import('playwright');
+  const { chromium } = loadPlaywright();
   return chromium.launch({
     channel: 'chromium',
     headless: false,

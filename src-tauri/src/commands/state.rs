@@ -12,6 +12,8 @@ pub struct AppState {
     pub sidecar: AsyncMutex<Option<Arc<SidecarClient>>>,
     pub session_dir: PathBuf,
     pub sidecar_path: PathBuf,
+    /// Per-user Playwright browsers, filled by the sidecar when needed.
+    pub browsers_dir: PathBuf,
     pub downloads_dir: PathBuf,
     pub downloader: Arc<DownloadManager>,
     pub launcher: Arc<LauncherManager>,
@@ -41,6 +43,7 @@ pub(crate) async fn ensure_sidecar(state: &AppState) -> Result<Arc<SidecarClient
         &state.sidecar,
         &state.session_dir,
         state.sidecar_path.clone(),
+        state.browsers_dir.clone(),
     )
     .await
 }
@@ -57,6 +60,8 @@ pub fn build_state(app: &AppHandle) -> Result<AppState, AppError> {
     std::fs::create_dir_all(&downloads_dir)?;
 
     let sidecar_path = sidecar::resolve_sidecar_path()?;
+    // Inside the app data dir, so the uninstaller's "delete app data" removes it.
+    let browsers_dir = local.join("ms-playwright");
     let downloader = Arc::new(DownloadManager::new(downloads_dir.clone()));
     let launcher = Arc::new(LauncherManager::new());
     let mover = Arc::new(MoveManager::new());
@@ -65,6 +70,7 @@ pub fn build_state(app: &AppHandle) -> Result<AppState, AppError> {
         sidecar: AsyncMutex::new(None),
         session_dir,
         sidecar_path,
+        browsers_dir,
         downloads_dir,
         downloader,
         launcher,

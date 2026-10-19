@@ -1,6 +1,7 @@
 import * as readline from 'node:readline';
 import { AppContext } from '../domain/context';
 import { closePlaywrightBrowser } from '../infra/playwright/browser';
+import { installPlaywrightGuard, prefetchChromium } from '../infra/playwright/runtime';
 import { log } from '../logger';
 import {
   RPC_ERROR,
@@ -10,6 +11,14 @@ import {
   type RpcResponse,
 } from '../rpc';
 import { createHandlerRegistry, dispatchMethod } from '../rpc/registry';
+
+installPlaywrightGuard();
+
+/**
+ * Once the host is gone, a request stuck on a slow host must not keep
+ * node.exe and Chromium running: they lock the files an app update replaces.
+ */
+const EXIT_DRAIN_MS = 3_000;
 
 const ctx = new AppContext();
 const handlers = createHandlerRegistry(ctx);
@@ -69,6 +78,7 @@ rl.on('line', (line) => {
 
 rl.on('close', () => {
   log('stdin closed, draining queue and exiting');
+  setTimeout(() => process.exit(0), EXIT_DRAIN_MS).unref();
   queue
     .then(async () => {
       if (ctx.client) {
@@ -89,3 +99,7 @@ process.on('unhandledRejection', (reason) => {
 });
 
 log('ready');
+
+// Off the startup path: a missing Chromium starts downloading now instead
+// of when a download host or a Cloudflare check first needs it.
+setTimeout(prefetchChromium, 3_000).unref();
