@@ -22,7 +22,12 @@ import { loadPlaywright } from './runtime';
  * hands the result back through `importClearance`.
  */
 
-const HEADLESS_WAIT_MS = 15_000;
+/**
+ * Cloudflare's check usually clears in 4–7 s, but live runs also took 16 s;
+ * giving up sooner shows the in-app check for nothing. The RPC still
+ * answers well within the host's 180 s timeout.
+ */
+const HEADLESS_WAIT_MS = 30_000;
 const POLL_MS = 500;
 
 const PAGE_CLEARED = `document.readyState !== 'loading'
