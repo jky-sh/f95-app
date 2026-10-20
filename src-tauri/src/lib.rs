@@ -2,6 +2,7 @@ mod achievements;
 mod bp_gamepad;
 mod bridge;
 mod buzzheavier;
+mod cloudflare;
 mod commands;
 mod dev_debug;
 mod download;
@@ -180,6 +181,7 @@ pub fn run() {
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
             let state = build_state(&app.handle())?;
             app.manage(state);
+            crate::cloudflare::init(app.handle().clone());
             // Xbox button / View + Menu opens Big Picture, also from the tray.
             crate::bp_gamepad::start(app.handle().clone());
             if let Err(e) = init_overlay_windows(&app.handle()) {
@@ -276,6 +278,7 @@ pub fn run() {
             achievements_scan_now,
             achievement_toast,
             commands::updater::prepare_app_update,
+            crate::cloudflare::cloudflare_cancel_check,
             commands::updater::abort_app_update,
             steam_fetch_achievement_schema,
             steam_search_games,

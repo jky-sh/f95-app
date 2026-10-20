@@ -11,6 +11,10 @@ export const RPC_METHODS = {
     params: {},
     result: { ok: 'boolean' },
   },
+  importClearance: {
+    params: { cookies: 'ClearanceCookie[]', userAgent: 'string' },
+    result: { ok: 'boolean' },
+  },
   login: {
     params: { username: 'string', password: 'string' },
     result: 'unknown',

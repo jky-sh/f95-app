@@ -637,6 +637,11 @@ export async function pingSidecar(): Promise<void> {
   return invoke('ping_sidecar');
 }
 
+/** Ends the Cloudflare check shown in the login window; the call that needed it fails. */
+export async function cancelCloudflareCheck(): Promise<void> {
+  return invoke('cloudflare_cancel_check');
+}
+
 export function buildOverlayLayout(): OverlayLayout {
   const exp = getExperimentalSettings();
   const layout: OverlayLayout = {

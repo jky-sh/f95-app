@@ -1673,7 +1673,7 @@ dependencies = [
 
 [[package]]
 name = "f95-app"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "anyhow",
  "flate2",
