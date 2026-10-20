@@ -1,0 +1,19 @@
+version: 2
+updates:
+  # Playwright ships inside the installer with the Chromium revision it expects,
+  # so bumping it is a routine PR into develop that goes out with the next release.
+  - package-ecosystem: "npm"
+    directory: "/src-tauri/sidecar"
+    target-branch: "develop"
+    schedule:
+      interval: "weekly"
+    allow:
+      - dependency-name: "playwright"
+      - dependency-name: "playwright-core"
+    groups:
+      playwright:
+        patterns:
+          - "playwright"
+          - "playwright-core"
+    commit-message:
+      prefix: "chore(deps)"
