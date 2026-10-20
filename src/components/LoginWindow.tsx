@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import * as ipc from '../lib/ipc';
 import { probeOfflineQuick } from '../contexts/Offline';
@@ -14,6 +15,14 @@ type Phase =
   | { kind: 'form'; prefill?: { username: string; password: string } }
   | { kind: 'submitting' }     // user clicked Sign in
   | { kind: 'completing' };    // success — spawning main window
+
+/** Where Rust placed the Cloudflare check's webview, in CSS px of this window. */
+interface CheckRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
 
 /**
  * Standalone login window. Renders the Steam-style sign-in flow:
@@ -33,6 +42,17 @@ export function LoginWindow() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(true);
+  // Set while a Cloudflare check that wants a person sits in this window.
+  const [check, setCheck] = useState<CheckRect | null>(null);
+
+  useEffect(() => {
+    const unlisten = listen<{ active: boolean; rect?: CheckRect }>('cloudflare:check', (e) =>
+      setCheck(e.payload.active ? (e.payload.rect ?? null) : null),
+    );
+    return () => {
+      void unlisten.then((off) => off());
+    };
+  }, []);
 
   // Bootstrap: try existing session, then stored creds, then show form.
   // EXCEPT when we arrived via `restart_to_login` — that path appends
@@ -81,8 +101,16 @@ export function LoginWindow() {
           if (!cancelled) await completeLogin();
           return;
         }
-      } catch {
-        // ignore — fall through
+      } catch (err) {
+        // A Cloudflare check left undone: signing in would only bring it back.
+        if (isBackendError(err) && err.code === 'cloudflare') {
+          if (!cancelled) {
+            setError(err);
+            setPhase({ kind: 'form' });
+          }
+          return;
+        }
+        // anything else — fall through
       }
 
       const stored = await loadCredentials().catch(() => null);
@@ -93,8 +121,9 @@ export function LoginWindow() {
           await ipc.login(stored.username, stored.password);
           if (!cancelled) await completeLogin();
           return;
-        } catch {
+        } catch (err) {
           if (!cancelled) {
+            if (isBackendError(err) && err.code === 'cloudflare') setError(err);
             setUsername(stored.username);
             setPassword(stored.password);
             setPhase({ kind: 'form', prefill: stored });
@@ -145,7 +174,9 @@ export function LoginWindow() {
     <div style={rootStyle}>
       <MiniTitleBar />
 
-      <div style={bodyStyle}>
+      {check && <CloudflareCheck rect={check} />}
+
+      <div style={{ ...bodyStyle, ...(check ? { visibility: 'hidden' } : {}) }}>
         <div className="app-logo" style={logoStyle} role="img" aria-label="F95 app" />
 
         {phase.kind === 'checking' || phase.kind === 'auto-login' ? (
@@ -227,6 +258,46 @@ export function LoginWindow() {
           )
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Text and Cancel around the Cloudflare check, which Rust shows as a
+ * WebView2 child of this window at `rect`.
+ */
+function CloudflareCheck({ rect }: { rect: CheckRect }) {
+  const { t } = useT();
+  return (
+    <div style={checkLayerStyle}>
+      <div style={{ ...checkHeaderStyle, left: rect.x, width: rect.width }}>
+        <h1 style={titleStyle}>{t('login.cloudflare.title')}</h1>
+        <div style={checkHintStyle}>{t('login.cloudflare.hint')}</div>
+      </div>
+      {/* Under the webview: shows until its first paint. */}
+      <div
+        style={{
+          ...checkFrameStyle,
+          left: rect.x,
+          top: rect.y,
+          width: rect.width,
+          height: rect.height,
+        }}
+      >
+        <Spinner />
+      </div>
+      <button
+        type="button"
+        style={{
+          ...cancelBtn,
+          left: rect.x,
+          top: rect.y + rect.height + 12,
+          width: rect.width,
+        }}
+        onClick={() => void ipc.cancelCloudflareCheck()}
+      >
+        {t('login.cloudflare.cancel')}
+      </button>
     </div>
   );
 }
@@ -387,6 +458,46 @@ const submitDisabled: React.CSSProperties = {
   background: 'var(--border-strong)',
   color: 'var(--text-muted)',
   cursor: 'not-allowed',
+};
+
+const checkLayerStyle: React.CSSProperties = {
+  position: 'fixed',
+  inset: '28px 0 0 0',
+};
+
+const checkHeaderStyle: React.CSSProperties = {
+  position: 'fixed',
+  top: 42,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 6,
+};
+
+const checkHintStyle: React.CSSProperties = {
+  fontSize: 12,
+  color: 'var(--text-muted)',
+  textAlign: 'center',
+};
+
+const checkFrameStyle: React.CSSProperties = {
+  position: 'fixed',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  border: '1px solid var(--border-faint)',
+  borderRadius: 4,
+};
+
+const cancelBtn: React.CSSProperties = {
+  position: 'fixed',
+  padding: '9px',
+  background: 'transparent',
+  color: 'var(--text-secondary)',
+  border: '1px solid var(--border-strong)',
+  borderRadius: 3,
+  fontSize: 13,
+  fontWeight: 600,
+  cursor: 'pointer',
 };
 
 const hintStyle: React.CSSProperties = {

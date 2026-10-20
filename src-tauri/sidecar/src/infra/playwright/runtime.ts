@@ -58,13 +58,32 @@ function playwrightCoreDir(): string {
   return path.dirname(require.resolve('playwright-core/package.json'));
 }
 
-/** `chromium-<revision>`, the folder this Playwright build installs Chromium into. */
-export function expectedChromiumFolder(coreDir = playwrightCoreDir()): string | null {
+interface BrowserEntry {
+  name: string;
+  revision: string;
+  browserVersion?: string;
+}
+
+function chromiumEntry(coreDir = playwrightCoreDir()): BrowserEntry | undefined {
   const { browsers } = JSON.parse(fs.readFileSync(path.join(coreDir, 'browsers.json'), 'utf8')) as {
-    browsers: { name: string; revision: string }[];
+    browsers: BrowserEntry[];
   };
-  const chromium = browsers.find((b) => b.name === 'chromium');
+  return browsers.find((b) => b.name === 'chromium');
+}
+
+/** `chromium-<revision>`, the folder this Playwright build installs Chromium into. */
+export function expectedChromiumFolder(coreDir?: string): string | null {
+  const chromium = chromiumEntry(coreDir);
   return chromium ? `chromium-${chromium.revision}` : null;
+}
+
+/** Major version of the Chromium this Playwright build runs, e.g. "148". */
+export function chromiumMajorVersion(fallback: string): string {
+  try {
+    return chromiumEntry()?.browserVersion?.split('.')[0] || fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 function isInstalled(browsersDir: string, folder: string): boolean {

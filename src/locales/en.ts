@@ -170,6 +170,9 @@ const en: Record<string, string> = {
   'login.autoLogin': 'Signing you in…',
   'login.opening': 'Opening F95 App…',
   'login.hint': 'Use your F95Zone account.',
+  'login.cloudflare.title': 'Confirm you are human',
+  'login.cloudflare.hint': 'F95Zone asked for a Cloudflare check. Tick the box below if one shows up.',
+  'login.cloudflare.cancel': 'Cancel',
 
   // ─── Launching overlay (Hydra-style) ────────────────────────────────────
   'launching.starting': 'Launching…',
