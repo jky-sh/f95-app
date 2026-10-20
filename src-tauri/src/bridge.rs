@@ -2,9 +2,11 @@ use crate::error::AppError;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
+use std::future::Future;
 use std::path::PathBuf;
+use std::pin::Pin;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, Command};
@@ -30,6 +32,19 @@ pub struct RpcErrorPayload {
     pub message: String,
     #[serde(default)]
     pub data: Option<Value>,
+}
+
+/// Shows a Cloudflare check that wants a person and returns the params of
+/// the sidecar's `importClearance`, or None when another call's check just
+/// passed. `cloudflare::init` registers it; without it those calls fail as
+/// they are.
+pub type PersonCheck =
+    fn(RpcErrorPayload) -> Pin<Box<dyn Future<Output = Result<Option<Value>, AppError>> + Send>>;
+
+static PERSON_CHECK: OnceLock<PersonCheck> = OnceLock::new();
+
+pub fn set_person_check(check: PersonCheck) {
+    let _ = PERSON_CHECK.set(check);
 }
 
 pub struct Sidecar {
@@ -181,12 +196,39 @@ impl Sidecar {
         self.call_with_timeout(method, params, RPC_TIMEOUT).await
     }
 
+    /// When Cloudflare wants a person, the check is shown in the app (see
+    /// `cloudflare`) and the call runs once more after it passed.
     pub async fn call_with_timeout(
         &self,
         method: &str,
         params: Value,
         rpc_timeout: Duration,
     ) -> Result<Value, AppError> {
+        match self.send(method, params.clone(), rpc_timeout).await? {
+            Ok(value) => Ok(value),
+            Err(err) if crate::cloudflare::needs_person(&err) && PERSON_CHECK.get().is_some() => {
+                let check = PERSON_CHECK.get().expect("checked above");
+                if let Some(clearance) = check(err).await? {
+                    self.send("importClearance", clearance, RPC_TIMEOUT)
+                        .await?
+                        .map_err(map_rpc_error)?;
+                }
+                self.send(method, params, rpc_timeout)
+                    .await?
+                    .map_err(map_rpc_error)
+            }
+            Err(err) => Err(map_rpc_error(err)),
+        }
+    }
+
+    /// One request. The outer error is the pipe or the timeout, the inner
+    /// one the sidecar's answer.
+    async fn send(
+        &self,
+        method: &str,
+        params: Value,
+        rpc_timeout: Duration,
+    ) -> Result<Result<Value, RpcErrorPayload>, AppError> {
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
         let (tx, rx) = oneshot::channel();
         {
@@ -209,8 +251,7 @@ impl Sidecar {
         }
 
         match timeout(rpc_timeout, rx).await {
-            Ok(Ok(Ok(value))) => Ok(value),
-            Ok(Ok(Err(err))) => Err(map_rpc_error(err)),
+            Ok(Ok(answer)) => Ok(answer),
             Ok(Err(_)) => Err(AppError::SidecarCrash),
             Err(_) => {
                 // Clean up pending entry on timeout

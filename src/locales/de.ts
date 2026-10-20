@@ -168,6 +168,9 @@ const de: Record<string, string> = {
   'login.autoLogin': 'Anmeldung…',
   'login.opening': 'F95 App wird geöffnet…',
   'login.hint': 'Verwende deinen F95Zone-Account.',
+  'login.cloudflare.title': 'Bestätige, dass du ein Mensch bist',
+  'login.cloudflare.hint': 'F95Zone verlangt eine Cloudflare-Prüfung. Setze unten das Häkchen, falls eines erscheint.',
+  'login.cloudflare.cancel': 'Abbrechen',
 
   // ─── Launching overlay ──────────────────────────────────────────────────
   'launching.starting': 'Startet…',

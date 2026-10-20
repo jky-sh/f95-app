@@ -5,6 +5,11 @@ import * as path from 'node:path';
 import { RPC_ERROR, RpcError } from '../../rpc';
 import { log } from '../../logger';
 import { assertNotCloudflareChallenge } from '../../shared/cloudflare';
+import {
+  importClearance,
+  useCloudflareSolver,
+  type ClearanceCookie,
+} from '../../infra/playwright/cloudflareSolver';
 import { F95_BASE, USER_AGENT } from '../../shared/constants';
 import {
   fetchAlertsList,
@@ -71,7 +76,7 @@ export class F95Client {
   }
 
   private createHttpClient(): BrowserClient {
-    return new BrowserClient({
+    const client = new BrowserClient({
       session: this._sessionId,
       sessionDir: this._sessionDir,
       parseHtml: false,
@@ -83,6 +88,8 @@ export class F95Client {
       // quickly and can retry instead of staring at a spinner.
       timeout: 10000,
     });
+    useCloudflareSolver(client);
+    return client;
   }
 
   get sessionId(): string {
@@ -311,6 +318,11 @@ export class F95Client {
       }
     }
     this.client = this.createHttpClient();
+  }
+
+  /** A Cloudflare check the user passed in the app's own browser. */
+  async importClearance(cookies: ClearanceCookie[], userAgent: string): Promise<void> {
+    await importClearance(this.client, cookies, userAgent);
   }
 
   async close(): Promise<void> {

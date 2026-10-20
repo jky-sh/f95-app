@@ -19,6 +19,19 @@ and stands in when GitHub can't be reached, so keep it in step with them.
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-10-19
+
+### Fixed
+- Signing in hung on "Signing you in…" and failed after a minute
+  ("page.goto: Timeout 60000ms exceeded") while F95Zone shows
+  Cloudflare's "Just a moment…" check. The app now passes the check on
+  its own in a few seconds and keeps the clearance for the next starts.
+
+### Added
+- When Cloudflare wants a person to confirm, the check shows inside the
+  sign-in window (or in a small window of the app once it's open)
+  instead of a separate browser.
+
 ## [1.0.2] - 2026-10-19
 
 ### Fixed
