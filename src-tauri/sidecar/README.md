@@ -30,6 +30,8 @@ Ninguém precisa rodar `playwright install`: `src/infra/playwright/runtime.ts` c
 
 Em dev o cache é o mesmo do app instalado; `dist/ms-playwright` não é usado.
 
+Atualizar o Playwright é um PR de rotina: o Dependabot (`.github/dependabot.yml`) abre um PR em `develop` quando sai versão nova. Dar merge e fazer um release entrega o Playwright novo junto com o Chromium que ele espera (o `build:sea` baixa esse Chromium). Em dev, e para usuários em que ele faltar, o reparo automático acima baixa a revisão nova.
+
 ## Cloudflare
 
 O F95 pode responder às requisições do app com o desafio "Just a moment…" (403, `cf-mitigated: challenge`). O cookie `cf_clearance` que libera só vale para o User-Agent do navegador que passou na verificação, por isso `USER_AGENT` acompanha a versão do Chromium empacotado.
