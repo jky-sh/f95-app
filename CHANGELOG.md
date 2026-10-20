@@ -19,6 +19,14 @@ and stands in when GitHub can't be reached, so keep it in step with them.
 
 ## [Unreleased]
 
+### Fixed
+- The Cloudflare check sometimes showed up in the app although it would
+  have cleared on its own: the app gave up after 15 s, and Cloudflare can
+  take a little longer. It now waits up to 30 s.
+
+### Changed
+- Playwright 1.64.1 with Chromium 156 (was 1.60.0 with Chromium 148).
+
 ## [1.0.3] - 2026-10-19
 
 ### Fixed
