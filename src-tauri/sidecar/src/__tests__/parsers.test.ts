@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { classifyHost } from '../domain/game/hosts';
+import { classifyF95DownloadLink, classifyHost, isF95DownloadPage } from '../domain/game/hosts';
 import {
+  decodeDownloadCode,
+  findDownloadLink,
   inferRefererFromMasked,
+  parseDownloadPage,
+  parseDownloadRedirect,
   parseUnmaskResponse,
 } from '../domain/f95/unmask';
+import { isF95ImageUrl } from '../domain/f95/image';
 import { isCloudflareInterstitial, assertNotCloudflareChallenge, isBotChallengePage } from '../shared/cloudflare';
 import { RpcError } from '../rpc';
 import { normalizeBuzzheavierUrl } from '../domain/resolvers/buzzheavier';
@@ -131,6 +136,107 @@ describe('unmask', () => {
 
   it('returns null when thread id missing', () => {
     expect(inferRefererFromMasked('https://pixeldrain.com/u/abc')).toBeNull();
+  });
+});
+
+describe('F95 download pages', () => {
+  const PAGE_URL =
+    'https://f95zone.to/dl/5617588/?u=123456&k=aB1cD2eF3gH4&r=1792560000&t=Zm9vYmFyYmF6cXV4MTIz';
+  // page.js hides the code as "c" + base64 of the code reversed.
+  const hide = (code: string) => 'c' + Buffer.from(code.split('').reverse().join(''), 'latin1').toString('base64');
+
+  const page = (code: string) => `<html data-logged-in="true"><body><div class="p-body-pageContent">
+    <div class="f95dl-page f95dl-page--side" data-xf-init="f95dl-page" data-auto="0" data-code="${hide(code)}" data-generating="Generating your link…">
+      <form action="/dl/5617588/?u=123456&amp;k=aB1cD2eF3gH4&amp;r=1792560000&amp;t=Zm9vYmFyYmF6cXV4MTIz" method="post" class="block f95dl-box">
+        <input type="hidden" name="had_check" value="0">
+        <input type="hidden" name="w" value="" class="js-f95dlCode">
+        <div class="f95dl-link"><span class="f95dl-link-name">Win/Linux · PIXELDRAIN</span><span class="f95dl-link-host">pixeldrain.com</span></div>
+        <button type="submit" class="button button--primary f95dl-continue js-f95dlContinue"><span class="button-text">Continue to pixeldrain.com</span></button>
+        <input type="hidden" name="_xfToken" value="1792560000,fake-token">
+      </form>
+    </div></div></body></html>`;
+
+  it('recognizes /dl/ links', () => {
+    expect(isF95DownloadPage(PAGE_URL)).toBe(true);
+    expect(isF95DownloadPage('https://f95zone.to/threads/foo.123/')).toBe(false);
+    expect(isF95DownloadPage('https://example.com/dl/5617588/')).toBe(false);
+  });
+
+  it.each([
+    ['mega.nz', 'MEGA', 'mega'],
+    ['www.mediafire.com', 'MEDIAFIRE', 'mediafire'],
+    ['datanodes.to', 'Download', 'datanodes'],
+    [null, 'GOFILE', 'gofile'],
+    [null, 'Google Drive', 'gdrive'],
+    ['files.example.net', 'NEWHOST', 'files.example.net'],
+    [null, 'Some Host', 'somehost'],
+  ])('names the host of a /dl/ link from favicon %s / label %s', (domain, label, host) => {
+    expect(classifyF95DownloadLink(domain, label)).toEqual({ host, category: 'direct' });
+  });
+
+  it('decodes the hidden code', () => {
+    expect(decodeDownloadCode(hide('Xy7-q9_Lm2'))).toBe('Xy7-q9_Lm2');
+  });
+
+  it('reads the form with the decoded code', () => {
+    expect(parseDownloadPage(page('Xy7-q9_Lm2'), PAGE_URL)).toEqual({
+      kind: 'form',
+      action: PAGE_URL,
+      fields: { had_check: '0', w: 'Xy7-q9_Lm2', _xfToken: '1792560000,fake-token' },
+    });
+  });
+
+  it('tells an expired link apart', () => {
+    const html = `<html data-logged-in="true"><body><div class="p-body-pageContent"><div class="blockMessage">
+      This download link has expired: they work for a few hours after the page was opened. Please open it again from the post.
+    </div></div></body></html>`;
+    expect(parseDownloadPage(html, PAGE_URL)).toMatchObject({ kind: 'expired' });
+  });
+
+  it('sees a captcha and a signed-out page', () => {
+    const captcha = `<html data-logged-in="true"><body><div class="p-body-pageContent">
+      <div data-xf-init="re-captcha" data-sitekey="fake"></div></div></body></html>`;
+    expect(parseDownloadPage(captcha, PAGE_URL)).toEqual({ kind: 'captcha' });
+    expect(parseDownloadPage('<html data-logged-in="false"><body></body></html>', PAGE_URL)).toEqual({
+      kind: 'login',
+    });
+  });
+
+  it('reads the host URL from the page that answers the form', () => {
+    const html = `<html><body><main class="f95dl-shell-main"><div class="f95dl-page">
+      <div class="blockMessage f95dl-going" data-xf-init="f95dl-go" data-url="https://gofile.io/d/AbCd12" role="status">
+        <div class="f95dl-going-title">Opening gofile.io…</div>
+        <div class="f95dl-going-link">Nothing happening? <a href="https://gofile.io/d/AbCd12" rel="noopener">Continue to gofile.io</a></div>
+      </div></div></main></body></html>`;
+    expect(parseDownloadRedirect(html)).toBe('https://gofile.io/d/AbCd12');
+    expect(parseDownloadRedirect(page('x'))).toBeNull();
+  });
+
+  it('finds the same link, signed again, in its post', () => {
+    const fresh = 'https://f95zone.to/dl/5617588/?u=123456&amp;k=aB1cD2eF3gH4&amp;r=1792570000&amp;t=bmV3c2lnbmF0dXJlMTIz';
+    const other = 'https://f95zone.to/dl/5617588/?u=123456&amp;k=zZ9yY8xX7wW6&amp;r=1792570000&amp;t=b3RoZXJzaWduYXR1cmUx';
+    const html = `<html><body>
+      <article class="message" data-content="post-5617588"><div class="bbWrapper">
+        <a href="${other}">MEGA</a> - <a href="${fresh}">PIXELDRAIN</a>
+      </div></article></body></html>`;
+    expect(findDownloadLink(html, '5617588', 'aB1cD2eF3gH4')).toBe(
+      'https://f95zone.to/dl/5617588/?u=123456&k=aB1cD2eF3gH4&r=1792570000&t=bmV3c2lnbmF0dXJlMTIz',
+    );
+    expect(findDownloadLink(html, '5617588', 'missing00000')).toBeNull();
+  });
+});
+
+describe('F95 images', () => {
+  it.each([
+    ['https://f95zone.to/data/avatars/s/123/123456.jpg?1700000000', true],
+    ['https://f95zone.to/data/profile_banners/l/123/123456.jpg', true],
+    ['https://f95zone.to/styles/default/xenforo/smilies/smile.png', true],
+    ['https://f95zone.to/threads/foo.1/', false],
+    ['https://attachments.f95zone.to/2026/08/1_a.jpg', false],
+    ['http://f95zone.to/data/avatars/s/1/1.jpg', false],
+    ['https://f95zone.to.evil.example/data/avatars/s/1/1.jpg', false],
+  ])('%s is an F95 image URL: %s', (url, expected) => {
+    expect(isF95ImageUrl(url)).toBe(expected);
   });
 });
 

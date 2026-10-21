@@ -95,6 +95,11 @@ export const RPC_METHODS = {
     params: { url: 'string' },
     result: { url: 'string', status: 'number' },
   },
+  /** Runs beside the serial queue (see `CONCURRENT_METHODS` in main). */
+  fetchF95Image: {
+    params: { url: 'string' },
+    result: { contentType: 'string', data: 'string' },
+  },
   resolveBuzzheavier: {
     params: { url: 'string', accountId: 'string?' },
     result: { directUrl: 'string', fileName: 'string', fileSize: 'number?' },

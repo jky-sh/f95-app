@@ -3,7 +3,7 @@ import * as cheerio from 'cheerio';
 import type { AnyNode, Element, Text } from 'domhandler';
 import { RPC_ERROR, RpcError } from '../../rpc';
 import { log } from '../../logger';
-import { classifyHost } from './hosts';
+import { classifyF95DownloadLink, classifyHost, isF95DownloadPage } from './hosts';
 import { assertNotCloudflareChallenge } from '../../shared/cloudflare';
 import { F95_BASE } from '../../shared/constants';
 import {
@@ -470,10 +470,12 @@ function collectLinks(
     const href = $el.attr('href');
     if (!href || href.startsWith('#')) return;
     const url = absoluteUrl(href);
-    const info = classifyHost(url);
+    const text = cleanText($el.text());
+    const info = isF95DownloadPage(url)
+      ? classifyF95DownloadLink(faviconDomain($el), text)
+      : classifyHost(url);
     if (!info) return;
 
-    const text = cleanText($el.text());
     if (info.category === 'direct') {
       if (seenDownload.has(url)) return;
       seenDownload.add(url);
@@ -491,6 +493,12 @@ function collectLinks(
   });
 
   return { downloads, social };
+}
+
+/** Domain of the favicon F95 paints behind a link (`url(…/ip3/<domain>.ico)`). */
+function faviconDomain($el: cheerio.Cheerio<Element>): string | null {
+  const style = $el.attr('style') ?? '';
+  return style.match(/\/ip3\/([a-z0-9.-]+)\.ico\b/i)?.[1] ?? null;
 }
 
 const OS_LABEL_RE =
@@ -645,7 +653,9 @@ function normalizeOpHtml(
   clone.find('noscript').remove();
   clone.find('.lbContainer-zoomer').remove();
 
-  // Anchor cleanup: open external links in a new tab; strip XF tracker classes.
+  // Anchor cleanup: open external links in a new tab; strip XF tracker classes
+  // and the favicon F95 paints as an inline background (without F95's CSS it
+  // tiles across the label).
   clone.find('a[href]').each((_, el) => {
     const $el = $(el);
     const href = absoluteUrl($el.attr('href') ?? '');
@@ -653,6 +663,7 @@ function normalizeOpHtml(
     $el.attr('target', '_blank');
     $el.attr('rel', 'noreferrer noopener');
     $el.removeAttr('class');
+    $el.removeAttr('style');
     $el.removeAttr('data-xf-init');
     $el.removeAttr('data-xf-click');
   });

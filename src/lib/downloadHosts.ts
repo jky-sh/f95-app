@@ -37,12 +37,13 @@ export function hostDelivery(host: string): HostDelivery {
 
 /**
  * A `needs_browser` row the verification window can finish. Not when F95
- * itself asked for a captcha before revealing the host link: that one only
- * opens in the browser.
+ * itself asked for a captcha before revealing the host link (on a
+ * `/masked/` link or a `/dl/` download page): that one only opens in the
+ * browser.
  */
 export function canVerifyInApp(row: Pick<DownloadRow, 'state' | 'host' | 'resolvedUrl'>): boolean {
   if (row.state !== 'needs_browser' || !row.resolvedUrl) return false;
-  if (/^https?:\/\/f95zone\.to\/masked\//i.test(row.resolvedUrl)) return false;
+  if (/^https?:\/\/f95zone\.to\/(masked|dl)\//i.test(row.resolvedUrl)) return false;
   return needsVerifyWindow(row.host) && verifyWindowOpens(row.host, row.resolvedUrl);
 }
 

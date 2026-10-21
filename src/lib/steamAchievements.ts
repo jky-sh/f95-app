@@ -96,14 +96,19 @@ async function doEnsureSchema(
   language: string,
   force: boolean,
 ): Promise<void> {
-  const rows = await query<{ language: string; fetched_at: string; n: number }>(
-    `SELECT language, MAX(fetched_at) AS fetched_at, COUNT(*) AS n
+  const rows = await query<{ language: string; fetched_at: string; n: number; no_icon: number }>(
+    `SELECT language, MAX(fetched_at) AS fetched_at, COUNT(*) AS n,
+            SUM(COALESCE(icon_url, '') = '') AS no_icon
        FROM steam_achievements WHERE steam_appid = ?`,
     [appId],
   );
   const cached = rows[0];
   const hasCache = (cached?.n ?? 0) > 0;
-  if (!force && hasCache && cached!.language === language) {
+  // Sem nenhum ícone = schema do fallback degradado (só api names), como os
+  // buscados depois que a Steam mudou a página pública (out/2026) e antes
+  // do app ler a nova: vale buscar de novo sem esperar o TTL.
+  const degraded = hasCache && cached!.no_icon === cached!.n;
+  if (!force && hasCache && !degraded && cached!.language === language) {
     const ageMs = Date.now() - new Date(cached!.fetched_at + 'Z').getTime();
     if (ageMs < SCHEMA_TTL_DAYS * 24 * 3600 * 1000) return;
   }

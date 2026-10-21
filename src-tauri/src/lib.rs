@@ -9,6 +9,7 @@ mod download;
 mod engine_detect;
 mod error;
 mod extraction;
+mod f95_image;
 mod game_window;
 mod gdrive;
 mod launcher;
@@ -144,6 +145,8 @@ pub fn run() {
                 let _ = window.set_focus();
             }
         }))
+        // Avatars and covers on f95zone.to, past its Cloudflare check.
+        .register_asynchronous_uri_scheme_protocol(f95_image::SCHEME, f95_image::handle)
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())

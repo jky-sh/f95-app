@@ -11,6 +11,17 @@ pub struct UnmaskResult {
     pub status: u16,
 }
 
+/// The sidecar gives up on an image after 20 s; this only covers a stuck pipe.
+const F95_IMAGE_TIMEOUT: Duration = Duration::from_secs(30);
+
+#[derive(Debug, Deserialize)]
+pub struct F95ImageResult {
+    #[serde(rename = "contentType")]
+    pub content_type: String,
+    /// Base64 of the image bytes.
+    pub data: String,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct RpcHeaderPair {
     pub name: String,
@@ -197,6 +208,16 @@ impl SidecarClient {
 
     pub async fn unmask_url(&self, url: &str) -> Result<UnmaskResult, AppError> {
         let value = self.inner.call("unmaskUrl", json!({ "url": url })).await?;
+        Ok(serde_json::from_value(value)?)
+    }
+
+    /// An image on f95zone.to, loaded with the sidecar's Cloudflare
+    /// clearance (the sidecar runs these beside its serial queue).
+    pub async fn fetch_f95_image(&self, url: &str) -> Result<F95ImageResult, AppError> {
+        let value = self
+            .inner
+            .call_with_timeout("fetchF95Image", json!({ "url": url }), F95_IMAGE_TIMEOUT)
+            .await?;
         Ok(serde_json::from_value(value)?)
     }
 
