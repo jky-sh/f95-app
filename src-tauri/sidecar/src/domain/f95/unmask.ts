@@ -13,6 +13,11 @@ export interface UnmaskResponse {
 export interface UnmaskResult {
   url: string;
   status: number;
+  /**
+   * F95 wants a person to pass its hCaptcha first: `url` is then the
+   * download page (signed fresh) for the host to show them in the app.
+   */
+  check?: boolean;
 }
 
 /** /masked/<host>/<threadId>/<post>/... → the thread page, useful as Referer. */
@@ -196,6 +201,8 @@ async function openDownloadPage(http: BrowserClient, url: string): Promise<Unmas
     page = await getDownloadPage(http, pageUrl);
   }
 
+  // Only a person can pass F95's hCaptcha: the host shows them the page.
+  if (page.page.kind === 'captcha') return { url: pageUrl, status: page.status, check: true };
   const form = requireForm(page.page);
   const wait = page.openedAt + DOWNLOAD_CODE_DELAY_MS - Date.now();
   if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
@@ -213,6 +220,7 @@ async function openDownloadPage(http: BrowserClient, url: string): Promise<Unmas
   if (target) return { url: target, status: res.status };
 
   const after = parseDownloadPage(body, pageUrl);
+  if (after.kind === 'captcha') return { url: pageUrl, status: res.status, check: true };
   throw after.kind === 'form'
     ? new RpcError(RPC_ERROR.INTERNAL, 'F95 showed the download page again instead of the host link')
     : downloadPageError(after);
@@ -221,14 +229,14 @@ async function openDownloadPage(http: BrowserClient, url: string): Promise<Unmas
 async function getDownloadPage(
   http: BrowserClient,
   url: string,
-): Promise<{ page: DownloadPage; openedAt: number }> {
+): Promise<{ page: DownloadPage; openedAt: number; status: number }> {
   const parts = downloadLinkParts(url);
   const res = await http.get(url, {
     headers: { referer: parts ? `${F95_BASE}/posts/${parts.postId}/` : `${F95_BASE}/` },
   });
   const openedAt = Date.now();
   const body = typeof res.body === 'string' ? res.body : '';
-  return { page: parseDownloadPage(body, res.url || url), openedAt };
+  return { page: parseDownloadPage(body, res.url || url), openedAt, status: res.status };
 }
 
 async function refreshDownloadLink(http: BrowserClient, url: string): Promise<string> {
@@ -271,7 +279,7 @@ function hasCaptcha($: cheerio.CheerioAPI): boolean {
   );
 }
 
-/** A person has to pass F95's check: the host opens the link in the browser. */
+/** A /masked/ link behind F95's reCAPTCHA: the host opens it in the browser. */
 function captchaError(): RpcError {
   return new RpcError(
     RPC_ERROR.CLOUDFLARE_CHALLENGE,

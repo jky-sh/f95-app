@@ -867,20 +867,25 @@ impl Manager {
     ) -> Result<(), AppError> {
         let _ = app.emit("download:resolving", json!({ "id": id }));
 
-        // Step 1: unmask F95 → real host URL. If F95 demands a reCAPTCHA we
-        // can't solve it headlessly, so we surface as needs-browser with the
-        // masked URL itself (the user lands on the F95 interstitial, solves
-        // the captcha, and continues to the host).
+        // Step 1: unmask F95 → real host URL. When F95's `/dl/` page wants
+        // its hCaptcha passed, the person passes it in a window of the app
+        // and the download carries on here. An old `/masked/` link behind a
+        // reCAPTCHA still surfaces as needs-browser with the masked URL.
         let target_url = if is_f95_masked(&source_url) {
             match sidecar.unmask_url(&source_url).await {
+                Ok(res) if res.check => {
+                    crate::dev_debug::log(Some(&app), "unmask", format!("F95 check → {}", res.url));
+                    let unmasked = crate::f95_check::pass(&app, &sidecar, id, &res.url).await?;
+                    let _ = app.emit("download:resolving", json!({ "id": id }));
+                    unmasked
+                }
                 Ok(res) => {
                     let unmasked = res.url;
                     crate::dev_debug::log(Some(&app), "unmask", format!("ok → {unmasked}"));
                     unmasked
                 }
                 Err(AppError::Cloudflare(_)) => {
-                    // A `/dl/` link doesn't name its host: an empty one
-                    // keeps the host the row already has.
+                    // No host in the URL: an empty one keeps the row's.
                     let host = masked_host(&source_url)
                         .map(|h| host_label(&h))
                         .unwrap_or_default();

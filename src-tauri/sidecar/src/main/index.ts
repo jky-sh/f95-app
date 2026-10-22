@@ -29,7 +29,7 @@ let queue: Promise<void> = Promise.resolve();
  * wait behind every thread fetch, and hold those up in turn. They only read
  * the client's cookies, so they can run beside anything else.
  */
-const CONCURRENT_METHODS = new Set(['fetchF95Image']);
+const CONCURRENT_METHODS = new Set(['fetchF95Image', 'f95SessionCookies']);
 
 function writeResponse(res: RpcResponse): void {
   process.stdout.write(JSON.stringify(res) + '\n');

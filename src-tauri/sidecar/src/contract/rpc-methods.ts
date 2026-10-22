@@ -91,14 +91,20 @@ export const RPC_METHODS = {
     params: { page: 'number?' },
     result: 'F95AlertsListResult',
   },
+  /** `check`: F95 wants its hCaptcha passed; `url` is the page to show. */
   unmaskUrl: {
     params: { url: 'string' },
-    result: { url: 'string', status: 'number' },
+    result: { url: 'string', status: 'number', check: 'boolean?' },
   },
   /** Runs beside the serial queue (see `CONCURRENT_METHODS` in main). */
   fetchF95Image: {
     params: { url: 'string' },
     result: { contentType: 'string', data: 'string' },
+  },
+  /** The `xf_*` sign-in cookies, for the app's F95 check window. Beside the queue too. */
+  f95SessionCookies: {
+    params: {},
+    result: 'ClearanceCookie[]',
   },
   resolveBuzzheavier: {
     params: { url: 'string', accountId: 'string?' },

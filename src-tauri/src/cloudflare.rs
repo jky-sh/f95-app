@@ -269,7 +269,7 @@ fn cookie_json(c: &Cookie<'static>) -> Value {
 
 /// WebView2's own User-Agent format with its real version, so it agrees
 /// with the client hints Cloudflare also reads.
-fn webview_user_agent() -> String {
+pub(crate) fn webview_user_agent() -> String {
     let major = tauri::webview_version()
         .ok()
         .and_then(|v| v.split('.').next().map(str::to_owned))
