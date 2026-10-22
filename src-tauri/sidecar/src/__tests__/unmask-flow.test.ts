@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { BrowserClient } from 'browser-rest-api';
 import { unmaskUrl } from '../domain/f95/unmask';
+import { f95SessionCookies } from '../domain/f95/session';
 import { RPC_ERROR, RpcError } from '../rpc';
 
 // unmaskUrl over a fake client that answers like F95's /dl/ pages (markup as
@@ -89,12 +90,41 @@ describe('unmaskUrl on /dl/ pages', () => {
     ]);
   });
 
-  it('hands a page with the hCaptcha to the browser without posting', async () => {
+  it('returns the page for a person to pass the hCaptcha, without posting', async () => {
     const { http, calls } = fakeClient({ [`GET ${PAGE_URL}`]: downloadPage(PAGE_URL, true) });
-    const err = await unmaskUrl(http, PAGE_URL).catch((e) => e);
-    expect(err).toBeInstanceOf(RpcError);
-    expect(err.code).toBe(RPC_ERROR.CLOUDFLARE_CHALLENGE);
-    expect(err.data).toEqual({ variant: 'recaptcha' });
+    expect(await unmaskUrl(http, PAGE_URL)).toEqual({ url: PAGE_URL, status: 200, check: true });
     expect(calls.map((c) => c.method)).toEqual(['GET']);
+  });
+
+  it('returns the fresh page when the hCaptcha shows after an expired link', async () => {
+    const { http } = fakeClient({
+      [`GET ${PAGE_URL}`]: expiredPage,
+      ['GET https://f95zone.to/posts/5617588/']: postPage,
+      [`GET ${FRESH_URL}`]: downloadPage(FRESH_URL, true),
+    });
+    expect(await unmaskUrl(http, PAGE_URL)).toEqual({ url: FRESH_URL, status: 200, check: true });
+  });
+});
+
+describe('f95SessionCookies', () => {
+  it('hands over the xf_ sign-in cookies only', async () => {
+    const expires = new Date('2027-10-19T23:48:09Z');
+    const http = {
+      ready: Promise.resolve(),
+      jar: {
+        getCookies: async (url: string) => {
+          expect(url).toBe('https://f95zone.to/');
+          return [
+            { key: 'xf_user', value: '123456%2Cfake', domain: 'f95zone.to', path: '/', expires, secure: true, httpOnly: true },
+            { key: 'xf_session', value: 'fake-session', domain: 'f95zone.to', path: '/', expires: 'Infinity', secure: true, httpOnly: true },
+            { key: 'cf_clearance', value: 'fake-clearance', domain: '.f95zone.to', path: '/', secure: true, httpOnly: true },
+          ];
+        },
+      },
+    } as unknown as BrowserClient;
+    expect(await f95SessionCookies(http)).toEqual([
+      { name: 'xf_user', value: '123456%2Cfake', domain: 'f95zone.to', path: '/', expires: Math.floor(expires.getTime() / 1000), secure: true, httpOnly: true },
+      { name: 'xf_session', value: 'fake-session', domain: 'f95zone.to', path: '/', expires: null, secure: true, httpOnly: true },
+    ]);
   });
 });

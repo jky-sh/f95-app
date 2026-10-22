@@ -843,6 +843,7 @@ const en: Record<string, string> = {
   'dl.error.html_page': 'The host sent a web page instead of the file. Open the link in the browser.',
   'dl.error.interrupted': 'Interrupted when the app closed. Retry to resume it.',
   'dl.error.link_refused': 'The host refused the link it had just issued (blocked or a storage fault). Try again later or open it in the browser.',
+  'dl.error.f95_check': "F95's “confirm you're not a bot” check wasn't passed. Retry to show it again.",
   'modal.hostFile.title': 'Multiple files in this link',
   'modal.hostFile.description':
     '{host} lists {count} files. Choose which build to download.',
