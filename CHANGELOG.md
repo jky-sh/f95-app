@@ -19,6 +19,14 @@ and stands in when GitHub can't be reached, so keep it in step with them.
 
 ## [Unreleased]
 
+## [1.0.5] - 2026-10-22
+
+### Fixed
+- When F95Zone asks you to confirm you're not a bot before a download, the
+  check now shows in a window of the app, already signed in to F95. Once
+  you pass it, the download carries on in the app (1.0.4 opened the link
+  in your browser).
+
 ## [1.0.4] - 2026-10-22
 
 ### Fixed
