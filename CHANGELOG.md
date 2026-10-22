@@ -19,6 +19,33 @@ and stands in when GitHub can't be reached, so keep it in step with them.
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-10-22
+
+### Fixed
+- Installing a game said "No direct download links found in this thread".
+  F95Zone now sends every download link through its own download page,
+  which no longer names the host. The app tells the host from the thread,
+  goes through that page by itself and downloads from the host as before.
+  F95 lets those links expire after a few hours, so a download started
+  from a game page opened long ago gets its link again from the post.
+  When F95 asks for a captcha before a download, the link opens in your
+  browser so you can pass it there.
+- The download section of a game's description showed the host icons
+  tiled over the link names, and an extra copy of the first link.
+- Profile pictures and profile covers didn't load (a broken image in the
+  top bar and on profiles). F95Zone serves them from behind its Cloudflare
+  check now, so the app loads them through its own connection to F95,
+  which has passed the check.
+- Steam achievements of games linked since October 19 showed no icons and
+  their internal names: Steam moved its public achievements page. The app
+  reads the new one, and fixes those games the next time it starts.
+- The Cloudflare check sometimes showed up in the app although it would
+  have cleared on its own: the app gave up after 15 s, and Cloudflare can
+  take a little longer. It now waits up to 30 s.
+
+### Changed
+- Playwright 1.64.1 with Chromium 156 (was 1.60.0 with Chromium 148).
+
 ## [1.0.3] - 2026-10-19
 
 ### Fixed

@@ -879,9 +879,11 @@ impl Manager {
                     unmasked
                 }
                 Err(AppError::Cloudflare(_)) => {
+                    // A `/dl/` link doesn't name its host: an empty one
+                    // keeps the host the row already has.
                     let host = masked_host(&source_url)
                         .map(|h| host_label(&h))
-                        .unwrap_or_else(|| "f95-masked".into());
+                        .unwrap_or_default();
                     let _ = app.emit(
                         "download:needs-browser",
                         json!({

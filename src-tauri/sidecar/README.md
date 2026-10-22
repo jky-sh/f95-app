@@ -37,7 +37,7 @@ Atualizar o Playwright é um PR de rotina: o Dependabot (`.github/dependabot.yml
 O F95 pode responder às requisições do app com o desafio "Just a moment…" (403, `cf-mitigated: challenge`). O cookie `cf_clearance` que libera só vale para o User-Agent do navegador que passou na verificação, por isso `USER_AGENT` acompanha a versão do Chromium empacotado.
 
 - `src/infra/playwright/cloudflareSolver.ts` substitui o resolvedor do `browser-rest-api` (campo privado `orchestrator.browserEngine`, que a biblioteca não expõe): abre o Chromium completo headless, sem `--enable-automation` e sem `locale` (um idioma diferente do sistema faz o Cloudflare manter o desafio), espera a página real carregar e copia os cookies para o jar.
-- Se não passar em 15 s, o erro `-32010` sai com `data.variant = 'interactive'`. O Rust (`src-tauri/src/cloudflare.rs`) mostra a verificação num WebView2 dentro da janela de login (ou numa janela própria, com a principal aberta), manda os cookies `cf_*`/`__cf*` e o User-Agent do WebView2 para o RPC `importClearance` e repete a chamada.
+- Se não passar em 30 s, o erro `-32010` sai com `data.variant = 'interactive'`. O Rust (`src-tauri/src/cloudflare.rs`) mostra a verificação num WebView2 dentro da janela de login (ou numa janela própria, com a principal aberta), manda os cookies `cf_*`/`__cf*` e o User-Agent do WebView2 para o RPC `importClearance` e repete a chamada.
 - `F95_CLOUDFLARE_SKIP_HEADLESS=1` pula a tentativa headless, para testar a verificação no app.
 
 ## Testes

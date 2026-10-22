@@ -24,34 +24,47 @@ const ctx = new AppContext();
 const handlers = createHandlerRegistry(ctx);
 let queue: Promise<void> = Promise.resolve();
 
+/**
+ * Calls that skip the serial queue: a page full of avatars would otherwise
+ * wait behind every thread fetch, and hold those up in turn. They only read
+ * the client's cookies, so they can run beside anything else.
+ */
+const CONCURRENT_METHODS = new Set(['fetchF95Image']);
+
 function writeResponse(res: RpcResponse): void {
   process.stdout.write(JSON.stringify(res) + '\n');
 }
 
+async function run(req: RpcRequest): Promise<void> {
+  try {
+    const result = await dispatchMethod(handlers, req.method, req.params ?? {});
+    writeResponse({ jsonrpc: '2.0', id: req.id, result });
+  } catch (err) {
+    const e = err as Error;
+    if (err instanceof RpcError) {
+      writeResponse({
+        jsonrpc: '2.0',
+        id: req.id,
+        error: { code: err.code, message: err.message, data: err.data },
+      });
+    } else {
+      log('handler error:', e.stack ?? e.message);
+      writeResponse({
+        jsonrpc: '2.0',
+        id: req.id,
+        error: { code: RPC_ERROR.INTERNAL, message: e.message ?? 'internal error' },
+      });
+    }
+  }
+}
+
 function dispatch(req: RpcRequest): void {
+  if (CONCURRENT_METHODS.has(req.method)) {
+    void run(req);
+    return;
+  }
   queue = queue
-    .then(async () => {
-      try {
-        const result = await dispatchMethod(handlers, req.method, req.params ?? {});
-        writeResponse({ jsonrpc: '2.0', id: req.id, result });
-      } catch (err) {
-        const e = err as Error;
-        if (err instanceof RpcError) {
-          writeResponse({
-            jsonrpc: '2.0',
-            id: req.id,
-            error: { code: err.code, message: err.message, data: err.data },
-          });
-        } else {
-          log('handler error:', e.stack ?? e.message);
-          writeResponse({
-            jsonrpc: '2.0',
-            id: req.id,
-            error: { code: RPC_ERROR.INTERNAL, message: e.message ?? 'internal error' },
-          });
-        }
-      }
-    })
+    .then(() => run(req))
     .catch((err) => {
       log('queue error (unreachable):', err);
     });

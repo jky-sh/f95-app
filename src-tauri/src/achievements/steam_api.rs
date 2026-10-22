@@ -4,12 +4,15 @@
 //!
 //! 1. **Com Steam Web API key** (opcional, settings): `GetSchemaForGame` —
 //!    dados exatos e localizados, incluindo a flag `hidden` e o ícone cinza.
-//! 2. **Sem key** (padrão): combina dois endpoints públicos que retornam a
-//!    lista na MESMA ordenação (percentual global desc):
-//!    - `GetGlobalAchievementPercentagesForApp` → api names + % global;
-//!    - página `steamcommunity.com/stats/<appid>/achievements` → nome de
-//!      exibição, descrição e ícone colorido.
-//!    O zip por índice é validado comparando os percentuais dos dois lados.
+//! 2. **Sem key** (padrão): `GetGlobalAchievementPercentagesForApp` (api
+//!    names + % global) mais a página pública de conquistas:
+//!    - desde out/2026, `steamcommunity.com/achievements/<appid>` traz os
+//!      dados do servidor em `<script id="valve-ssr-data">`, com api name,
+//!      nome, descrição, flag `hidden` e os dois ícones de cada conquista;
+//!    - a página antiga (`/stats/<appid>/achievements`, hoje um redirect)
+//!      só tinha nome, descrição e ícone colorido, na MESMA ordenação dos
+//!      percentuais; fica como reserva, com o zip por índice validado
+//!      comparando os percentuais dos dois lados.
 //!
 //! Também expõe a busca do catálogo (storesearch) e a detecção de appid a
 //! partir de arquivos de configuração de crack no diretório do jogo.
@@ -233,6 +236,102 @@ async fn scrape_community_achievements(
     Ok(out)
 }
 
+/// Conquistas da página nova da comunidade (`/achievements/<appid>`), lidas
+/// do JSON que o servidor embute nela. Vazio quando a página não o tem.
+async fn fetch_community_schema(
+    client: &Client,
+    app_id: &str,
+    language: &str,
+) -> Result<Vec<SteamAchievementSchemaEntry>, AppError> {
+    let url = format!("https://steamcommunity.com/achievements/{app_id}?l={language}");
+    let res = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| AppError::Other(format!("steam community: {e}")))?;
+    if !res.status().is_success() {
+        return Ok(Vec::new());
+    }
+    let body = res
+        .text()
+        .await
+        .map_err(|e| AppError::Other(format!("steam community body: {e}")))?;
+    Ok(parse_ssr_achievements(&body))
+}
+
+/// `<script type="application/json" id="valve-ssr-data">` guarda o estado
+/// das queries da página como strings JSON dentro do JSON (hoje em
+/// `renderContext.queryData`). A de conquistas tem
+/// `groups[].achievements[]` com `api_name`, `name`, `description`,
+/// `hidden`, `archived`, `icon_achieved` e `icon_unachieved`. A busca
+/// percorre tudo e abre as strings que as contêm, sem depender da chave.
+fn parse_ssr_achievements(html: &str) -> Vec<SteamAchievementSchemaEntry> {
+    let Some(start) = html.find("id=\"valve-ssr-data\"") else {
+        return Vec::new();
+    };
+    let Some(json) = html[start..]
+        .find('>')
+        .map(|i| &html[start + i + 1..])
+        .and_then(|rest| rest.find("</script>").map(|end| &rest[..end]))
+    else {
+        return Vec::new();
+    };
+    let Ok(ssr) = serde_json::from_str::<serde_json::Value>(json) else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    collect_ssr_achievements(&ssr, &mut out, &mut seen);
+    out
+}
+
+fn collect_ssr_achievements(
+    value: &serde_json::Value,
+    out: &mut Vec<SteamAchievementSchemaEntry>,
+    seen: &mut std::collections::HashSet<String>,
+) {
+    match value {
+        serde_json::Value::String(s) if s.contains("\"api_name\"") => {
+            if let Ok(inner) = serde_json::from_str::<serde_json::Value>(s) {
+                collect_ssr_achievements(&inner, out, seen);
+            }
+        }
+        serde_json::Value::Array(items) => {
+            for item in items {
+                collect_ssr_achievements(item, out, seen);
+            }
+        }
+        serde_json::Value::Object(map) => {
+            if let Some(api_name) = map.get("api_name").and_then(|v| v.as_str()) {
+                let text = |key: &str| {
+                    map.get(key)
+                        .and_then(|v| v.as_str())
+                        .map(str::to_string)
+                        .unwrap_or_default()
+                };
+                let archived = map.get("archived").and_then(|v| v.as_bool()) == Some(true);
+                if !archived && seen.insert(api_name.to_string()) {
+                    let name = text("name");
+                    out.push(SteamAchievementSchemaEntry {
+                        api_name: api_name.to_string(),
+                        display_name: if name.is_empty() { api_name.to_string() } else { name },
+                        description: text("description"),
+                        icon_url: text("icon_achieved"),
+                        icon_gray_url: text("icon_unachieved"),
+                        hidden: map.get("hidden").and_then(|v| v.as_bool()).unwrap_or(false),
+                        global_percent: None,
+                    });
+                }
+                return;
+            }
+            for item in map.values() {
+                collect_ssr_achievements(item, out, seen);
+            }
+        }
+        _ => {}
+    }
+}
+
 /// Busca o schema completo. `api_key` opcional; sem ela usa o caminho público.
 pub async fn fetch_schema(
     app_id: &str,
@@ -258,6 +357,18 @@ pub async fn fetch_schema(
         // Sem key não há como distinguir "sem achievements" de "appid errado";
         // devolve vazio e o frontend mostra o estado "sem conquistas Steam".
         return Ok(Vec::new());
+    }
+
+    let mut schema = fetch_community_schema(&client, app_id, language).await?;
+    if !schema.is_empty() {
+        let percent_map: std::collections::HashMap<&str, f64> = percentages
+            .iter()
+            .map(|(name, pct)| (name.as_str(), *pct))
+            .collect();
+        for entry in &mut schema {
+            entry.global_percent = percent_map.get(entry.api_name.as_str()).copied();
+        }
+        return Ok(schema);
     }
 
     let scraped = scrape_community_achievements(&client, app_id, language).await?;
@@ -445,4 +556,70 @@ fn read_appid_from_ini(path: &Path) -> Option<String> {
         }
     }
     fallback
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    /// Same shape as steamcommunity.com/achievements/<appid>: react-query's
+    /// state is a JSON string in `renderContext.queryData`, inside the
+    /// page's JSON.
+    fn ssr_page(achievements: serde_json::Value) -> String {
+        let query_data = json!({
+            "mutations": [],
+            "queries": [
+                { "state": { "data": null }, "queryKey": ["AOWarningCookie"] },
+                { "state": { "data": {
+                    "appid": 4242,
+                    "language": "english",
+                    "groups": [{ "id": 0, "name": "", "achievements": achievements }]
+                } } }
+            ]
+        });
+        let ssr = json!({
+            "route": "/achievements/:appid",
+            "loaderData": [json!({ "steamid": "0" }).to_string()],
+            "renderContext": { "queryData": query_data.to_string() }
+        });
+        format!(
+            "<html><head></head><body><div id=\"root\"></div>\
+             <script type=\"application/json\" id=\"valve-ssr-data\" nonce=\"x\">{ssr}</script>\
+             <script>window.SSR={{}};</script></body></html>"
+        )
+    }
+
+    #[test]
+    fn reads_achievements_from_the_page_data() {
+        let html = ssr_page(json!([
+            { "internal_key": 1, "api_name": "start", "name": "First Steps",
+              "description": "Start a \"new\" game.", "hidden": false, "archived": false,
+              "icon_achieved": "https://cdn.example/a.jpg", "icon_unachieved": "https://cdn.example/a_gray.jpg" },
+            { "internal_key": 2, "api_name": "secret", "name": "", "description": "",
+              "hidden": true, "archived": false,
+              "icon_achieved": "https://cdn.example/b.jpg", "icon_unachieved": "https://cdn.example/b_gray.jpg" },
+            { "internal_key": 3, "api_name": "old", "name": "Gone", "archived": true },
+            { "internal_key": 4, "api_name": "start", "name": "Duplicate" }
+        ]));
+        let list = parse_ssr_achievements(&html);
+        assert_eq!(list.len(), 2);
+        assert_eq!(list[0].api_name, "start");
+        assert_eq!(list[0].display_name, "First Steps");
+        assert_eq!(list[0].description, "Start a \"new\" game.");
+        assert_eq!(list[0].icon_url, "https://cdn.example/a.jpg");
+        assert_eq!(list[0].icon_gray_url, "https://cdn.example/a_gray.jpg");
+        assert!(!list[0].hidden);
+        assert_eq!(list[1].display_name, "secret");
+        assert!(list[1].hidden);
+    }
+
+    #[test]
+    fn no_page_data_means_no_achievements() {
+        assert!(parse_ssr_achievements("<html><body>old layout</body></html>").is_empty());
+        assert!(parse_ssr_achievements(
+            "<script type=\"application/json\" id=\"valve-ssr-data\">not json</script>"
+        )
+        .is_empty());
+    }
 }

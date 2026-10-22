@@ -22,6 +22,7 @@ import type {
 } from '../types/overlay';
 import * as settings from './settings';
 import { noteUserStop } from './gameStops';
+import { withF95Images } from './f95ImageUrl';
 import {
   getExperimentalSettings,
   loadExperimentalSettings,
@@ -70,40 +71,40 @@ export async function gameDetail(threadId: string): Promise<GameDetail> {
 
 /** One page of a thread's posts; 'last' is the newest page. */
 export async function gamePosts(threadId: string, page: number | 'last'): Promise<ThreadPostsPage> {
-  return invoke<ThreadPostsPage>('game_posts', { threadId, page });
+  return withF95Images(await invoke<ThreadPostsPage>('game_posts', { threadId, page }));
 }
 
 /** One page of a thread's reviews, newest first. */
 export async function gameReviews(threadId: string, page: number): Promise<ThreadReviewsPage> {
-  return invoke<ThreadReviewsPage>('game_reviews', { threadId, page });
+  return withF95Images(await invoke<ThreadReviewsPage>('game_reviews', { threadId, page }));
 }
 
 export async function getFollowing(): Promise<FollowedUser[]> {
-  return invoke<FollowedUser[]>('get_following');
+  return withF95Images(await invoke<FollowedUser[]>('get_following'));
 }
 
 export async function getProfile(): Promise<ProfileDto> {
-  return invoke<ProfileDto>('get_profile');
+  return withF95Images(await invoke<ProfileDto>('get_profile'));
 }
 
 export async function getMemberProfile(userId: string): Promise<MemberProfileDto> {
-  return invoke<MemberProfileDto>('get_member_profile', { userId });
+  return withF95Images(await invoke<MemberProfileDto>('get_member_profile', { userId }));
 }
 
 export async function getMemberActivity(
   userId: string,
   kind: MemberActivityKind,
 ): Promise<ActivityItem[]> {
-  return invoke<ActivityItem[]>('get_member_activity', { userId, kind });
+  return withF95Images(await invoke<ActivityItem[]>('get_member_activity', { userId, kind }));
 }
 
 export async function getMemberAbout(userId: string): Promise<MemberAboutDto> {
-  return invoke<MemberAboutDto>('get_member_about', { userId });
+  return withF95Images(await invoke<MemberAboutDto>('get_member_about', { userId }));
 }
 
 /** Tooltip cards for up to 24 members per call (the sidecar serializes RPCs). */
 export async function getMemberCards(userIds: string[]): Promise<MemberCardDto[]> {
-  return invoke<MemberCardDto[]>('get_member_cards', { userIds });
+  return withF95Images(await invoke<MemberCardDto[]>('get_member_cards', { userIds }));
 }
 
 export async function setMemberFollow(
@@ -120,11 +121,11 @@ export async function fetchRssFeed(options: RssFeedOptions = {}): Promise<RssFee
 }
 
 export async function fetchAlertsPopup(): Promise<F95AlertsPopupResult> {
-  return invoke<F95AlertsPopupResult>('fetch_alerts_popup');
+  return withF95Images(await invoke<F95AlertsPopupResult>('fetch_alerts_popup'));
 }
 
 export async function fetchAlertsList(page = 1): Promise<F95AlertsListResult> {
-  return invoke<F95AlertsListResult>('fetch_alerts_list', { page });
+  return withF95Images(await invoke<F95AlertsListResult>('fetch_alerts_list', { page }));
 }
 
 async function ensureUploadhavenSession(): Promise<void> {

@@ -88,3 +88,57 @@ export function classifyHost(rawUrl: string): HostInfo | null {
   if (m) return { host: m.host, category: m.category };
   return null;
 }
+
+/**
+ * F95's download pages (since October 2026): `/dl/<postId>/?u=…&k=…&r=…&t=…`.
+ * The URL no longer names the host, and it expires a few hours after the
+ * thread was opened.
+ */
+export function isF95DownloadPage(rawUrl: string): boolean {
+  try {
+    const u = new URL(rawUrl);
+    return u.hostname.toLowerCase() === 'f95zone.to' && /^\/dl\/\d+\/?$/.test(u.pathname);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Host of a link to F95's download page. The thread shows the host's
+ * favicon (`…/ip3/<domain>.ico`) beside the label, so the domain comes from
+ * there; the label ("MEGA", "GOFILE") covers links without one. Every such
+ * link is a download, so an unknown host keeps its own name.
+ */
+export function classifyF95DownloadLink(faviconDomain: string | null, label: string): HostInfo {
+  const domain = faviconDomain?.trim().toLowerCase().replace(/^www\./, '') || null;
+  if (domain) {
+    const match = PATTERNS.find((p) => p.regex.test(domain));
+    if (match) return { host: match.host, category: 'direct' };
+  }
+  const byLabel = hostForLabel(label);
+  if (byLabel) return { host: byLabel, category: 'direct' };
+  return { host: domain ?? (normalizeLabel(label) || 'f95zone'), category: 'direct' };
+}
+
+/** Labels threads use for hosts whose id is spelled differently. */
+const LABEL_ALIASES: Record<string, string> = {
+  googledrive: 'gdrive',
+  gdrive: 'gdrive',
+  kraken: 'krakenfiles',
+  fuckingfast: 'buzzheavier',
+  bzzhr: 'buzzheavier',
+  mxdrop: 'mixdrop',
+  keep2share: 'k2s',
+};
+
+function normalizeLabel(label: string): string {
+  return label.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function hostForLabel(label: string): string | null {
+  const key = normalizeLabel(label);
+  if (!key) return null;
+  if (LABEL_ALIASES[key]) return LABEL_ALIASES[key];
+  const match = PATTERNS.find((p) => p.category === 'direct' && normalizeLabel(p.host) === key);
+  return match ? match.host : null;
+}

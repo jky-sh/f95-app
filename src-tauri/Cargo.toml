@@ -1,6 +1,6 @@
 [package]
 name = "f95-app"
-version = "1.0.3"
+version = "1.0.4"
 description = "Cliente desktop para F95Zone"
 authors = ["F95 App"]
 license = "GPL-3.0-or-later"
@@ -36,6 +36,7 @@ sevenz-rust2 = { version = "0.21", default-features = false, features = ["aes256
 unrar = "0.5"
 sha2 = "0.10"
 hex = "0.4"
+base64 = "0.22"
 flate2 = "1"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "webp", "bmp"] }
 walkdir = "2"

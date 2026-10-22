@@ -1,4 +1,5 @@
 import type { AppContext } from '../../domain/context';
+import { fetchF95Image } from '../../domain/f95/image';
 import { unmaskUrl } from '../../domain/f95/unmask';
 import { resolveBuzzheavier } from '../../domain/resolvers/buzzheavier';
 import { resolveDatanodes } from '../../domain/resolvers/datanodes';
@@ -93,6 +94,14 @@ export function createResolverHandlers(ctx: AppContext): Record<string, RpcHandl
         throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'url required');
       }
       return unmaskUrl(client.http, url);
+    },
+    fetchF95Image: async (p) => {
+      const client = ctx.requireClient();
+      const url = p?.url as string | undefined;
+      if (typeof url !== 'string' || url.length === 0) {
+        throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'url required');
+      }
+      return fetchF95Image(client.http, url);
     },
   };
 }
