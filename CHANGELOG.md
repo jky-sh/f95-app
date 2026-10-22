@@ -26,8 +26,10 @@ and stands in when GitHub can't be reached, so keep it in step with them.
   goes through that page by itself and downloads from the host as before.
   F95 lets those links expire after a few hours, so a download started
   from a game page opened long ago gets its link again from the post.
-- The host icons in a game's download section were tiled over the link
-  names.
+  When F95 asks for a captcha before a download, the link opens in your
+  browser so you can pass it there.
+- The download section of a game's description showed the host icons
+  tiled over the link names, and an extra copy of the first link.
 - Profile pictures and profile covers didn't load (a broken image in the
   top bar and on profiles). F95Zone serves them from behind its Cloudflare
   check now, so the app loads them through its own connection to F95,

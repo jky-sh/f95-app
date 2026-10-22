@@ -193,6 +193,13 @@ describe('F95 download pages', () => {
     expect(parseDownloadPage(html, PAGE_URL)).toMatchObject({ kind: 'expired' });
   });
 
+  it('sees the hCaptcha F95 puts before the form', () => {
+    const html = page('Xy7-q9_Lm2')
+      .replace('name="had_check" value="0"', 'name="had_check" value="1"')
+      .replace('<div class="f95dl-link">', '<div class="f95dl-check-box" data-xf-init="f95dl-hcaptcha" data-sitekey="00000000-0000-0000-0000-000000000000" data-theme="dark"></div><div class="f95dl-link">');
+    expect(parseDownloadPage(html, PAGE_URL)).toEqual({ kind: 'captcha' });
+  });
+
   it('sees a captcha and a signed-out page', () => {
     const captcha = `<html data-logged-in="true"><body><div class="p-body-pageContent">
       <div data-xf-init="re-captcha" data-sitekey="fake"></div></div></body></html>`;

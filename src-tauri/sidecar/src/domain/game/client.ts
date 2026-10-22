@@ -469,6 +469,7 @@ function collectLinks(
     const $el = $(el);
     const href = $el.attr('href');
     if (!href || href.startsWith('#')) return;
+    if (isHiddenLink($el)) return;
     const url = absoluteUrl(href);
     const text = cleanText($el.text());
     const info = isF95DownloadPage(url)
@@ -493,6 +494,16 @@ function collectLinks(
   });
 
   return { downloads, social };
+}
+
+/**
+ * A link nobody sees on F95: since the /dl/ pages, every download row
+ * starts with a decoy inside `<span class="u-hidden">` (XenForo's
+ * display:none) with tabindex=-1. Only a bot opens it, and F95 then asks
+ * that account for an hCaptcha on every download page.
+ */
+function isHiddenLink($el: cheerio.Cheerio<Element>): boolean {
+  return $el.attr('tabindex') === '-1' || $el.closest('.u-hidden, [hidden], [aria-hidden="true"]').length > 0;
 }
 
 /** Domain of the favicon F95 paints behind a link (`url(…/ip3/<domain>.ico)`). */
@@ -537,8 +548,18 @@ function normalizeGroupLabel(raw: string): string | null {
   return t;
 }
 
+/** Text of an element with each `<br>` as a line break. */
+function textWithBreaks($el: cheerio.Cheerio<Element>): string {
+  const clone = $el.clone();
+  clone.find('br').replaceWith('\n');
+  return clone.text();
+}
+
 function labelFromBoldText(raw: string): string | null {
-  const t = cleanText(raw);
+  // One <b> can hold the section title too ("DOWNLOAD<br>Win/Linux"): the
+  // label is its last line, without a leading "Download".
+  const lines = raw.split('\n').map(cleanText).filter(Boolean);
+  const t = (lines[lines.length - 1] ?? '').replace(/^downloads?\b[\s:]*(?=\S)/i, '');
   if (!t) return null;
   if (OS_LABEL_RE.test(t)) {
     return normalizeGroupLabel(t.endsWith(':') ? t : `${t}:`);
@@ -564,12 +585,12 @@ function nearestDownloadGroupLabel(
       if (isElement(prev)) {
         const tag = prev.tagName?.toLowerCase();
         if (tag === 'b' || tag === 'strong') {
-          const label = labelFromBoldText($(prev).text());
+          const label = labelFromBoldText(textWithBreaks($(prev)));
           if (label) return label;
         }
         const inner = $(prev).find('b, strong').last();
         if (inner.length) {
-          const label = labelFromBoldText(inner.text());
+          const label = labelFromBoldText(textWithBreaks(inner));
           if (label) return label;
         }
       } else if (isText(prev)) {
@@ -649,8 +670,10 @@ function normalizeOpHtml(
     );
   });
 
-  // Strip <noscript> (we already use data-src) and inline lightbox containers.
+  // Strip <noscript> (we already use data-src), inline lightbox containers and
+  // what F95 hides with its CSS (the decoy download links).
   clone.find('noscript').remove();
+  clone.find('.u-hidden').remove();
   clone.find('.lbContainer-zoomer').remove();
 
   // Anchor cleanup: open external links in a new tab; strip XF tracker classes

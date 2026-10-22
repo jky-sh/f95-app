@@ -115,6 +115,11 @@ export function parseDownloadPage(html: string, pageUrl: string): DownloadPage {
   const $ = cheerio.load(html);
   if ($('html').attr('data-logged-in') === 'false') return { kind: 'login' };
 
+  // The page can ask for an hCaptcha first ("Please confirm you're not a
+  // bot"): a person has to pass it, and a form posted without it only
+  // answers "The check wasn't passed".
+  if (hasCaptcha($)) return { kind: 'captcha' };
+
   const $page = $('[data-xf-init~="f95dl-page"]').first();
   const $form = $page.find('form').has('.js-f95dlContinue').first();
   if ($page.length && $form.length) {
@@ -130,7 +135,6 @@ export function parseDownloadPage(html: string, pageUrl: string): DownloadPage {
     return { kind: 'form', action, fields };
   }
 
-  if (hasCaptcha($)) return { kind: 'captcha' };
   const $message = $('.p-body-pageContent .blockMessage').first();
   const message = cleanText(($message.length ? $message : $('.blockMessage').first()).text());
   if (/expired/i.test(message)) return { kind: 'expired', message };
@@ -262,15 +266,16 @@ function downloadPageError(page: Exclude<DownloadPage, DownloadForm>): RpcError 
 
 function hasCaptcha($: cheerio.CheerioAPI): boolean {
   return (
-    $('[data-sitekey], .g-recaptcha, .h-captcha, .cf-turnstile').length > 0 ||
-    $('[data-xf-init~="re-captcha"], [data-xf-init~="h-captcha"], [data-xf-init~="turnstile"]').length > 0
+    $('[data-sitekey], .g-recaptcha, .h-captcha, .cf-turnstile, .f95dl-check-box').length > 0 ||
+    $('[data-xf-init*="captcha"], [data-xf-init~="turnstile"]').length > 0
   );
 }
 
+/** A person has to pass F95's check: the host opens the link in the browser. */
 function captchaError(): RpcError {
   return new RpcError(
     RPC_ERROR.CLOUDFLARE_CHALLENGE,
-    'F95 requires a reCAPTCHA for this link; open it in your browser',
+    'F95 asks for a captcha before this download; open it in your browser',
     { variant: 'recaptcha' },
   );
 }

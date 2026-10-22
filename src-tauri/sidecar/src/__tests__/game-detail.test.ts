@@ -77,11 +77,13 @@ describe('parseThread download pages', () => {
     (domain ? ` style="background-image: url(&quot;https://external-content.duckduckgo.com/ip3/${domain}.ico&quot;);"` : '') +
     `>${label}</a>`;
 
+  // The decoy F95 hides at the start of each row: only a bot opens it.
+  const decoy = link('zzzzzzzzzzzz', 'datanodes.to', 'DATANODES').replace('>DATANODES', ' tabindex="-1">DATANODES');
+
   const detail = parseThread(
     thread(`
       <b>Overview</b>: A story.<br>
-      <b>DOWNLOAD</b><br>
-      <b>Win/Linux</b>: ${link('aaaaaaaaaaaa', 'datanodes.to', 'DATANODES')} - ${link('bbbbbbbbbbbb', 'gofile.io', 'GOFILE')} - ${link('cccccccccccc', null, 'MEGA')}<br>
+      <b>DOWNLOAD<br>Win/Linux</b><span>: <span class="u-hidden js-noSelectToQuote">${decoy}</span>${link('aaaaaaaaaaaa', 'datanodes.to', 'DATANODES')} - ${link('bbbbbbbbbbbb', 'gofile.io', 'GOFILE')} - ${link('cccccccccccc', null, 'MEGA')}</span><br>
       <b>Mac</b>: ${link('dddddddddddd', 'pixeldrain.com', 'PIXELDRAIN')} - ${link('eeeeeeeeeeee', 'files.example.net', 'NEWHOST')}`),
     URL,
   );
@@ -103,5 +105,11 @@ describe('parseThread download pages', () => {
     expect(detail.descriptionHtml).toContain('DATANODES');
     expect(detail.descriptionHtml).not.toContain('background-image');
     expect(detail.descriptionHtml).not.toContain('style=');
+  });
+
+  it('skips the hidden decoy link, in the list and in the description', () => {
+    expect(detail.downloads.some((d) => d.url.includes('zzzzzzzzzzzz'))).toBe(false);
+    expect(detail.descriptionHtml).not.toContain('zzzzzzzzzzzz');
+    expect(detail.descriptionHtml.match(/DATANODES/g)).toHaveLength(1);
   });
 });
