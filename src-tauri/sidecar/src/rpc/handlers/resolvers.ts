@@ -1,5 +1,6 @@
 import type { AppContext } from '../../domain/context';
 import { fetchF95Image } from '../../domain/f95/image';
+import { f95SessionCookies } from '../../domain/f95/session';
 import { unmaskUrl } from '../../domain/f95/unmask';
 import { resolveBuzzheavier } from '../../domain/resolvers/buzzheavier';
 import { resolveDatanodes } from '../../domain/resolvers/datanodes';
@@ -103,5 +104,6 @@ export function createResolverHandlers(ctx: AppContext): Record<string, RpcHandl
       }
       return fetchF95Image(client.http, url);
     },
+    f95SessionCookies: async () => f95SessionCookies(ctx.requireClient().http),
   };
 }

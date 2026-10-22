@@ -9,9 +9,28 @@ use std::time::Duration;
 pub struct UnmaskResult {
     pub url: String,
     pub status: u16,
+    /// F95 wants its hCaptcha passed first: `url` is the download page to
+    /// show the person (`crate::f95_check`).
+    #[serde(default)]
+    pub check: bool,
 }
 
-/// The sidecar gives up on an image after 20 s; this only covers a stuck pipe.
+/// One of the sidecar's F95 sign-in cookies (`f95SessionCookies`).
+#[derive(Debug, Deserialize)]
+pub struct SessionCookie {
+    pub name: String,
+    pub value: String,
+    pub domain: String,
+    #[serde(default)]
+    pub path: Option<String>,
+    #[serde(default)]
+    pub secure: bool,
+    #[serde(rename = "httpOnly", default)]
+    pub http_only: bool,
+}
+
+/// The sidecar gives up on an image after 20 s; this only covers a stuck pipe
+/// (also for the session cookies, which it answers at once).
 const F95_IMAGE_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[derive(Debug, Deserialize)]
@@ -208,6 +227,16 @@ impl SidecarClient {
 
     pub async fn unmask_url(&self, url: &str) -> Result<UnmaskResult, AppError> {
         let value = self.inner.call("unmaskUrl", json!({ "url": url })).await?;
+        Ok(serde_json::from_value(value)?)
+    }
+
+    /// The `xf_*` cookies that sign the sidecar in to F95, for the window
+    /// where a person passes F95's check (runs beside the serial queue).
+    pub async fn f95_session_cookies(&self) -> Result<Vec<SessionCookie>, AppError> {
+        let value = self
+            .inner
+            .call_with_timeout("f95SessionCookies", json!({}), F95_IMAGE_TIMEOUT)
+            .await?;
         Ok(serde_json::from_value(value)?)
     }
 

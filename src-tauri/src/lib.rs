@@ -9,6 +9,7 @@ mod download;
 mod engine_detect;
 mod error;
 mod extraction;
+mod f95_check;
 mod f95_image;
 mod game_window;
 mod gdrive;
@@ -185,6 +186,8 @@ pub fn run() {
             let state = build_state(&app.handle())?;
             app.manage(state);
             crate::cloudflare::init(app.handle().clone());
+            // F95's check before a download, in a window of the app.
+            crate::f95_check::init();
             // Xbox button / View + Menu opens Big Picture, also from the tray.
             crate::bp_gamepad::start(app.handle().clone());
             if let Err(e) = init_overlay_windows(&app.handle()) {

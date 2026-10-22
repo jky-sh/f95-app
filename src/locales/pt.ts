@@ -842,6 +842,7 @@ const pt: Record<string, string> = {
   'dl.error.html_page': 'O host mandou uma página em vez do arquivo. Abra o link no navegador.',
   'dl.error.interrupted': 'Interrompido quando o app fechou. Tente de novo para continuar.',
   'dl.error.link_refused': 'O host recusou o link que tinha acabado de gerar (bloqueio ou falha no armazenamento). Tente mais tarde ou abra no navegador.',
+  'dl.error.f95_check': 'A verificação do F95 (“confirme que você não é um robô”) não foi concluída. Tente de novo para abri-la outra vez.',
   'modal.hostFile.title': 'Vários arquivos neste link',
   'modal.hostFile.description':
     'O {host} listou {count} arquivos. Escolha qual versão baixar.',
