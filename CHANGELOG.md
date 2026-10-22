@@ -19,6 +19,8 @@ and stands in when GitHub can't be reached, so keep it in step with them.
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-10-22
+
 ### Fixed
 - Installing a game said "No direct download links found in this thread".
   F95Zone now sends every download link through its own download page,

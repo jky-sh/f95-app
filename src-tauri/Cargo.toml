@@ -1,6 +1,6 @@
 [package]
 name = "f95-app"
-version = "1.0.3"
+version = "1.0.4"
 description = "Cliente desktop para F95Zone"
 authors = ["F95 App"]
 license = "GPL-3.0-or-later"
