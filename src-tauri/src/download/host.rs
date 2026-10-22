@@ -1,5 +1,14 @@
+/// An F95 link that hides the host: the old `/masked/` redirector or the
+/// `/dl/<post>/` download page that replaced it in October 2026. The
+/// sidecar's `unmaskUrl` turns either into the host's URL.
 pub(crate) fn is_f95_masked(url: &str) -> bool {
-    url.starts_with("https://f95zone.to/masked/") || url.starts_with("http://f95zone.to/masked/")
+    let Some(path) = url
+        .strip_prefix("https://f95zone.to")
+        .or_else(|| url.strip_prefix("http://f95zone.to"))
+    else {
+        return false;
+    };
+    path.starts_with("/masked/") || path.starts_with("/dl/")
 }
 
 /// Pull the `<host>` segment from `/masked/<host>/<thread>/...`.
@@ -235,6 +244,16 @@ mod tests {
             masked_host(url).map(|h| host_label(&h)).as_deref(),
             Some("vikingfile")
         );
+    }
+
+    #[test]
+    fn download_pages_are_masked_without_a_host() {
+        let url = "https://f95zone.to/dl/5617588/?u=123456&k=aB1cD2eF3gH4&r=1792560000&t=Zm9v";
+        assert!(is_f95_masked(url));
+        assert_eq!(masked_host(url), None);
+        assert!(!is_f95_masked("https://f95zone.to/threads/foo.1/"));
+        assert!(!is_f95_masked("https://example.com/dl/5617588/"));
+        assert!(!is_f95_masked("https://f95zone.to.example.com/dl/1/"));
     }
 
     #[test]

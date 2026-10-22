@@ -29,4 +29,5 @@ pub use overlay::*;
 pub use sam::*;
 pub use social::*;
 pub use state::{build_state, AppState};
+pub(crate) use state::ensure_sidecar;
 pub use window::*;

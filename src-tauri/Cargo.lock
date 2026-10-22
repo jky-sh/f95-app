@@ -1673,9 +1673,10 @@ dependencies = [
 
 [[package]]
 name = "f95-app"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "anyhow",
+ "base64 0.22.1",
  "flate2",
  "fs4",
  "futures",
